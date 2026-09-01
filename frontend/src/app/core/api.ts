@@ -23,7 +23,7 @@ export class ApiService {
     if (typeof window !== 'undefined' && localStorage.getItem('BACKEND_URL')) {
       return localStorage.getItem('BACKEND_URL')!;
     }
-    return (environment && environment.apiUrl) ? environment.apiUrl : 'https://ai-copilot-backend-766y.onrender.com/api';
+    return (environment && environment.apiUrl) ? environment.apiUrl : 'http://localhost:8080/api';
   }
 
   constructor(private http: HttpClient) {}

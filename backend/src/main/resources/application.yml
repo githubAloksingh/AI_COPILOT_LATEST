@@ -35,7 +35,8 @@ logging:
     org.springframework.ai: INFO
 
 copilot:
-  frontend-url: ${FRONTEND_URL:https://ai-copilot-8ofm.onrender.com}
+  frontend-url: ${FRONTEND_URL:http://localhost:4200}
   ai-service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
+
 
