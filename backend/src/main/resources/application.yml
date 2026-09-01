@@ -36,11 +36,6 @@ logging:
 
 copilot:
   frontend-url: ${FRONTEND_URL:https://ai-copilot-8ofm.onrender.com}
-  rag:
-    top-k: ${RAG_TOP_K:5}
-    chunk-size: ${CHUNK_SIZE:1000}
-    chunk-overlap: ${CHUNK_OVERLAP:150}
+  ai-service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
 
-  chroma:
-    url: ${CHROMA_URL:https://ai-copilot-chroma.onrender.com}
-    collection-name: ${CHROMA_COLLECTION:ai_work_copilot}

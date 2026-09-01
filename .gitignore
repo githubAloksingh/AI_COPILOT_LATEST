@@ -35,3 +35,15 @@ backend/data/
 frontend/.vscode/
 .idea/
 *.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+ai-service/chroma_data/
+ai-service/.env
+.venv/
+venv/
+env/
+

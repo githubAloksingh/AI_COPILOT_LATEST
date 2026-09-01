@@ -1,117 +1,139 @@
 # AI Work Copilot
 
-AI Work Copilot is an end-to-end Generative AI & RAG assistant tailored for software development lifecycle (SDLC) teams. It transforms unstructured requirements, triages defects, generates test cases, drafts release notes, and formulates daily sprint updates using real team knowledge stored in Chroma Vector DB and MySQL.
+AI Work Copilot is an end-to-end Generative AI & RAG assistant tailored for software development lifecycle (SDLC) teams. It transforms unstructured requirements, triages defects, generates test cases, drafts release notes, and formulates daily sprint updates using team knowledge stored in Chroma Vector DB and MySQL.
 
 ---
 
-## 🌟 Tech Stack
+## 🌟 Target Architecture
 
-- **Backend**: Java 17, Spring Boot 3.3.4, Spring Data JPA, Flyway (MySQL 8.4)
-- **Vector DB / RAG**: Chroma (No Docker required), Local Embedding / Google GenAI Embedding (`text-embedding-004`)
-- **AI Model**: Google Gemini 3.7 Flash (`gemini-3.7-flash`)
-- **Frontend**: Angular 22+, Standalone Components, SCSS, HttpClient, TypeScript
-- **Parsing**: Apache PDFBox 3, Apache POI (DOCX), OpenCSV (CSV), Jackson (JSON), UTF-8 Stream Parser (TXT/MD)
+The project is cleanly decoupled into two backend tiers:
+1. **Spring Boot Java Backend**: Core business application gateway, REST APIs for Frontend, SQL/JPA persistence (MySQL/H2), audit logging, and business entities.
+2. **Python AI / RAG Microservice (`ai-service/`)**: Document parsing, text extraction, chunking, embeddings generation, vector storage in ChromaDB, RAG retrieval, prompt guardrails, and Google Gemini structured generation.
+
+```mermaid
+graph TD
+    Frontend[Angular Frontend (Port 4200)] -->|REST API| SB[Spring Boot Backend (Port 8080)]
+    SB -->|AiServiceClient (HTTP)| PyAI[Python AI/RAG Service (Port 8000)]
+    PyAI -->|Chunk Embeddings / Vector Search| Chroma[(ChromaDB Vector Store)]
+    PyAI -->|Prompts + RAG Context| Gemini[Google Gemini API]
+    Gemini -->|Structured JSON| PyAI
+    PyAI -->|AI Results + Retrieved Sources| SB
+    SB -->|JPA Persistence / Audit Logs| SQL[(SQL Database - MySQL / H2)]
+    SB -->|Response DTOs| Frontend
+```
+
+---
+
+## 🏛️ Responsibility Matrix
+
+| Responsibility Layer | Spring Boot Java Backend | Python AI/RAG Service | Chroma Vector DB | SQL (MySQL / H2) | Google Gemini |
+|---|---|---|---|---|---|
+| **Public REST APIs for Frontend** | ✅ Yes (Port 8080) | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Document Ingestion Parsing** | ❌ No | ✅ Yes (PyMuPDF, docx, pandas) | ❌ No | ❌ No | ❌ No |
+| **Text Chunking & Embeddings** | ❌ No | ✅ Yes | ❌ No | ❌ No | ✅ Models |
+| **Vector Similarity Search (RAG)**| ❌ No | ✅ Yes | ✅ Vector Index | ❌ No | ❌ No |
+| **Prompt Engineering & Guardrails** | ❌ No | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Structured Output Generation** | ❌ No | ✅ Yes (Pydantic validated) | ❌ No | ❌ No | ✅ LLM Engine |
+| **Business Logic & CRUD** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Persistence (Requirements, Tests, Defects)** | ✅ Yes | ❌ No | ❌ No | ✅ Tables | ❌ No |
+| **Audit Logging & Feedback** | ✅ Yes | ❌ No | ❌ No | ✅ Tables | ❌ No |
 
 ---
 
 ## 🚀 Prerequisites
 
-1. **Java 17**: Ensure Java 17 is installed.
-2. **Node.js**: (Node.js 20+ or 25).
-3. **MySQL 8.4**: Running locally on port 3306.
-4. **Python 3.10+**: For Chroma vector store.
-5. **Gemini API Key**: From Google AI Studio.
+1. **Java 17**: Ensure JDK 17 is installed.
+2. **Python 3.11+**: For the `ai-service/` FastAPI microservice.
+3. **Node.js**: (Node.js 20+ or 22+).
+4. **Google Gemini API Key**: From Google AI Studio.
+5. **Database**: Embedded H2 (default) or MySQL 8.4.
 
 ---
 
-## 🛠️ Step-by-Step Setup
+## 🛠️ Step-by-Step Local Setup
 
-### 1. Database Setup (MySQL)
-
-Create the database:
-
-```sql
-CREATE DATABASE IF NOT EXISTS ai_work_copilot;
+### 1. Configure Environment Variables
+Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
+Fill in your `GEMINI_API_KEY`:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.7-flash
+GEMINI_EMBEDDING_MODEL=text-embedding-004
+CHROMA_URL=http://localhost:8000
+AI_SERVICE_URL=http://localhost:8000
 ```
 
-### 2. Start Chroma Vector DB (NO DOCKER)
+---
 
-Install and run Chroma standalone using Python:
+### 2. Start Python AI / RAG Microservice (Port 8000)
 
 ```bash
-pip install chromadb
-chroma run --path ./chroma_data --port 8000
+cd ai-service
+pip install -r requirements.txt
+
+# Run unit tests
+pytest
+
+# Start the service
+# On Windows (PowerShell):
+.\start-ai-service.ps1
+# Or on Linux/macOS:
+./start-ai-service.sh
 ```
+_FastAPI Swagger docs available at: `http://localhost:8000/docs`._
 
-_Chroma will run on `http://localhost:8000`._
+---
 
-### 3. Environment Variables
-
-Copy `.env.example` to `.env` or export environment variables:
-
-```bash
-export DATABASE_URL=jdbc:mysql://localhost:3306/ai_work_copilot?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-export DATABASE_USERNAME=root
-export DATABASE_PASSWORD=your_mysql_password_here
-export GEMINI_API_KEY=your_actual_gemini_api_key_here
-export GEMINI_MODEL=gemini-3.7-flash
-export CHROMA_URL=http://localhost:8000
-```
-
-### 4. Run Spring Boot Backend
+### 3. Start Spring Boot Java Backend (Port 8080)
 
 ```bash
 cd backend
+# On Windows (PowerShell):
+.\start-backend.ps1
+# Or on Linux/macOS:
 ./start-backend.sh
 ```
+_Backend API health available at: `http://localhost:8080/api/health`._
 
-_The backend starts at `http://localhost:8080` (Flyway will automatically run all migrations V1-V9)._
+---
 
-### 5. Run Angular Frontend
+### 4. Start Angular Frontend (Port 4200)
 
 ```bash
 cd frontend
+# On Windows (PowerShell):
+.\start-frontend.ps1
+# Or on Linux/macOS:
 ./start-frontend.sh
 ```
-
-_The frontend will open at `http://localhost:4200`._
+_Frontend will open at `http://localhost:4200`._
 
 ---
 
-## 📂 Testing with Knowledge Base Data
+## 📂 Testing End-to-End Workflow
 
-Your knowledge base documents and CSVs are located in `AI Work_Copilot/FINAL_KNOWLEDGE_BASE/`:
-
-- `AI Work_Copilot/FINAL_KNOWLEDGE_BASE/gold_evaluation_master_projects_1_6.csv`
-- `AI Work_Copilot/FINAL_KNOWLEDGE_BASE/step18_category_summary.csv`
-- `AI Work_Copilot/FINAL_KNOWLEDGE_BASE/step18_reranker_evaluation_results.csv`
-- `AI Work_Copilot/FINAL_KNOWLEDGE_BASE/PRANAY_HANDOFF.md`
-- `AI Work_Copilot/FINAL_KNOWLEDGE_BASE/README.md`
-
-### End-to-End Workflow:
-
-1. **Knowledge Base (`/knowledge-base`)**:
-   - Click **Upload Document** and choose any file from `AI Work_Copilot/FINAL_KNOWLEDGE_BASE/` (e.g. `gold_evaluation_master_projects_1_6.csv`).
-   - The CSV/Document parser parses the records, chunks them, generates embeddings, and saves them to Chroma.
+1. **Document Ingestion (`/knowledge-base`)**:
+   - Upload any `.pdf`, `.docx`, `.csv`, or `.txt` file.
+   - Spring Boot records metadata in SQL (`status=PROCESSING`), delegates parsing and embedding to Python `ai-service`, and updates status to `COMPLETED` when indexed in ChromaDB.
 2. **Requirement Assistant (`/requirements`)**:
-   - Enter a title and problem (e.g. _Employee Leave Management_), click **Generate Requirement**.
-   - Gemini retrieves relevant context from Chroma and returns a structured user story, acceptance criteria, assumptions, and edge cases.
+   - Enter title & requirement details.
+   - Python RAG retrieves relevant document chunks from Chroma, prompts Gemini with guardrails, returns structured user stories & acceptance criteria, and Spring Boot persists the result in SQL.
 3. **Test Generator (`/test-generator`)**:
-   - Provide requirement details and choose Positive/Negative/Edge test types.
-   - Generates structured test cases with preconditions, steps, and expected results.
+   - Generates positive, negative, and edge test cases linked to requirement context.
 4. **Defect Triage (`/defect-triage`)**:
-   - Paste a bug description and stack trace.
-   - The system retrieves similar historical defects from your CSV/documents in Chroma and outputs probable root causes and suggested fixes.
+   - Analyzes logs, stack traces, and historical defect context to output probable root causes and fixes.
 5. **Release Notes & Daily Status (`/release-notes`)**:
-   - Formulate changelogs, new features, and daily standup notes.
-6. **Audit & History (`/audit-history`) & Dashboard (`/dashboard`)**:
-   - Every AI call logs execution time, sources, status, and input/output for full auditability.
-   - Acceptance rates are dynamically calculated from user feedback.
+   - Generates sprint release notes and daily standup summaries.
+6. **Audit & History (`/audit-history`)**:
+   - Spring Boot logs request ID, feature, model, execution time, and retrieved sources for full auditability.
 
 ---
 
-## 🔒 Guardrails & Prompt Injection Protection
+## 🔒 Guardrails & Security
 
-All ingested documents are treated as untrusted reference material. Built-in guardrails prevent malicious documents from altering system prompts or executing unwanted instructions.
-
-# AI_COPILOT
+- **Prompt Injection Defense**: Guardrails in `ai-service/app/prompts/guardrails.py` ensure all retrieved documents are strictly treated as reference context, preventing instructions inside documents from overriding system directives.
+- **Structured Validation**: Pydantic models in Python and Jackson DTOs in Java validate JSON responses before persistence.
+- **Zero Secret Exposure**: Health checks and audit logs never expose API keys or credentials.
