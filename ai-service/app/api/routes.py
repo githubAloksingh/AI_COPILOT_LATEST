@@ -172,3 +172,54 @@ def generate_daily_status(req: DailyStatusGenerateRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Daily status generation failed: {str(e)}"
         )
+
+
+@router.get("/inspect", tags=["Chroma Inspection"])
+def inspect_chroma_contents(limit: int = 50):
+    """Inspect all chunks, metadata, and document snippets stored inside ChromaDB."""
+    try:
+        retrieval_service.ensure_collection()
+        if retrieval_service._local_collection:
+            count = retrieval_service._local_collection.count()
+            data = retrieval_service._local_collection.get(limit=limit, include=["metadatas", "documents"])
+            return {
+                "storage_type": "local_persistent",
+                "collection_name": retrieval_service.collection_name,
+                "total_chunks": count,
+                "chunks": [
+                    {
+                        "id": data["ids"][i],
+                        "metadata": data["metadatas"][i] if i < len(data["metadatas"]) else {},
+                        "preview": data["documents"][i][:200] if i < len(data["documents"]) else ""
+                    }
+                    for i in range(len(data.get("ids", [])))
+                ]
+            }
+        elif retrieval_service.base_collection_url:
+            import httpx
+            with httpx.Client(timeout=retrieval_service.timeout) as client:
+                fetch_url = f"{retrieval_service.base_collection_url}/get"
+                resp = client.post(fetch_url, json={"limit": limit, "include": ["metadatas", "documents"]})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    ids = data.get("ids", [])
+                    metas = data.get("metadatas", [])
+                    docs = data.get("documents", [])
+                    return {
+                        "storage_type": "remote_chroma_server",
+                        "collection_name": retrieval_service.collection_name,
+                        "total_chunks": len(ids),
+                        "chunks": [
+                            {
+                                "id": ids[i],
+                                "metadata": metas[i] if i < len(metas) else {},
+                                "preview": docs[i][:200] if i < len(docs) else ""
+                            }
+                            for i in range(len(ids))
+                        ]
+                    }
+        return {"message": "No Chroma collection currently initialized."}
+    except Exception as e:
+        logger.error("Inspection error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
