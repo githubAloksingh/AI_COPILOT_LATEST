@@ -3,10 +3,10 @@ spring:
     name: ai-work-copilot
   
   datasource:
-    url: ${DATABASE_URL:jdbc:h2:file:./data/ai_work_copilot;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
-    username: ${DATABASE_USERNAME:sa}
-    password: ${DATABASE_PASSWORD:}
-    driver-class-name: ${DATABASE_DRIVER:org.h2.Driver}
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/ai_work_copilot?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:NEwgen@220205}
+    driver-class-name: ${DATABASE_DRIVER:com.mysql.cj.jdbc.Driver}
 
   jpa:
     hibernate:
@@ -15,7 +15,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: ${HIBERNATE_DIALECT:org.hibernate.dialect.H2Dialect}
+        dialect: ${HIBERNATE_DIALECT:org.hibernate.dialect.MySQLDialect}
 
   flyway:
     enabled: true
@@ -38,5 +38,3 @@ copilot:
   frontend-url: ${FRONTEND_URL:http://localhost:4200}
   ai-service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
-
-
