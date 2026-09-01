@@ -74,11 +74,7 @@ export class ApiService {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/status`, data);
   }
 
-  // Feedback & Audit
-  submitFeedback(data: any): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/feedback`, data);
-  }
-
+  // Audit
   getAuditLogs(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/audit-logs`);
   }

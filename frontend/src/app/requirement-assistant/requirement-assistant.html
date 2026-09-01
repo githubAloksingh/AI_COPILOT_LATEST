@@ -93,12 +93,5 @@
   <div class="action-bar">
     <button class="btn btn-secondary" (click)="copy()">Copy</button>
     <button class="btn btn-secondary" (click)="generate()">Regenerate</button>
-    <div style="flex: 1;"></div>
-    <ng-container *ngIf="!feedbackGiven">
-      <button class="btn btn-outline" (click)="submitFeedback('ACCEPT')">Accept</button>
-      <button class="btn btn-outline" (click)="submitFeedback('ACCEPT_WITH_EDITS')">Accept with Edits</button>
-      <button class="btn btn-outline" style="color: #dc2626; border-color: #dc2626;" (click)="submitFeedback('REJECT')">Reject</button>
-    </ng-container>
-    <span *ngIf="feedbackGiven" style="color: #10b981; align-self: center; font-weight: 500;">Feedback Saved ✓</span>
   </div>
 </div>

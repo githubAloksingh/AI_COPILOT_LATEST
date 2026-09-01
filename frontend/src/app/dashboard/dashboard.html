@@ -31,9 +31,9 @@
   </div>
 
   <div class="stat-card">
-    <div class="stat-title">AI Acceptance Rate</div>
-    <div class="stat-value">{{ stats.acceptanceRate }}%</div>
-    <div class="stat-desc">{{ stats.aiOutputsAccepted + stats.aiOutputsAcceptedWithEdits }} / {{ stats.aiOutputsAccepted + stats.aiOutputsAcceptedWithEdits + stats.aiOutputsRejected }} outputs accepted</div>
+    <div class="stat-title">Total AI Generations</div>
+    <div class="stat-value">{{ stats.totalGenerations || stats.requirementsGenerated + stats.testCasesGenerated + stats.defectsTriaged + stats.releaseNotesGenerated }}</div>
+    <div class="stat-desc">Requests Processed</div>
   </div>
 </div>
 

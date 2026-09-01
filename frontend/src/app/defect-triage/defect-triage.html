@@ -34,12 +34,12 @@
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
     <div class="form-group">
       <label>Expected Behavior</label>
-      <textarea [(ngModel)]="expectedBehavior" style="min-height: 80px;"></textarea>
+      <textarea [(ngModel)]="expectedBehavior" style="min-height: 80px"></textarea>
     </div>
     
     <div class="form-group">
       <label>Actual Behavior</label>
-      <textarea [(ngModel)]="actualBehavior" style="min-height: 80px;"></textarea>
+      <textarea [(ngModel)]="actualBehavior" style="min-height: 80px"></textarea>
     </div>
   </div>
   
@@ -98,11 +98,5 @@
   
   <div class="action-bar">
     <button class="btn btn-secondary" (click)="copy()">Copy Report</button>
-    <div style="flex: 1;"></div>
-    <ng-container *ngIf="!feedbackGiven">
-      <button class="btn btn-outline" (click)="submitFeedback('ACCEPT')">Accept Analysis</button>
-      <button class="btn btn-outline" style="color: #dc2626; border-color: #dc2626;" (click)="submitFeedback('REJECT')">Reject Analysis</button>
-    </ng-container>
-    <span *ngIf="feedbackGiven" style="color: #10b981; align-self: center; font-weight: 500;">Feedback Saved ✓</span>
   </div>
 </div>

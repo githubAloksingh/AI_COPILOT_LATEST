@@ -19,24 +19,26 @@ export class TestGenerator {
     security: false,
     performance: false
   };
-  
+
   loading = false;
   error = '';
   result: any[] = [];
-  feedbackGiven = false;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   generate() {
     if (!this.requirement) return;
-    
+
     this.loading = true;
     this.error = '';
     this.result = [];
-    this.feedbackGiven = false;
     this.cdr.markForCheck();
 
-    const selectedTypes = Object.keys(this.testTypes).filter(k => (this.testTypes as any)[k]);
+    const selectedTypes: string[] = [];
+    if (this.testTypes.functional) selectedTypes.push('Functional');
+    if (this.testTypes.edgeCases) selectedTypes.push('Edge Cases');
+    if (this.testTypes.security) selectedTypes.push('Security');
+    if (this.testTypes.performance) selectedTypes.push('Performance');
 
     this.api.generateTestCases({
       requirement: this.requirement,
@@ -53,7 +55,7 @@ export class TestGenerator {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.error = 'We couldn\'t generate the test cases. Please try again.';
+        this.error = 'Failed to generate test cases. Please try again.';
         this.loading = false;
         this.cdr.markForCheck();
       }
@@ -63,19 +65,5 @@ export class TestGenerator {
   copy() {
     navigator.clipboard.writeText(JSON.stringify(this.result, null, 2));
     alert('Copied to clipboard');
-  }
-
-  submitFeedback(status: string) {
-    if (!this.result?.length) return;
-    this.api.submitFeedback({
-      referenceId: this.result[0].tcId,
-      referenceType: 'TEST_CASE',
-      status: status
-    }).subscribe({
-      next: () => {
-        this.feedbackGiven = true;
-        this.cdr.markForCheck();
-      }
-    });
   }
 }

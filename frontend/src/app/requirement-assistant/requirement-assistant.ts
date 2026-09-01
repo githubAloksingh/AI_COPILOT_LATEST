@@ -18,7 +18,6 @@ export class RequirementAssistant {
   loading = false;
   error = '';
   result: any = null;
-  feedbackGiven = false;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
@@ -28,7 +27,6 @@ export class RequirementAssistant {
     this.loading = true;
     this.error = '';
     this.result = null;
-    this.feedbackGiven = false;
     this.cdr.markForCheck();
 
     this.api.generateRequirement({
@@ -56,19 +54,5 @@ export class RequirementAssistant {
   copy() {
     navigator.clipboard.writeText(JSON.stringify(this.result, null, 2));
     alert('Copied to clipboard');
-  }
-
-  submitFeedback(status: string) {
-    if (!this.result?.id) return;
-    this.api.submitFeedback({
-      referenceId: this.result.id,
-      referenceType: 'REQUIREMENT',
-      status: status
-    }).subscribe({
-      next: () => {
-        this.feedbackGiven = true;
-        this.cdr.markForCheck();
-      }
-    });
   }
 }

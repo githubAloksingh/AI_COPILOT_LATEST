@@ -7,38 +7,37 @@ import { ApiService } from '../core/api';
   selector: 'app-defect-triage',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './defect-triage.html'
+  templateUrl: './defect-triage.html',
+  styleUrl: './defect-triage.scss'
 })
 export class DefectTriage {
   title = '';
+  environment = 'Production';
   description = '';
   logs = '';
-  environment = '';
   stepsToReproduce = '';
   expectedBehavior = '';
   actualBehavior = '';
-  
+
   loading = false;
   error = '';
   result: any = null;
-  feedbackGiven = false;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   generate() {
     if (!this.title || !this.description) return;
-    
+
     this.loading = true;
     this.error = '';
     this.result = null;
-    this.feedbackGiven = false;
     this.cdr.markForCheck();
 
     this.api.analyzeDefect({
       title: this.title,
+      environment: this.environment,
       description: this.description,
       logs: this.logs,
-      environment: this.environment,
       stepsToReproduce: this.stepsToReproduce,
       expectedBehavior: this.expectedBehavior,
       actualBehavior: this.actualBehavior
@@ -52,8 +51,8 @@ export class DefectTriage {
         this.loading = false;
         this.cdr.markForCheck();
       },
-      error: () => {
-        this.error = 'We couldn\'t analyze the defect. Please try again.';
+      error: (err) => {
+        this.error = 'Failed to analyze defect. Please try again.';
         this.loading = false;
         this.cdr.markForCheck();
       }
@@ -62,20 +61,6 @@ export class DefectTriage {
 
   copy() {
     navigator.clipboard.writeText(JSON.stringify(this.result, null, 2));
-    alert('Copied to clipboard');
-  }
-
-  submitFeedback(status: string) {
-    if (!this.result?.id) return;
-    this.api.submitFeedback({
-      referenceId: this.result.id,
-      referenceType: 'DEFECT',
-      status: status
-    }).subscribe({
-      next: () => {
-        this.feedbackGiven = true;
-        this.cdr.markForCheck();
-      }
-    });
+    alert('Report copied to clipboard');
   }
 }
