@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict, Any, Tuple, Optional
+from urllib.parse import urlparse
 import httpx
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -12,17 +13,19 @@ logger = logging.getLogger(__name__)
 
 class RetrievalService:
     def __init__(self):
-        self.chroma_url = settings.chroma_url
+        self.chroma_url = settings.chroma_url.strip() if settings.chroma_url else ""
         self.collection_name = settings.chroma_collection
         self.top_k = settings.top_k
         self.collection_id: Optional[str] = None
         self.base_collection_url: Optional[str] = None
         self._local_client: Optional[chromadb.ClientAPI] = None
         self._local_collection = None
-        self.timeout = httpx.Timeout(45.0, connect=15.0)
+        self._initialized = False
+        self._use_local = False
+        self.timeout = httpx.Timeout(45.0, connect=2.0)
 
     def _get_local_collection(self):
-        """Fallback to in-memory/persistent ChromaDB client if remote server is unreachable."""
+        """Fallback to in-memory/persistent ChromaDB client."""
         if self._local_collection is None:
             try:
                 self._local_client = chromadb.PersistentClient(
@@ -34,55 +37,66 @@ class RetrievalService:
                 )
                 logger.info("Initialized local persistent ChromaDB collection: %s", self.collection_name)
             except Exception as e:
-                logger.warning("Could not initialize local ChromaDB client: %s", e)
+                logger.error("Could not initialize local ChromaDB client: %s", e)
         return self._local_collection
 
     def ensure_collection(self):
-        if self.collection_id and self.base_collection_url:
+        """Initialize ChromaDB connection. Try remote if configured on non-conflicting port, else local."""
+        if self._initialized:
             return
 
-        candidate_urls = []
-        if settings.chroma_url and settings.chroma_url.strip():
-            candidate_urls.append(settings.chroma_url.strip())
-        candidate_urls.extend([
-            "http://localhost:8000",
-            "http://127.0.0.1:8000",
-            "http://[::1]:8000"
-        ])
+        # Check port conflict: never query our own FastAPI port (8000)
+        ai_port = str(settings.port)
+        if self.chroma_url:
+            parsed = urlparse(self.chroma_url)
+            chroma_port = str(parsed.port) if parsed.port else ""
+            if chroma_port == ai_port:
+                logger.info("CHROMA_URL port (%s) matches AI service port. Using local embedded ChromaDB.", chroma_port)
+                self._use_local = True
+                self._get_local_collection()
+                self._initialized = True
+                return
 
-        with httpx.Client(timeout=self.timeout) as client:
-            for target_url in candidate_urls:
-                # 1. Try v2 Chroma collections API
-                try:
-                    v2_url = f"{target_url}/api/v2/tenants/default_tenant/databases/default_database/collections"
-                    resp = client.post(v2_url, json={"name": self.collection_name, "get_or_create": True})
-                    if resp.status_code in (200, 201):
-                        data = resp.json()
-                        if "id" in data:
-                            self.collection_id = data["id"]
-                            self.base_collection_url = f"{v2_url}/{self.collection_id}"
-                            logger.info("Chroma collection initialized via v2 at %s with ID %s", target_url, self.collection_id)
-                            return
-                except Exception:
-                    pass
+            # Try connecting to remote Chroma server on dedicated port (e.g. 8001)
+            try:
+                with httpx.Client(timeout=httpx.Timeout(2.0, connect=1.0)) as client:
+                    # 1. Try v2 API
+                    v2_url = f"{self.chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections"
+                    try:
+                        resp = client.post(v2_url, json={"name": self.collection_name, "get_or_create": True})
+                        if resp.status_code in (200, 201):
+                            data = resp.json()
+                            if "id" in data:
+                                self.collection_id = data["id"]
+                                self.base_collection_url = f"{v2_url}/{self.collection_id}"
+                                logger.info("Remote Chroma initialized via v2 at %s (ID: %s)", self.chroma_url, self.collection_id)
+                                self._initialized = True
+                                return
+                    except Exception:
+                        pass
 
-                # 2. Try v1 Chroma collections API
-                try:
-                    v1_url = f"{target_url}/api/v1/collections"
-                    resp = client.post(v1_url, json={"name": self.collection_name, "get_or_create": True})
-                    if resp.status_code in (200, 201):
-                        data = resp.json()
-                        if "id" in data:
-                            self.collection_id = data["id"]
-                            self.base_collection_url = f"{v1_url}/{self.collection_id}"
-                            logger.info("Chroma collection initialized via v1 at %s with ID %s", target_url, self.collection_id)
-                            return
-                except Exception:
-                    pass
+                    # 2. Try v1 API
+                    v1_url = f"{self.chroma_url}/api/v1/collections"
+                    try:
+                        resp = client.post(v1_url, json={"name": self.collection_name, "get_or_create": True})
+                        if resp.status_code in (200, 201):
+                            data = resp.json()
+                            if "id" in data:
+                                self.collection_id = data["id"]
+                                self.base_collection_url = f"{v1_url}/{self.collection_id}"
+                                logger.info("Remote Chroma initialized via v1 at %s (ID: %s)", self.chroma_url, self.collection_id)
+                                self._initialized = True
+                                return
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.info("Remote Chroma at %s not reachable: %s", self.chroma_url, e)
 
-        # If remote Chroma is not responding, fallback to local embedded Chroma
-        logger.info("Remote Chroma unavailable. Using embedded persistent ChromaDB.")
+        # Fallback to local embedded Chroma
+        logger.info("Using embedded persistent ChromaDB storage (path: %s).", settings.chroma_persist_directory)
+        self._use_local = True
         self._get_local_collection()
+        self._initialized = True
 
     def store_chunks(self, document_id: str, file_name: str, chunks: List[str]) -> int:
         if not chunks:
@@ -109,7 +123,7 @@ class RetrievalService:
                     "chunkIndex": int(global_index)
                 })
 
-            if self.base_collection_url:
+            if self.base_collection_url and not self._use_local:
                 url = f"{self.base_collection_url}/add"
                 payload = {
                     "ids": ids,
@@ -151,7 +165,7 @@ class RetrievalService:
         chunks: List[str] = []
         sources: List[SourceDto] = []
 
-        if self.base_collection_url:
+        if self.base_collection_url and not self._use_local:
             url = f"{self.base_collection_url}/query"
             payload: Dict[str, Any] = {
                 "query_embeddings": [query_embedding],

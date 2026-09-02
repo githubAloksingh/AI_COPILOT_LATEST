@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     ]
 
     # Chroma
-    chroma_url: str = "http://localhost:8000"
+    chroma_url: str = "http://localhost:8001"
     chroma_collection: str = "ai_work_copilot"
     chroma_persist_directory: str = "./chroma_data"
 
