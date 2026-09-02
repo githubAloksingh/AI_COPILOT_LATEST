@@ -1,0 +1,1 @@
+ALTER TABLE audit_log MODIFY COLUMN output LONGTEXT;
