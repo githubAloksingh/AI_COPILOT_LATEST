@@ -25,7 +25,7 @@ public class AuditLog extends BaseEntity {
     private String model;
     private String promptVersion;
     
-    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "LONGTEXT")
     private String output;
     
     private String status; // SUCCESS, FAILED
