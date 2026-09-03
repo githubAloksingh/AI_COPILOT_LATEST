@@ -11,4 +11,7 @@ public class DefectRequest {
     private String stepsToReproduce;
     private String expectedBehavior;
     private String actualBehavior;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("document_id")
+    private String documentId;
 }

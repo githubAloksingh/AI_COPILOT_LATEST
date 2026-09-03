@@ -153,7 +153,7 @@ class RetrievalService:
         return total_stored
 
     def retrieve_relevant_context(
-        self, query: str, top_k: Optional[int] = None, document_id: Optional[str] = None
+        self, query: str, top_k: Optional[int] = None, document_id: Optional[Any] = None
     ) -> Tuple[List[str], List[SourceDto]]:
         if not query or not query.strip():
             return [], []
@@ -161,6 +161,20 @@ class RetrievalService:
         self.ensure_collection()
         k = top_k or self.top_k
         query_embedding = embedding_service.embed_text(query)
+
+        # Build where filter for single or multiple document IDs
+        where_clause = None
+        if document_id:
+            if isinstance(document_id, (list, tuple, set)):
+                valid_ids = [str(d).strip() for d in document_id if d and str(d).strip()]
+                if len(valid_ids) == 1:
+                    where_clause = {"documentId": valid_ids[0]}
+                elif len(valid_ids) > 1:
+                    where_clause = {"documentId": {"$in": valid_ids}}
+            else:
+                s_id = str(document_id).strip()
+                if s_id:
+                    where_clause = {"documentId": s_id}
 
         chunks: List[str] = []
         sources: List[SourceDto] = []
@@ -171,8 +185,8 @@ class RetrievalService:
                 "query_embeddings": [query_embedding],
                 "n_results": k
             }
-            if document_id:
-                payload["where"] = {"documentId": str(document_id)}
+            if where_clause:
+                payload["where"] = where_clause
 
             with httpx.Client(timeout=self.timeout) as client:
                 resp = client.post(url, json=payload)
@@ -196,7 +210,6 @@ class RetrievalService:
         else:
             local_col = self._get_local_collection()
             if local_col:
-                where_clause = {"documentId": str(document_id)} if document_id else None
                 res = local_col.query(
                     query_embeddings=[query_embedding],
                     n_results=k,

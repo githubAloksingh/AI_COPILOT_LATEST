@@ -2,15 +2,14 @@ package com.example.copilot.service;
 
 import com.example.copilot.client.AiServiceClient;
 import com.example.copilot.dto.ReleaseNoteRequest;
-import com.example.copilot.dto.ReleaseNoteResponseDto;
+import com.example.copilot.dto.accept.ReleaseNoteAcceptRequest;
 import com.example.copilot.dto.ai.AiReleaseNoteResponse;
 import com.example.copilot.entity.ReleaseNote;
 import com.example.copilot.repository.ReleaseNoteRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -21,63 +20,48 @@ public class ReleaseNoteService {
     private final ReleaseNoteRepository releaseNoteRepository;
     private final AuditService auditService;
 
-    public ReleaseNote generateReleaseNotes(ReleaseNoteRequest request) {
-        long startTime = System.currentTimeMillis();
-        String feature = "RELEASE_NOTES";
-        String status = "SUCCESS";
-        String errorMsg = null;
-        List<String> sources = null;
-
+    public AiReleaseNoteResponse generateReleaseNotes(ReleaseNoteRequest request) {
         try {
-            AiReleaseNoteResponse aiResponse = aiServiceClient.generateReleaseNotes(request);
-            ReleaseNoteResponseDto parsedResponse = aiResponse.getResult();
-            sources = aiResponse.getSources();
-
-            ReleaseNote releaseNote = new ReleaseNote();
-            releaseNote.setVersion(request.getVersion());
-            releaseNote.setSprintInformation(request.getSprintInformation());
-
-            if (parsedResponse != null) {
-                releaseNote.setSummary(parsedResponse.getSummary());
-                releaseNote.setNewFeatures(parsedResponse.getNewFeatures());
-                releaseNote.setImprovements(parsedResponse.getImprovements());
-                releaseNote.setBugFixes(parsedResponse.getBugFixes());
-                releaseNote.setBreakingChanges(parsedResponse.getBreakingChanges());
-                releaseNote.setKnownIssues(parsedResponse.getKnownIssues());
-                releaseNote.setTechnicalNotes(parsedResponse.getTechnicalNotes());
-            }
-
-            ReleaseNote saved = releaseNoteRepository.save(releaseNote);
-
-            auditService.logAudit(
-                    feature,
-                    request.getSprintInformation(),
-                    sources,
-                    aiResponse.getModel() != null ? aiResponse.getModel() : "gemini-3.7-flash",
-                    aiResponse.getPrompt_version() != null ? aiResponse.getPrompt_version() : "release-v1",
-                    parsedResponse != null ? parsedResponse.toString() : "",
-                    status,
-                    System.currentTimeMillis() - startTime,
-                    null
-            );
-            return saved;
-
+            return aiServiceClient.generateReleaseNotes(request);
         } catch (Exception e) {
-            status = "FAILED";
-            errorMsg = e.getMessage();
-            log.error("Error generating release notes: ", e);
-            auditService.logAudit(
-                    feature,
-                    request.getSprintInformation(),
-                    sources,
-                    "gemini-3.7-flash",
-                    "release-v1",
-                    null,
-                    status,
-                    System.currentTimeMillis() - startTime,
-                    errorMsg
-            );
-            throw new RuntimeException("Failed to generate release notes", e);
+            log.error("Error generating release notes preview: ", e);
+            throw new RuntimeException("Failed to generate release notes: " + e.getMessage(), e);
         }
     }
+
+    @Transactional
+    public ReleaseNote acceptReleaseNotes(ReleaseNoteAcceptRequest request) {
+        ReleaseNote releaseNote = new ReleaseNote();
+        releaseNote.setVersion(request.getVersion() != null ? request.getVersion() : "1.0.0");
+        releaseNote.setSprintInformation(request.getSprintInformation());
+        releaseNote.setSummary(request.getSummary());
+        releaseNote.setNewFeatures(request.getNewFeatures());
+        releaseNote.setImprovements(request.getImprovements());
+        releaseNote.setBugFixes(request.getBugFixes());
+        releaseNote.setBreakingChanges(request.getBreakingChanges());
+        releaseNote.setKnownIssues(request.getKnownIssues());
+        releaseNote.setTechnicalNotes(request.getTechnicalNotes());
+
+        ReleaseNote saved = releaseNoteRepository.save(releaseNote);
+
+        long execTime = request.getExecutionTimeMs() != null ? request.getExecutionTimeMs() : 0L;
+        String model = request.getModel() != null ? request.getModel() : "gemini-3.7-flash";
+        String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "release-v1";
+        String outputStr = request.getSummary() != null ? request.getSummary() : "";
+
+        auditService.logAudit(
+                "RELEASE_NOTES",
+                request.getSprintInformation() != null ? request.getSprintInformation() : "Release notes",
+                request.getSources(),
+                model,
+                promptVersion,
+                outputStr,
+                "SUCCESS",
+                execTime,
+                null
+        );
+
+        return saved;
+    }
 }
+

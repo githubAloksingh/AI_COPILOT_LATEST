@@ -53,21 +53,48 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.baseUrl}/documents/${id}`);
   }
 
-  // AI Copilot features
+  // AI Copilot features - Preview Generation
   generateRequirement(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/requirements`, data);
   }
 
-  generateTestCases(data: any): Observable<ApiResponse<any[]>> {
-    return this.http.post<ApiResponse<any[]>>(`${this.baseUrl}/copilot/testcases`, data);
+  acceptRequirement(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/requirements/accept`, data);
+  }
+
+  /** Bulk accept — saves all N requirements as separate DB rows */
+  acceptAllRequirements(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/requirements/accept-all`, data);
+  }
+
+  generateTestCases(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/testcases`, data);
+  }
+
+  acceptTestCases(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/testcases/accept`, data);
+  }
+
+  uploadDefectFile(file: File): Observable<ApiResponse<any>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/defects/upload-triage`, formData);
   }
 
   analyzeDefect(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/defects/triage`, data);
   }
 
+  acceptDefect(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/defects/accept`, data);
+  }
+
   generateReleaseNotes(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/release-notes`, data);
+  }
+
+  acceptReleaseNotes(data: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/release-notes/accept`, data);
   }
 
   generateDailyStatus(data: any): Observable<ApiResponse<any>> {
@@ -79,3 +106,4 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/audit-logs`);
   }
 }
+

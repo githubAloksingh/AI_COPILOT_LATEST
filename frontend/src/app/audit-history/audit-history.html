@@ -29,7 +29,10 @@
               <span class="feature-badge">{{ log.feature }}</span>
             </td>
             <td>
-              <span class="status-badge" [class.status-success]="log.status === 'SUCCESS'" [class.status-failed]="log.status !== 'SUCCESS'">
+              <span class="status-badge status-accepted" *ngIf="log.status === 'SUCCESS' || log.status === 'ACCEPTED'">
+                [ ACCEPTED ]
+              </span>
+              <span class="status-badge status-failed" *ngIf="log.status !== 'SUCCESS' && log.status !== 'ACCEPTED'">
                 {{ log.status }}
               </span>
             </td>

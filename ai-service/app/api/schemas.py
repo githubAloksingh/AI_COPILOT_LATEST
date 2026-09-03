@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ----------------------------------------------------
@@ -45,15 +45,53 @@ class RequirementGenerateRequest(BaseModel):
     title: str
     description: str
     priority: Optional[str] = "MEDIUM"
+    document_id: Optional[str] = None
+
+
+class GroundedItem(BaseModel):
+    text: str
+    grounding: str = "EXPLICIT"  # EXPLICIT, DERIVED, REQUIRES_CONFIRMATION
+    source: Optional[List[str]] = Field(default_factory=list)
+
+    @classmethod
+    def from_any(cls, val):
+        if isinstance(val, cls):
+            return val
+        if isinstance(val, dict):
+            src = val.get("source", [])
+            if not isinstance(src, list):
+                src = [str(src)] if src else []
+            return cls(
+                text=str(val.get("text", "")),
+                grounding=str(val.get("grounding", "EXPLICIT")),
+                source=[str(s) for s in src if s]
+            )
+        if isinstance(val, str):
+            return cls(text=val, grounding="EXPLICIT", source=[])
+        return cls(text=str(val), grounding="EXPLICIT", source=[])
+
+
+class RequirementItem(BaseModel):
+    requirementId: str = "REQ-001"
+    title: str = ""
+    summary: str = ""
+    userStory: str = ""
+    acceptanceCriteria: List[GroundedItem] = Field(default_factory=list)
+    assumptions: List[GroundedItem] = Field(default_factory=list)
+    dependencies: List[GroundedItem] = Field(default_factory=list)
+    edgeCases: List[GroundedItem] = Field(default_factory=list)
+    sources: Optional[List[str]] = Field(default_factory=list)
+
+    @field_validator("acceptanceCriteria", "assumptions", "dependencies", "edgeCases", mode="before")
+    @classmethod
+    def coerce_grounded_items(cls, v):
+        if not isinstance(v, list):
+            return []
+        return [GroundedItem.from_any(item) for item in v]
 
 
 class RequirementResult(BaseModel):
-    summary: str = ""
-    userStory: str = ""
-    acceptanceCriteria: List[str] = Field(default_factory=list)
-    assumptions: List[str] = Field(default_factory=list)
-    dependencies: List[str] = Field(default_factory=list)
-    edgeCases: List[str] = Field(default_factory=list)
+    requirements: List[RequirementItem] = Field(default_factory=list)
 
 
 class RequirementGenerateResponse(BaseModel):
@@ -72,6 +110,8 @@ class TestCaseGenerateRequest(BaseModel):
     requirement: str
     acceptanceCriteria: Optional[str] = ""
     testTypes: List[str] = Field(default_factory=lambda: ["POSITIVE", "NEGATIVE", "EDGE"])
+    document_id: Optional[str] = None
+    zip_document_id: Optional[str] = None
 
 
 class TestCaseItem(BaseModel):
@@ -104,6 +144,7 @@ class DefectAnalyzeRequest(BaseModel):
     actualBehavior: Optional[str] = ""
     expectedBehavior: Optional[str] = ""
     environment: Optional[str] = ""
+    document_id: Optional[str] = None
 
 
 class DefectResult(BaseModel):
@@ -131,6 +172,7 @@ class DefectAnalyzeResponse(BaseModel):
 class ReleaseNoteGenerateRequest(BaseModel):
     version: str
     sprintInformation: str
+    document_id: Optional[str] = None
 
 
 class ReleaseNoteResult(BaseModel):

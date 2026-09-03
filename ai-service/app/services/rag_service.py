@@ -25,6 +25,7 @@ from app.prompts import (
     build_requirement_prompt,
     TESTCASE_PROMPT_VERSION,
     build_testcase_prompt,
+    build_testcase_from_files_prompt,
     DEFECT_PROMPT_VERSION,
     build_defect_prompt,
     RELEASE_NOTE_PROMPT_VERSION,
@@ -45,12 +46,18 @@ class RagService:
 
     def generate_requirement(self, req: RequirementGenerateRequest) -> RequirementGenerateResponse:
         start_time = time.time()
-        combined_query = f"{req.title}\n{req.description}"
-        chunks, sources = self.retrieval.retrieve_relevant_context(req.description)
+        combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
+        top_k = 15 if req.document_id else None
+        chunks, sources = self.retrieval.retrieve_relevant_context(
+            query=combined_query or "requirement functional requirements user stories acceptance criteria",
+            top_k=top_k,
+            document_id=req.document_id
+        )
         combined_context = "\n\n---\n\n".join(chunks)
 
-        prompt = build_requirement_prompt(combined_query, combined_context)
-        result = self.gemini.generate_structured(prompt, RequirementResult)
+        prompt = build_requirement_prompt(combined_query or "Requirement from knowledge base", combined_context)
+        raw_result = self.gemini.generate_structured(prompt, RequirementResult)
+        result = self._validate_and_sanitize_grounding(raw_result, combined_context)
         exec_time_ms = int((time.time() - start_time) * 1000)
 
         source_strings = [s.snippet or s.file_name or "" for s in sources if s.snippet or s.file_name]
@@ -64,13 +71,73 @@ class RagService:
             execution_time_ms=exec_time_ms
         )
 
+    def _validate_and_sanitize_grounding(self, result: RequirementResult, context_text: str) -> RequirementResult:
+        if not result or not result.requirements:
+            return result
+
+        context_lower = context_text.lower() if context_text else ""
+
+        # Specific known unsupported hallucination patterns to catch and flag
+        unsupported_patterns = [
+            ("default to route d", "Classifier failure defaults to Route D"),
+            ("defaults to route d", "Classifier failure defaults to Route D"),
+            ("empty input is ignored", "Empty input behavior"),
+            ("synchronous and single-user", "Synchronous single-user assumption"),
+            ("division-by-zero", "Division by zero handling"),
+            ("invalid api key necessarily prevents startup", "API key startup validation"),
+        ]
+
+        for req in result.requirements:
+            for item_list in [req.acceptanceCriteria, req.assumptions, req.dependencies, req.edgeCases]:
+                for item in item_list:
+                    item_text_lower = (item.text or "").lower()
+
+                    # 1. Check against known unsupported hallucination patterns
+                    for pattern, label in unsupported_patterns:
+                        if pattern in item_text_lower and pattern not in context_lower:
+                            item.grounding = "REQUIRES_CONFIRMATION"
+                            if "Not specified in BRD" not in item.text and "Requires Confirmation" not in item.text:
+                                item.text = f"{item.text} (Requires Confirmation: Not explicitly specified in BRD)"
+
+                    # 2. Check explicit source claims
+                    if item.grounding == "EXPLICIT" and item.source:
+                        valid_sources = []
+                        for src in item.source:
+                            if src and src.lower() in context_lower:
+                                valid_sources.append(src)
+                        # If sources were claimed (like AC-099) but do not exist in context
+                        if item.source and not valid_sources and context_lower:
+                            item.grounding = "DERIVED"
+                            item.source = []
+
+                    # 3. If text says "not specified in the brd", ensure it's not marked EXPLICIT
+                    if "not specified" in item_text_lower:
+                        item.grounding = "REQUIRES_CONFIRMATION"
+
+        return result
+
     def generate_test_cases(self, req: TestCaseGenerateRequest) -> TestCaseGenerateResponse:
         start_time = time.time()
-        chunks, sources = self.retrieval.retrieve_relevant_context(req.requirement)
+        query_text = (req.requirement or "").strip()
+
+        doc_ids = []
+        if req.document_id:
+            doc_ids.append(str(req.document_id))
+        if req.zip_document_id:
+            doc_ids.append(str(req.zip_document_id))
+
+        target_doc_id = doc_ids if doc_ids else None
+        top_k = 25 if doc_ids else None
+
+        chunks, sources = self.retrieval.retrieve_relevant_context(
+            query=query_text or "test cases functional edge security performance scenarios",
+            top_k=top_k,
+            document_id=target_doc_id
+        )
         combined_context = "\n\n---\n\n".join(chunks)
 
         prompt = build_testcase_prompt(
-            requirement=req.requirement,
+            requirement=query_text or "Generate test cases for provided context",
             acceptance_criteria=req.acceptanceCriteria or "",
             test_types=req.testTypes,
             context=combined_context
@@ -89,10 +156,50 @@ class RagService:
             execution_time_ms=exec_time_ms
         )
 
+    def generate_test_cases_from_files(
+        self,
+        mode: str,
+        brd_text: str = "",
+        brd_filename: str = "",
+        zip_summary: str = "",
+        zip_sources: List[str] = None,
+        test_types: List[str] = None
+    ) -> TestCaseGenerateResponse:
+        start_time = time.time()
+        prompt = build_testcase_from_files_prompt(
+            mode=mode,
+            brd_text=brd_text,
+            zip_summary=zip_summary,
+            test_types=test_types
+        )
+        result = self.gemini.generate_structured_list(prompt, TestCaseItem)
+        exec_time_ms = int((time.time() - start_time) * 1000)
+
+        sources = []
+        if brd_filename:
+            sources.append(f"BRD: {brd_filename}")
+        if zip_sources:
+            sources.extend([f"ZIP: {s}" for s in zip_sources[:10]])
+
+        return TestCaseGenerateResponse(
+            result=result,
+            sources=sources,
+            source_details=[],
+            model=settings.gemini_model,
+            prompt_version=TESTCASE_PROMPT_VERSION,
+            execution_time_ms=exec_time_ms
+        )
+
     def analyze_defect(self, req: DefectAnalyzeRequest) -> DefectAnalyzeResponse:
         start_time = time.time()
-        combined_input = f"{req.title or ''}\n{req.description or ''}\n{req.logs or ''}"
-        chunks, sources = self.retrieval.retrieve_relevant_context(combined_input)
+        combined_input = f"{req.title or ''}\n{req.description or ''}\n{req.logs or ''}".strip()
+        top_k = 25 if req.document_id else None
+
+        chunks, sources = self.retrieval.retrieve_relevant_context(
+            query=combined_input or "defect error stacktrace exception root cause fix investigation",
+            top_k=top_k,
+            document_id=req.document_id
+        )
         combined_context = "\n\n---\n\n".join(chunks)
 
         prompt = build_defect_prompt(
@@ -120,12 +227,16 @@ class RagService:
 
     def generate_release_notes(self, req: ReleaseNoteGenerateRequest) -> ReleaseNoteGenerateResponse:
         start_time = time.time()
-        chunks, sources = self.retrieval.retrieve_relevant_context(req.sprintInformation)
+        query_text = (req.sprintInformation or "").strip()
+        chunks, sources = self.retrieval.retrieve_relevant_context(
+            query=query_text or "release notes",
+            document_id=req.document_id
+        )
         combined_context = "\n\n---\n\n".join(chunks)
 
         prompt = build_release_notes_prompt(
-            version=req.version,
-            sprint_info=req.sprintInformation,
+            version=req.version or "1.0.0",
+            sprint_info=query_text or "Generate release notes from provided context",
             context=combined_context
         )
         result = self.gemini.generate_structured(prompt, ReleaseNoteResult)

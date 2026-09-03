@@ -30,6 +30,10 @@ def test_csv_parser():
     assert "Row 2: Name=Bob, Role=QA, Team=Automation" in extracted
 
 
+import zipfile
+from app.parsers.zip_parser import ZipParser
+
+
 def test_document_service_cleaning():
     service = DocumentService()
     raw = "Line 1\r\n\r\n\r\n\r\nLine 2\x00\r\n"
@@ -37,3 +41,24 @@ def test_document_service_cleaning():
     assert "\x00" not in cleaned
     assert "\r" not in cleaned
     assert "Line 1\n\nLine 2" == cleaned
+
+
+def test_zip_parser():
+    parser = ZipParser()
+    assert parser.supports("application/zip", "project.zip")
+    assert parser.supports("application/x-zip-compressed", "code.zip")
+    assert parser.supports("", "archive.zip")
+    assert not parser.supports("application/pdf", "doc.pdf")
+
+    # Create an in-memory zip file with sample code
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("src/App.java", "public class App { public static void main(String[] args) {} }")
+        z.writestr("README.md", "# Test Project\nSample repository for testing.")
+
+    zip_bytes = buf.getvalue()
+    extracted = parser.parse(zip_bytes)
+    assert "src/App.java" in extracted
+    assert "public class App" in extracted
+    assert "Test Project" in extracted
+

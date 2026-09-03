@@ -2,15 +2,17 @@ package com.example.copilot.service;
 
 import com.example.copilot.client.AiServiceClient;
 import com.example.copilot.dto.DefectRequest;
-import com.example.copilot.dto.DefectResponseDto;
+import com.example.copilot.dto.accept.DefectAcceptRequest;
 import com.example.copilot.dto.ai.AiDefectResponse;
 import com.example.copilot.entity.Defect;
 import com.example.copilot.repository.DefectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Service
@@ -21,73 +23,85 @@ public class DefectService {
     private final DefectRepository defectRepository;
     private final AuditService auditService;
 
-    public Defect analyzeDefect(DefectRequest request) {
-        long startTime = System.currentTimeMillis();
-        String feature = "DEFECT_TRIAGE";
-        String status = "SUCCESS";
-        String errorMsg = null;
-        List<String> sources = null;
+    public AiDefectResponse analyzeUploadedFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Please provide a valid file to analyze.");
+        }
+        if (file.getSize() > 50 * 1024 * 1024) {
+            throw new IllegalArgumentException("File size exceeds the 50MB limit.");
+        }
 
         try {
-            String combinedInput = (request.getTitle() != null ? request.getTitle() : "") + "\n"
-                    + (request.getDescription() != null ? request.getDescription() : "") + "\n"
-                    + (request.getLogs() != null ? request.getLogs() : "");
+            String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "uploaded_log.txt";
+            String fileContent = new String(file.getBytes(), StandardCharsets.UTF_8);
 
-            AiDefectResponse aiResponse = aiServiceClient.analyzeDefect(request);
-            DefectResponseDto parsedResponse = aiResponse.getResult();
-            sources = aiResponse.getSources();
-
-            Defect defect = new Defect();
-            defect.setTitle(request.getTitle());
-            defect.setDescription(request.getDescription());
-            defect.setLogs(request.getLogs());
-            defect.setEnvironment(request.getEnvironment());
-            defect.setStepsToReproduce(request.getStepsToReproduce());
-            defect.setExpectedBehavior(request.getExpectedBehavior());
-            defect.setActualBehavior(request.getActualBehavior());
-
-            if (parsedResponse != null) {
-                defect.setProbableRootCause(parsedResponse.getProbableRootCause());
-                defect.setEvidence(parsedResponse.getEvidence());
-                defect.setSuggestedInvestigation(parsedResponse.getSuggestedInvestigation());
-                defect.setSuggestedFix(parsedResponse.getSuggestedFix());
-                defect.setConfidence(parsedResponse.getConfidence());
-                defect.setSeverity(parsedResponse.getSeverity());
-                defect.setPriority(parsedResponse.getPriority());
+            // Cap logs at 60,000 characters to fit context window comfortably
+            if (fileContent.length() > 60000) {
+                fileContent = fileContent.substring(0, 60000) + "\n... [truncated due to size]";
             }
-            defect.setSources(sources);
 
-            Defect saved = defectRepository.save(defect);
+            DefectRequest request = new DefectRequest();
+            request.setTitle("Defect Triage: " + fileName);
+            request.setDescription("Automated triage for uploaded file: " + fileName);
+            request.setLogs(fileContent);
+            request.setEnvironment("Uploaded File Environment");
 
-            auditService.logAudit(
-                    feature,
-                    combinedInput,
-                    sources,
-                    aiResponse.getModel() != null ? aiResponse.getModel() : "gemini-3.7-flash",
-                    aiResponse.getPrompt_version() != null ? aiResponse.getPrompt_version() : "defect-v1",
-                    parsedResponse != null ? parsedResponse.toString() : "",
-                    status,
-                    System.currentTimeMillis() - startTime,
-                    null
-            );
-            return saved;
-
+            return aiServiceClient.analyzeDefect(request);
         } catch (Exception e) {
-            status = "FAILED";
-            errorMsg = e.getMessage();
-            log.error("Error triaging defect: ", e);
-            auditService.logAudit(
-                    feature,
-                    request.getTitle(),
-                    sources,
-                    "gemini-3.7-flash",
-                    "defect-v1",
-                    null,
-                    status,
-                    System.currentTimeMillis() - startTime,
-                    errorMsg
-            );
-            throw new RuntimeException("Failed to analyze defect", e);
+            log.error("Error analyzing uploaded defect file: ", e);
+            throw new RuntimeException("Failed to analyze defect file: " + e.getMessage(), e);
         }
     }
+
+    public AiDefectResponse analyzeDefect(DefectRequest request) {
+        try {
+            return aiServiceClient.analyzeDefect(request);
+        } catch (Exception e) {
+            log.error("Error generating defect triage preview: ", e);
+            throw new RuntimeException("Failed to analyze defect: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public Defect acceptDefect(DefectAcceptRequest request) {
+        Defect defect = new Defect();
+        defect.setTitle(request.getTitle() != null ? request.getTitle() : "Defect Triage");
+        defect.setDescription(request.getDescription());
+        defect.setLogs(request.getLogs());
+        defect.setEnvironment(request.getEnvironment());
+        defect.setStepsToReproduce(request.getStepsToReproduce());
+        defect.setExpectedBehavior(request.getExpectedBehavior());
+        defect.setActualBehavior(request.getActualBehavior());
+        defect.setProbableRootCause(request.getProbableRootCause());
+        defect.setEvidence(request.getEvidence());
+        defect.setSuggestedInvestigation(request.getSuggestedInvestigation());
+        defect.setSuggestedFix(request.getSuggestedFix());
+        defect.setConfidence(request.getConfidence() != null ? request.getConfidence() : "MEDIUM");
+        defect.setSeverity(request.getSeverity() != null ? request.getSeverity() : "MEDIUM");
+        defect.setPriority(request.getPriority() != null ? request.getPriority() : "P2");
+        defect.setRelatedDefects(request.getRelatedDefects());
+        defect.setSources(request.getSources());
+
+        Defect saved = defectRepository.save(defect);
+
+        long execTime = request.getExecutionTimeMs() != null ? request.getExecutionTimeMs() : 0L;
+        String model = request.getModel() != null ? request.getModel() : "gemini-3.7-flash";
+        String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "defect-v1";
+        String outputStr = request.getProbableRootCause() != null ? request.getProbableRootCause() : "";
+
+        auditService.logAudit(
+                "DEFECT_TRIAGE",
+                request.getTitle() != null ? request.getTitle() : "Defect triage file",
+                request.getSources(),
+                model,
+                promptVersion,
+                outputStr,
+                "SUCCESS",
+                execTime,
+                null
+        );
+
+        return saved;
+    }
 }
+

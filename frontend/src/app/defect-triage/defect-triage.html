@@ -1,102 +1,108 @@
 <div class="page-header">
   <h1>Defect Triage</h1>
-  <p>Analyze bugs and stack traces to find root causes and suggested fixes.</p>
+  <p>Select an ingested project or log ZIP archive from your Knowledge Base for automated AI root-cause analysis and fix recommendations.</p>
+</div>
+
+<!-- Toast Notification -->
+<div *ngIf="toastMessage" class="toast-banner" [ngClass]="'toast-' + toastType">
+  {{ toastMessage }}
 </div>
 
 <div class="card">
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <!-- Knowledge Base ZIP Selection Section -->
+  <div class="kb-triage-section">
     <div class="form-group">
-      <label>Defect Title</label>
-      <input type="text" [(ngModel)]="title" placeholder="e.g. NullPointerException in PaymentService">
-    </div>
-    
-    <div class="form-group">
-      <label>Environment</label>
-      <input type="text" [(ngModel)]="environment" placeholder="e.g. Production, QA, Staging">
-    </div>
-  </div>
-  
-  <div class="form-group">
-    <label>Description</label>
-    <textarea [(ngModel)]="description" placeholder="Describe the defect..."></textarea>
-  </div>
-  
-  <div class="form-group">
-    <label>Logs / Stack Trace</label>
-    <textarea [(ngModel)]="logs" style="font-family: monospace;" placeholder="Paste stack trace or logs here..."></textarea>
-  </div>
-  
-  <div class="form-group">
-    <label>Steps to Reproduce (Optional)</label>
-    <textarea [(ngModel)]="stepsToReproduce" style="min-height: 80px;" placeholder="1. Go to..."></textarea>
-  </div>
-  
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-    <div class="form-group">
-      <label>Expected Behavior</label>
-      <textarea [(ngModel)]="expectedBehavior" style="min-height: 80px"></textarea>
-    </div>
-    
-    <div class="form-group">
-      <label>Actual Behavior</label>
-      <textarea [(ngModel)]="actualBehavior" style="min-height: 80px"></textarea>
-    </div>
-  </div>
-  
-  <button class="btn btn-primary" (click)="generate()" [disabled]="loading || !title || !description">
-    {{ loading ? 'Analyzing...' : 'Analyze Defect' }}
-  </button>
-  
-  <div *ngIf="loading" class="loading-indicator">
-    <div class="spinner"></div>
-    <span>Searching knowledge base and analyzing root cause...</span>
-  </div>
-  
-  <div *ngIf="error" class="error-message">
-    {{ error }}
-  </div>
-</div>
+      <label class="section-label">Select Project ZIP from Knowledge Base <span class="required">*</span></label>
+      
+      <div class="kb-select-wrapper">
+        <select 
+          [ngModel]="selectedZipId" 
+          (ngModelChange)="onZipSelect($event)" 
+          class="form-control kb-select"
+          [disabled]="loading || loadingDocs">
+          <option [ngValue]="null">-- Select an Ingested Project ZIP Archive --</option>
+          <option *ngFor="let doc of zipDocuments" [value]="doc.id">
+            📦 {{ doc.fileName }} ({{ doc.fileType }}, {{ doc.chunkCount || 0 }} chunks)
+          </option>
+        </select>
+      </div>
 
-<div class="card" *ngIf="!loading && !result && !error">
-  <div style="text-align: center; color: #64748b; padding: 40px 0;">
-    Enter defect details to get an AI analysis.
-  </div>
-</div>
+      <small class="helper-text" *ngIf="zipDocuments.length === 0 && !loadingDocs">
+        No ZIP archives found in Knowledge Base. Upload a project or log ZIP in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+      </small>
+    </div>
 
-<div class="card" *ngIf="result">
-  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 20px;">
-    <div>
-      <h2 style="margin: 0 0 8px 0; color: #0f172a;">AI Triage Report</h2>
-      <div style="display: flex; gap: 12px;">
-        <span style="background-color: #fef2f2; color: #dc2626; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; font-weight: 600;">Severity: {{ result.severity }}</span>
-        <span style="background-color: #fff7ed; color: #ea580c; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; font-weight: 600;">Priority: {{ result.priority }}</span>
-        <span style="background-color: #f0fdf4; color: #16a34a; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; font-weight: 600;">Confidence: {{ result.confidence }}</span>
+    <!-- Selected ZIP File Badge Card -->
+    <div *ngIf="selectedZipDoc" class="selected-zip-card">
+      <div class="zip-info">
+        <span class="zip-icon">📦</span>
+        <div>
+          <strong>{{ selectedZipDoc.fileName }}</strong>
+          <div class="zip-sub">{{ selectedZipDoc.fileType }} • Status: {{ selectedZipDoc.status }} • {{ selectedZipDoc.chunkCount || 0 }} chunks ingested</div>
+        </div>
+      </div>
+      <button class="btn-remove-zip" (click)="removeSelectedZip()" [disabled]="loading">Remove</button>
+    </div>
+
+    <!-- Optional Defect Context Details -->
+    <div class="context-group">
+      <div class="form-group">
+        <label>Defect Title / Subject <span class="text-muted">(Optional)</span></label>
+        <input 
+          type="text" 
+          [(ngModel)]="defectTitle" 
+          placeholder="e.g. NullPointerException in Payment Gateway service or Order Processing Failure"
+          class="form-control"
+          [disabled]="loading">
+      </div>
+
+      <div class="form-group">
+        <label>Specific Error Logs / Stack Trace / Symptoms <span class="text-muted">(Optional)</span></label>
+        <textarea 
+          [(ngModel)]="logsOrSymptoms" 
+          rows="4" 
+          placeholder="Paste relevant exception stack traces, HTTP error dumps, or symptoms observed..."
+          class="form-control"
+          [disabled]="loading"></textarea>
       </div>
     </div>
   </div>
-  
-  <div>
-    <h3 style="color: #ea580c; margin-bottom: 8px;">Probable Root Cause</h3>
-    <p style="margin-top: 0;">{{ result.probableRootCause }}</p>
-    
-    <h3 style="margin-bottom: 8px;">Evidence</h3>
-    <p style="margin-top: 0; background-color: #f8fafc; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 0.9rem;">{{ result.evidence }}</p>
-    
-    <h3 style="margin-bottom: 8px;">Suggested Investigation Steps</h3>
-    <p style="margin-top: 0;">{{ result.suggestedInvestigation }}</p>
-    
-    <h3 style="color: #10b981; margin-bottom: 8px;">Suggested Fix</h3>
-    <p style="margin-top: 0;">{{ result.suggestedFix }}</p>
-    
-    <div *ngIf="result.sources?.length">
-      <h3 style="margin-bottom: 8px;">Context Sources Used</h3>
-      <ul style="font-size: 0.85rem; color: #64748b; margin-top: 0;">
-        <li *ngFor="let src of result.sources">{{ src | slice:0:100 }}...</li>
-      </ul>
-    </div>
+
+  <div class="action-row">
+    <button 
+      class="btn btn-primary" 
+      (click)="analyze()" 
+      [disabled]="loading || !selectedZipId">
+      {{ loading ? 'Triaging Knowledge Base ZIP...' : 'Analyze & Triage Defect' }}
+    </button>
   </div>
-  
-  <div class="action-bar">
-    <button class="btn btn-secondary" (click)="copy()">Copy Report</button>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-indicator">
+    <div class="spinner"></div>
+    <span>Retrieving project codebase and error context from Knowledge Base, diagnosing root causes with Gemini AI...</span>
   </div>
+
+  <!-- Error State -->
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+
 </div>
+
+<!-- Reusable Generated Response Modal -->
+<app-response-modal
+  #responseModal
+  [isOpen]="isModalOpen"
+  [type]="'defect'"
+  [title]="'Defect Triage — ' + (selectedZipDoc?.fileName || 'Analysis Result')"
+  [data]="generatedResult"
+  [sources]="sources"
+  [model]="model"
+  [promptVersion]="promptVersion"
+  [executionTimeMs]="executionTimeMs"
+  [saving]="saving"
+  (close)="isModalOpen = false"
+  (accept)="onAccept($event)"
+  (reject)="onReject()">
+</app-response-modal>

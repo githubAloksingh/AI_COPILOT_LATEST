@@ -24,6 +24,7 @@ from app.services import (
     retrieval_service,
     rag_service
 )
+from app.parsers.zip_parser import ZipParser
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["AI & RAG"])
@@ -91,6 +92,38 @@ async def ingest_document(
         )
 
 
+@router.get("/documents/{document_id}/content")
+def get_document_content(document_id: str):
+    """Retrieve full text/chunks of an ingested document."""
+    try:
+        retrieval_service.ensure_collection()
+        chunks = []
+        if retrieval_service._local_collection:
+            data = retrieval_service._local_collection.get(where={"documentId": str(document_id)})
+            chunks = data.get("documents", [])
+        elif retrieval_service.base_collection_url:
+            import httpx
+            with httpx.Client(timeout=retrieval_service.timeout) as client:
+                fetch_url = f"{retrieval_service.base_collection_url}/get"
+                resp = client.post(fetch_url, json={"where": {"documentId": str(document_id)}, "include": ["documents"]})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    chunks = data.get("documents", [])
+        
+        return {
+            "document_id": document_id,
+            "chunks": chunks,
+            "content": "\n\n".join(chunks),
+            "chunk_count": len(chunks)
+        }
+    except Exception as e:
+        logger.error("Failed to fetch document content for doc ID %s: %s", document_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch document content: {str(e)}"
+        )
+
+
 @router.post("/retrieve", response_model=RetrieveResponse)
 def retrieve_context(req: RetrieveRequest):
     """Perform vector similarity search against ChromaDB."""
@@ -133,6 +166,84 @@ def generate_test_cases(req: TestCaseGenerateRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Test case generation failed: {str(e)}"
         )
+
+
+@router.post("/test-cases/generate-upload", response_model=TestCaseGenerateResponse)
+async def generate_test_cases_upload(
+    brd_file: Optional[UploadFile] = File(None),
+    zip_file: Optional[UploadFile] = File(None),
+    test_types: Optional[str] = Form(None),
+    input_mode: Optional[str] = Form("brd")
+):
+    """Generate test cases from BRD file, project ZIP, or both."""
+    mode = (input_mode or "brd").strip().lower()
+    
+    # Parse test_types
+    parsed_types = []
+    if test_types:
+        try:
+            import json
+            val = json.loads(test_types)
+            if isinstance(val, list):
+                parsed_types = [str(x) for x in val]
+        except Exception:
+            parsed_types = [t.strip() for t in test_types.split(",") if t.strip()]
+
+    if not parsed_types:
+        parsed_types = ["Functional Tests", "Edge & Boundary Cases"]
+
+    brd_text = ""
+    brd_filename = ""
+    zip_summary = ""
+    zip_sources = []
+
+    try:
+        if mode in ("brd", "both"):
+            if not brd_file:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="BRD document is required for BRD mode."
+                )
+            brd_bytes = await brd_file.read()
+            if not brd_bytes:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Uploaded BRD document is empty."
+                )
+            brd_filename = brd_file.filename or "BRD_Document"
+            brd_text = document_service.extract_text(brd_bytes, file_name=brd_filename)
+
+        if mode in ("zip", "both"):
+            if not zip_file:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Project ZIP file is required for ZIP mode."
+                )
+            zip_bytes = await zip_file.read()
+            if not zip_bytes:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Uploaded project ZIP file is empty."
+                )
+            zip_sources, zip_summary = ZipParser.extract_zip(zip_bytes)
+
+        return rag_service.generate_test_cases_from_files(
+            mode=mode,
+            brd_text=brd_text,
+            brd_filename=brd_filename,
+            zip_summary=zip_summary,
+            zip_sources=zip_sources,
+            test_types=parsed_types
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Test case upload generation failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Test case generation failed: {str(e)}"
+        )
+
 
 
 @router.post("/defects/analyze", response_model=DefectAnalyzeResponse)

@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -101,6 +103,63 @@ public class AiServiceClient {
         } catch (Exception e) {
             log.error("Failed to generate test cases via AI service: {}", e.getMessage());
             throw new RuntimeException("AI Service Test Case Generation Failed: " + e.getMessage(), e);
+        }
+    }
+
+    public AiTestCaseResponse generateTestCasesUpload(MultipartFile brdFile, MultipartFile zipFile, List<String> testTypes, String inputMode) {
+        String url = aiServiceUrl + "/api/ai/test-cases/generate-upload";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+        if (brdFile != null && !brdFile.isEmpty()) {
+            try {
+                ByteArrayResource brdResource = new ByteArrayResource(brdFile.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return brdFile.getOriginalFilename() != null ? brdFile.getOriginalFilename() : "document.pdf";
+                    }
+                };
+                body.add("brd_file", brdResource);
+            } catch (Exception e) {
+                log.error("Failed to read brdFile bytes: {}", e.getMessage());
+                throw new RuntimeException("Failed to process BRD file: " + e.getMessage(), e);
+            }
+        }
+
+        if (zipFile != null && !zipFile.isEmpty()) {
+            try {
+                ByteArrayResource zipResource = new ByteArrayResource(zipFile.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return zipFile.getOriginalFilename() != null ? zipFile.getOriginalFilename() : "project.zip";
+                    }
+                };
+                body.add("zip_file", zipResource);
+            } catch (Exception e) {
+                log.error("Failed to read zipFile bytes: {}", e.getMessage());
+                throw new RuntimeException("Failed to process ZIP file: " + e.getMessage(), e);
+            }
+        }
+
+        if (inputMode != null) {
+            body.add("input_mode", inputMode);
+        }
+        if (testTypes != null && !testTypes.isEmpty()) {
+            body.add("test_types", String.join(",", testTypes));
+        }
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        try {
+            ResponseEntity<AiTestCaseResponse> response = restTemplate.postForEntity(url, requestEntity, AiTestCaseResponse.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            log.error("Failed to generate test cases via upload from AI service: {}", e.getMessage());
+            throw new RuntimeException("AI Service Test Case Upload Generation Failed: " + e.getMessage(), e);
         }
     }
 

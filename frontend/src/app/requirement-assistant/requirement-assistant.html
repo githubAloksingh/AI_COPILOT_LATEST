@@ -1,36 +1,115 @@
 <div class="page-header">
   <h1>Requirement Assistant</h1>
-  <p>Enter the client requirement and let AI transform it into a structured requirement.</p>
+  <p>Generate structured, production-ready requirement specifications using Knowledge Base or manual inputs.</p>
+</div>
+
+<!-- Toast Notification -->
+<div *ngIf="toastMessage" class="toast-banner" [ngClass]="'toast-' + toastType">
+  {{ toastMessage }}
 </div>
 
 <div class="card">
-  <div class="form-group">
-    <label>Requirement Title</label>
-    <input type="text" [(ngModel)]="title" placeholder="e.g. Online Leave Management System">
+  <!-- Mode Selector: Knowledge Base OR Manual Input -->
+  <div class="input-mode-tabs">
+    <button 
+      class="tab-btn" 
+      [class.active]="inputMode === 'kb'" 
+      (click)="setInputMode('kb')">
+      📁 Option A: Import from Knowledge Base
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="inputMode === 'manual'" 
+      (click)="setInputMode('manual')">
+      ✍️ Option B: Manual Input
+    </button>
   </div>
-  
-  <div class="form-group">
-    <label>Client Problem / Requirement</label>
-    <textarea [(ngModel)]="description" placeholder="Describe the problem or user request..."></textarea>
+
+  <!-- Option A: Knowledge Base Selection -->
+  <div *ngIf="inputMode === 'kb'" class="mode-panel kb-panel">
+    <div class="form-group">
+      <label>Select Project Document from Knowledge Base</label>
+      <select 
+        [ngModel]="selectedDocumentId" 
+        (ngModelChange)="onDocumentSelect($event)" 
+        class="form-control"
+        [disabled]="loading || loadingDocs">
+        <option [ngValue]="null">-- Select an Ingested Document --</option>
+        <option *ngFor="let doc of documents" [value]="doc.id">
+          📄 {{ doc.fileName }} ({{ doc.fileType }}, {{ doc.chunkCount || 0 }} chunks)
+        </option>
+      </select>
+      <small class="helper-text" *ngIf="documents.length === 0 && !loadingDocs">
+        No ingested documents found. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+      </small>
+    </div>
+
+    <!-- Selected Document Card -->
+    <div *ngIf="selectedDocument" class="selected-doc-badge">
+      <div class="doc-info">
+        <span class="doc-icon">📄</span>
+        <div>
+          <strong>{{ selectedDocument.fileName }}</strong>
+          <div class="doc-sub">{{ selectedDocument.fileType }} • Status: {{ selectedDocument.status }}</div>
+        </div>
+      </div>
+      <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
+    </div>
+
+    <div class="form-group" style="margin-top: 14px;">
+      <label>Priority</label>
+      <select [(ngModel)]="priority" class="form-control">
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+        <option value="Critical">Critical</option>
+      </select>
+    </div>
   </div>
-  
-  <div class="form-group">
-    <label>Priority</label>
-    <select [(ngModel)]="priority">
-      <option value="Low">Low</option>
-      <option value="Medium">Medium</option>
-      <option value="High">High</option>
-      <option value="Critical">Critical</option>
-    </select>
+
+  <!-- Option B: Manual Input -->
+  <div *ngIf="inputMode === 'manual'" class="mode-panel manual-panel">
+    <div class="form-group">
+      <label>Requirement Title <span class="required">*</span></label>
+      <input 
+        type="text" 
+        [(ngModel)]="title" 
+        placeholder="e.g. Employee Leave Management System"
+        class="form-control">
+    </div>
+    
+    <div class="form-group">
+      <label>Client Problem / Requirement Details <span class="required">*</span></label>
+      <textarea 
+        [(ngModel)]="description" 
+        rows="4"
+        placeholder="Describe the problem, feature requirements, user personas, or business workflow..."
+        class="form-control"></textarea>
+    </div>
+    
+    <div class="form-group">
+      <label>Priority</label>
+      <select [(ngModel)]="priority" class="form-control">
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+        <option value="Critical">Critical</option>
+      </select>
+    </div>
   </div>
-  
-  <button class="btn btn-primary" (click)="generate()" [disabled]="loading || !title || !description">
-    {{ loading ? 'Generating...' : 'Generate Requirement' }}
-  </button>
+
+  <div class="action-row">
+    <button 
+      class="btn btn-primary" 
+      (click)="generate()" 
+      [disabled]="loading || !isInputValid()">
+      {{ loading ? 'Generating Requirement...' : 'Generate Requirement' }}
+    </button>
+  </div>
   
   <div *ngIf="loading" class="loading-indicator">
     <div class="spinner"></div>
-    <span>Retrieving relevant knowledge and analyzing context...</span>
+    <span>Retrieving relevant knowledge and synthesizing requirement with Gemini AI...</span>
   </div>
   
   <div *ngIf="error" class="error-message">
@@ -38,60 +117,21 @@
   </div>
 </div>
 
-<div class="card" *ngIf="!loading && !result && !error">
-  <div style="text-align: center; color: #64748b; padding: 40px 0;">
-    Enter a requirement to generate a structured requirement.
-  </div>
-</div>
+<!-- Reusable Generated Response Modal -->
+<app-response-modal
+  #responseModal
+  [isOpen]="isModalOpen"
+  [type]="'requirement'"
+  [title]="'Generated Requirements — ' + (title || 'Specification')"
+  [data]="generatedResult"
+  [sources]="sources"
+  [model]="model"
+  [promptVersion]="promptVersion"
+  [executionTimeMs]="executionTimeMs"
+  [saving]="saving"
+  (close)="isModalOpen = false"
+  (acceptAll)="onAcceptAll($event)"
+  (accept)="onAccept($event)"
+  (reject)="onReject()">
+</app-response-modal>
 
-<div class="card" *ngIf="result">
-  <h2 style="margin-top: 0; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Generated Requirement</h2>
-  
-  <div style="margin-top: 20px;">
-    <h3>Summary</h3>
-    <p>{{ result.summary }}</p>
-    
-    <h3>User Story</h3>
-    <p>{{ result.userStory }}</p>
-    
-    <div *ngIf="result.acceptanceCriteria?.length">
-      <h3>Acceptance Criteria</h3>
-      <ul>
-        <li *ngFor="let item of result.acceptanceCriteria">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.assumptions?.length">
-      <h3>Assumptions</h3>
-      <ul>
-        <li *ngFor="let item of result.assumptions">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.dependencies?.length">
-      <h3>Dependencies</h3>
-      <ul>
-        <li *ngFor="let item of result.dependencies">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.edgeCases?.length">
-      <h3>Edge Cases</h3>
-      <ul>
-        <li *ngFor="let item of result.edgeCases">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.sources?.length">
-      <h3>Sources</h3>
-      <ul style="font-size: 0.85rem; color: #64748b;">
-        <li *ngFor="let item of result.sources">{{ item | slice:0:100 }}...</li>
-      </ul>
-    </div>
-  </div>
-  
-  <div class="action-bar">
-    <button class="btn btn-secondary" (click)="copy()">Copy</button>
-    <button class="btn btn-secondary" (click)="generate()">Regenerate</button>
-  </div>
-</div>

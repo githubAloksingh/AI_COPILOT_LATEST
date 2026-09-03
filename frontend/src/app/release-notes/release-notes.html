@@ -1,88 +1,111 @@
 <div class="page-header">
   <h1>Release Notes Generator</h1>
-  <p>Generate professional release notes from sprint tickets and PRs.</p>
+  <p>Generate structured sprint release notes, new features, and technical updates using Knowledge Base or manual inputs.</p>
+</div>
+
+<!-- Toast Notification -->
+<div *ngIf="toastMessage" class="toast-banner" [ngClass]="'toast-' + toastType">
+  {{ toastMessage }}
 </div>
 
 <div class="card">
-  <div class="form-group">
-    <label>Version Number</label>
-    <input type="text" [(ngModel)]="version" placeholder="e.g. v1.4.0">
+  <!-- Mode Selector: Knowledge Base OR Manual Input -->
+  <div class="input-mode-tabs">
+    <button 
+      class="tab-btn" 
+      [class.active]="inputMode === 'kb'" 
+      (click)="setInputMode('kb')">
+      📁 Option A: Import from Knowledge Base
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="inputMode === 'manual'" 
+      (click)="setInputMode('manual')">
+      ✍️ Option B: Manual Input
+    </button>
   </div>
-  
+
   <div class="form-group">
-    <label>Sprint Information / Jira Export</label>
-    <textarea [(ngModel)]="sprintInformation" style="min-height: 150px;" placeholder="Paste sprint ticket titles, PR descriptions, or commit messages..."></textarea>
+    <label>Release Version <span class="required">*</span></label>
+    <input type="text" [(ngModel)]="version" placeholder="e.g. 2.4.0" class="form-control" style="max-width: 250px;">
   </div>
-  
-  <button class="btn btn-primary" (click)="generate()" [disabled]="loading || !version || !sprintInformation">
-    {{ loading ? 'Generating...' : 'Generate Release Notes' }}
-  </button>
-  
+
+  <!-- Option A: Knowledge Base Selection -->
+  <div *ngIf="inputMode === 'kb'" class="mode-panel kb-panel">
+    <div class="form-group">
+      <label>Select Project Document from Knowledge Base</label>
+      <select 
+        [ngModel]="selectedDocumentId" 
+        (ngModelChange)="onDocumentSelect($event)" 
+        class="form-control"
+        [disabled]="loading || loadingDocs">
+        <option [ngValue]="null">-- Select an Ingested Document --</option>
+        <option *ngFor="let doc of documents" [value]="doc.id">
+          📄 {{ doc.fileName }} ({{ doc.fileType }}, {{ doc.chunkCount || 0 }} chunks)
+        </option>
+      </select>
+      <small class="helper-text" *ngIf="documents.length === 0 && !loadingDocs">
+        No ingested documents found. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+      </small>
+    </div>
+
+    <!-- Selected Document Card -->
+    <div *ngIf="selectedDocument" class="selected-doc-badge">
+      <div class="doc-info">
+        <span class="doc-icon">📄</span>
+        <div>
+          <strong>{{ selectedDocument.fileName }}</strong>
+          <div class="doc-sub">{{ selectedDocument.fileType }} • Status: {{ selectedDocument.status }}</div>
+        </div>
+      </div>
+      <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
+    </div>
+  </div>
+
+  <!-- Option B: Manual Input -->
+  <div *ngIf="inputMode === 'manual'" class="mode-panel manual-panel">
+    <div class="form-group">
+      <label>Sprint Information / Jira Tickets / Completed Work <span class="required">*</span></label>
+      <textarea 
+        [(ngModel)]="sprintInformation" 
+        rows="4"
+        placeholder="Paste sprint summary, completed tasks, commits, or bug fixes resolved in this sprint..."
+        class="form-control"></textarea>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button 
+      class="btn btn-primary" 
+      (click)="generate()" 
+      [disabled]="loading || !isInputValid()">
+      {{ loading ? 'Generating Release Notes...' : 'Generate Release Notes' }}
+    </button>
+  </div>
+
   <div *ngIf="loading" class="loading-indicator">
     <div class="spinner"></div>
-    <span>Categorizing and generating release notes...</span>
+    <span>Retrieving sprint context and drafting release notes with Gemini AI...</span>
   </div>
-  
+
   <div *ngIf="error" class="error-message">
     {{ error }}
   </div>
 </div>
 
-<div class="card" *ngIf="!loading && !result && !error">
-  <div style="text-align: center; color: #64748b; padding: 40px 0;">
-    Enter sprint information to generate release notes.
-  </div>
-</div>
-
-<div class="card" *ngIf="result">
-  <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 20px;">
-    <h2 style="margin: 0 0 8px 0; color: #0f172a;">Release Notes: {{ result.version }}</h2>
-    <p style="margin: 0; color: #64748b;">{{ result.summary }}</p>
-  </div>
-  
-  <div>
-    <div *ngIf="result.newFeatures?.length">
-      <h3 style="color: #10b981; margin-bottom: 8px;">🚀 New Features</h3>
-      <ul>
-        <li *ngFor="let item of result.newFeatures">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.improvements?.length">
-      <h3 style="color: #3b82f6; margin-bottom: 8px;">✨ Improvements</h3>
-      <ul>
-        <li *ngFor="let item of result.improvements">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.bugFixes?.length">
-      <h3 style="color: #ea580c; margin-bottom: 8px;">🐛 Bug Fixes</h3>
-      <ul>
-        <li *ngFor="let item of result.bugFixes">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.breakingChanges?.length">
-      <h3 style="color: #dc2626; margin-bottom: 8px;">⚠️ Breaking Changes</h3>
-      <ul>
-        <li *ngFor="let item of result.breakingChanges">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.knownIssues?.length">
-      <h3 style="color: #8b5cf6; margin-bottom: 8px;">📋 Known Issues</h3>
-      <ul>
-        <li *ngFor="let item of result.knownIssues">{{ item }}</li>
-      </ul>
-    </div>
-    
-    <div *ngIf="result.technicalNotes">
-      <h3 style="margin-bottom: 8px;">🔧 Technical Notes</h3>
-      <p>{{ result.technicalNotes }}</p>
-    </div>
-  </div>
-  
-  <div class="action-bar">
-    <button class="btn btn-secondary" (click)="copy()">Copy Notes</button>
-  </div>
-</div>
+<!-- Reusable Generated Response Modal -->
+<app-response-modal
+  #responseModal
+  [isOpen]="isModalOpen"
+  [type]="'releasenote'"
+  [title]="'Release Notes — Version ' + (version || '1.0.0')"
+  [data]="generatedResult"
+  [sources]="sources"
+  [model]="model"
+  [promptVersion]="promptVersion"
+  [executionTimeMs]="executionTimeMs"
+  [saving]="saving"
+  (close)="isModalOpen = false"
+  (accept)="onAccept($event)"
+  (reject)="onReject()">
+</app-response-modal>

@@ -1,0 +1,587 @@
+<div class="modal-backdrop" *ngIf="isOpen" (click)="closeModal()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <div class="header-left">
+        <h2>{{ title }}</h2>
+        <div class="meta-badges">
+          <span class="badge badge-model">{{ model }}</span>
+          <span class="badge badge-mode" [class.badge-edit]="mode === 'EDIT_ALL'">
+            {{ mode === 'EDIT_ALL' ? 'EDIT ALL MODE' : 'REVIEW MODE' }}
+          </span>
+          <span class="badge badge-time" *ngIf="executionTimeMs > 0">{{ executionTimeMs }} ms</span>
+          <span class="badge badge-count" *ngIf="type === 'requirement' && requirementList.length > 1">
+            {{ requirementList.length }} Requirements
+          </span>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeModal()" aria-label="Close modal">✕</button>
+    </div>
+
+    <!-- Requirement Selection Bar for Multiple Generated Requirements -->
+    <div class="req-tabs-bar" *ngIf="type === 'requirement' && requirementList.length > 0">
+      <div class="tabs-label">Requirements:</div>
+      <div class="tabs-scroll">
+        <button 
+          *ngFor="let req of requirementList; let i = index"
+          class="req-tab-btn" 
+          [class.active]="selectedReqIndex === i"
+          (click)="selectRequirement(i)">
+          <span class="tab-id">{{ req.requirementId || ('REQ-' + (i + 1)) }}</span>
+          <span class="tab-title">{{ req.title || ('Requirement ' + (i + 1)) }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrollable Modal Body -->
+    <div class="modal-body">
+      
+      <!-- ======================================================= -->
+      <!-- 1. REQUIREMENT ASSISTANT VIEW / EDIT -->
+      <!-- ======================================================= -->
+      <div *ngIf="type === 'requirement' && currentRequirement">
+        
+        <!-- VIEW MODE -->
+        <div *ngIf="mode === 'VIEW'" class="view-content">
+          
+          <!-- Requirement Title Banner -->
+          <div class="req-title-banner">
+            <span class="req-id-badge">{{ currentRequirement.requirementId || 'REQ' }}</span>
+            <h3>{{ currentRequirement.title }}</h3>
+          </div>
+
+          <div class="section-card" *ngIf="currentRequirement.summary">
+            <h3>Summary</h3>
+            <p>{{ currentRequirement.summary }}</p>
+          </div>
+
+
+
+          <!-- Acceptance Criteria with Grounding & Source Traceability -->
+          <div class="section-card" *ngIf="currentRequirement.acceptanceCriteria?.length">
+            <h3>Acceptance Criteria</h3>
+            <ul class="styled-list">
+              <li *ngFor="let item of currentRequirement.acceptanceCriteria">
+                <span class="bullet-check">✓</span>
+                <div class="item-content-wrap">
+                  <span class="item-text">{{ getItemText(item) }}</span>
+                  <div class="grounding-tags-row">
+                    <span 
+                      class="grounding-badge" 
+                      [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                      {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ REQUIRES CONFIRMATION' : getItemGrounding(item) }}
+                    </span>
+                    <span class="source-pill" *ngFor="let src of getItemSource(item)">
+                      📌 {{ src }}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="grid-2-col">
+            <!-- Assumptions -->
+            <div class="section-card" *ngIf="currentRequirement.assumptions?.length">
+              <h3>Assumptions</h3>
+              <ul class="dot-list">
+                <li *ngFor="let item of currentRequirement.assumptions">
+                  <div class="item-content-wrap">
+                    <span>{{ getItemText(item) }}</span>
+                    <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                      <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                        {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Confirmation Needed' : getItemGrounding(item) }}
+                      </span>
+                      <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Dependencies -->
+            <div class="section-card" *ngIf="currentRequirement.dependencies?.length">
+              <h3>Dependencies</h3>
+              <ul class="dot-list">
+                <li *ngFor="let item of currentRequirement.dependencies">
+                  <div class="item-content-wrap">
+                    <span>{{ getItemText(item) }}</span>
+                    <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                      <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                        {{ getItemGrounding(item) }}
+                      </span>
+                      <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Edge Cases -->
+          <div class="section-card" *ngIf="currentRequirement.edgeCases?.length">
+            <h3>Edge Cases</h3>
+            <ul class="dot-list">
+              <li *ngFor="let item of currentRequirement.edgeCases">
+                <div class="item-content-wrap">
+                  <span>{{ getItemText(item) }}</span>
+                  <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                    <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                      {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Requires Confirmation' : getItemGrounding(item) }}
+                    </span>
+                    <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="section-card sources-card" *ngIf="sources?.length">
+            <h3>Retrieved Knowledge Sources</h3>
+            <div class="sources-tags">
+              <span class="source-tag" *ngFor="let s of sources">{{ s | slice:0:80 }}...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- EDIT ALL MODE — All requirements as stacked editable panels -->
+        <div *ngIf="mode === 'EDIT_ALL'" class="edit-all-container">
+          <div class="edit-all-header">
+            <span class="edit-all-icon">✏️</span>
+            <span>Editing All <strong>{{ editableRequirements.length }}</strong> Requirements — review and modify each before saving</span>
+          </div>
+
+          <!-- One panel per requirement -->
+          <div 
+            class="edit-req-panel" 
+            *ngFor="let req of editableRequirements; let i = index; trackBy: trackByIndex">
+
+            <!-- Panel Header (collapsible) -->
+            <div class="edit-panel-header" (click)="togglePanel(i)">
+              <div class="panel-header-left">
+                <span class="panel-req-id">{{ req.requirementId || ('REQ-' + (i + 1)) }}</span>
+                <span class="panel-req-title">{{ req.title || ('Requirement ' + (i + 1)) }}</span>
+              </div>
+              <span class="panel-collapse-icon">{{ collapsedPanels[i] ? '▶' : '▼' }}</span>
+            </div>
+
+            <!-- Panel Body -->
+            <div class="edit-panel-body" *ngIf="!collapsedPanels[i]">
+
+              <div class="grid-2-col">
+                <div class="form-group">
+                  <label>Requirement ID</label>
+                  <input type="text" [(ngModel)]="req.requirementId" placeholder="REQ-001">
+                </div>
+                <div class="form-group">
+                  <label>Priority</label>
+                  <select [(ngModel)]="req.priority">
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Title</label>
+                <input type="text" [(ngModel)]="req.title">
+              </div>
+
+              <div class="form-group">
+                <label>Summary</label>
+                <textarea [(ngModel)]="req.summary" rows="3"></textarea>
+              </div>
+
+
+
+              <div class="form-group">
+                <div class="label-with-action">
+                  <label>Acceptance Criteria</label>
+                  <button class="btn-text-action" (click)="addArrayItem(req.acceptanceCriteria)">+ Add</button>
+                </div>
+                <div class="array-item" *ngFor="let ac of req.acceptanceCriteria; let j = index; trackBy: trackByIndex">
+                  <input type="text"
+                    [ngModel]="getItemText(req.acceptanceCriteria[j])"
+                    (ngModelChange)="req.acceptanceCriteria[j] = { text: $event, grounding: 'DERIVED', source: [] }">
+                  <button class="btn-remove-item" (click)="removeArrayItem(req.acceptanceCriteria, j)">✕</button>
+                </div>
+              </div>
+
+              <div class="grid-2-col">
+                <div class="form-group">
+                  <div class="label-with-action">
+                    <label>Assumptions</label>
+                    <button class="btn-text-action" (click)="addArrayItem(req.assumptions)">+ Add</button>
+                  </div>
+                  <div class="array-item" *ngFor="let as of req.assumptions; let j = index; trackBy: trackByIndex">
+                    <input type="text"
+                      [ngModel]="getItemText(req.assumptions[j])"
+                      (ngModelChange)="req.assumptions[j] = { text: $event, grounding: 'DERIVED', source: [] }">
+                    <button class="btn-remove-item" (click)="removeArrayItem(req.assumptions, j)">✕</button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="label-with-action">
+                    <label>Dependencies</label>
+                    <button class="btn-text-action" (click)="addArrayItem(req.dependencies)">+ Add</button>
+                  </div>
+                  <div class="array-item" *ngFor="let dp of req.dependencies; let j = index; trackBy: trackByIndex">
+                    <input type="text"
+                      [ngModel]="getItemText(req.dependencies[j])"
+                      (ngModelChange)="req.dependencies[j] = { text: $event, grounding: 'DERIVED', source: [] }">
+                    <button class="btn-remove-item" (click)="removeArrayItem(req.dependencies, j)">✕</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="label-with-action">
+                  <label>Edge Cases</label>
+                  <button class="btn-text-action" (click)="addArrayItem(req.edgeCases)">+ Add</button>
+                </div>
+                <div class="array-item" *ngFor="let ec of req.edgeCases; let j = index; trackBy: trackByIndex">
+                  <input type="text"
+                    [ngModel]="getItemText(req.edgeCases[j])"
+                    (ngModelChange)="req.edgeCases[j] = { text: $event, grounding: 'DERIVED', source: [] }">
+                  <button class="btn-remove-item" (click)="removeArrayItem(req.edgeCases, j)">✕</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- 2. TEST CASES VIEW / EDIT -->
+      <!-- ======================================================= -->
+      <div *ngIf="type === 'testcase' && data">
+        
+        <!-- VIEW MODE -->
+        <div *ngIf="mode === 'VIEW'" class="view-content">
+          <div class="testcases-table-wrap">
+            <table class="modal-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">TC ID</th>
+                  <th>Scenario</th>
+                  <th style="width: 100px;">Type</th>
+                  <th style="width: 90px;">Priority</th>
+                  <th>Preconditions</th>
+                  <th>Steps</th>
+                  <th>Expected Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let tc of (data.items || data); let i = index">
+                  <td><strong>{{ tc.tcId || ('TC-' + (i + 1)) }}</strong></td>
+                  <td>{{ tc.scenario }}</td>
+                  <td><span class="pill pill-type">{{ tc.type }}</span></td>
+                  <td><span class="pill pill-priority">{{ tc.priority }}</span></td>
+                  <td style="font-size: 0.85rem;">
+                    <span *ngIf="tc.preconditions">{{ tc.preconditions }}</span>
+                  </td>
+                  <td style="font-size: 0.85rem;">
+                    <div *ngIf="tc.steps">
+                      <div *ngFor="let step of (tc.steps | slice:0:3); let s = index">{{ s + 1 }}. {{ step }}</div>
+                    </div>
+                  </td>
+                  <td style="font-size: 0.85rem;">{{ tc.expectedResult }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section-card sources-card" *ngIf="sources?.length" style="margin-top: 20px;">
+            <h3>Retrieved Knowledge Sources</h3>
+            <div class="sources-tags">
+              <span class="source-tag" *ngFor="let s of sources">{{ s | slice:0:80 }}...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- EDIT MODE -->
+        <div *ngIf="mode === 'EDIT_ALL'" class="edit-form">
+          <div class="testcase-edit-card" *ngFor="let tc of (editableData.items || editableData); let i = index">
+            <div class="edit-card-header">
+              <h4>Test Case #{{ i + 1 }}</h4>
+              <button class="btn-remove-item" (click)="removeArrayItem((editableData.items || editableData), i)">Remove</button>
+            </div>
+            <div class="grid-2-col">
+              <div class="form-group">
+                <label>Scenario / Title</label>
+                <input type="text" [(ngModel)]="tc.scenario">
+              </div>
+              <div class="form-group">
+                <label>Type</label>
+                <select [(ngModel)]="tc.type">
+                  <option value="POSITIVE">Positive</option>
+                  <option value="NEGATIVE">Negative</option>
+                  <option value="EDGE">Edge Case</option>
+                  <option value="SECURITY">Security</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Expected Result</label>
+              <textarea [(ngModel)]="tc.expectedResult" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- 3. DEFECT TRIAGE VIEW / EDIT -->
+      <!-- ======================================================= -->
+      <div *ngIf="type === 'defect' && data">
+        
+        <!-- VIEW MODE -->
+        <div *ngIf="mode === 'VIEW'" class="view-content">
+          <div class="triage-status-banner">
+            <div>
+              <span class="badge badge-severity">Severity: {{ data.severity || 'MEDIUM' }}</span>
+              <span class="badge badge-priority">Priority: {{ data.priority || 'P2' }}</span>
+              <span class="badge badge-confidence">Confidence: {{ data.confidence || 'HIGH' }}</span>
+            </div>
+          </div>
+
+          <div class="section-card alert-danger-card" *ngIf="data.probableRootCause">
+            <h3>Probable Root Cause</h3>
+            <p>{{ data.probableRootCause }}</p>
+          </div>
+
+          <div class="section-card alert-success-card" *ngIf="data.suggestedFix">
+            <h3>Suggested Fix</h3>
+            <pre class="code-block">{{ data.suggestedFix }}</pre>
+          </div>
+
+          <div class="section-card" *ngIf="data.evidence">
+            <h3>Evidence & Stack Trace Analysis</h3>
+            <p>{{ data.evidence }}</p>
+          </div>
+
+          <div class="section-card" *ngIf="data.suggestedInvestigation">
+            <h3>Suggested Investigation Steps</h3>
+            <p>{{ data.suggestedInvestigation }}</p>
+          </div>
+
+          <div class="section-card sources-card" *ngIf="sources?.length">
+            <h3>Retrieved Knowledge Sources</h3>
+            <div class="sources-tags">
+              <span class="source-tag" *ngFor="let s of sources">{{ s | slice:0:80 }}...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- EDIT MODE -->
+        <div *ngIf="mode === 'EDIT_ALL'" class="edit-form">
+          <div class="grid-2-col">
+            <div class="form-group">
+              <label>Severity</label>
+              <select [(ngModel)]="editableData.severity">
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="CRITICAL">Critical</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Priority</label>
+              <select [(ngModel)]="editableData.priority">
+                <option value="P0">P0 - Blocker</option>
+                <option value="P1">P1 - High</option>
+                <option value="P2">P2 - Medium</option>
+                <option value="P3">P3 - Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Probable Root Cause</label>
+            <textarea [(ngModel)]="editableData.probableRootCause" rows="3"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Suggested Fix</label>
+            <textarea [(ngModel)]="editableData.suggestedFix" rows="4"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Evidence & Notes</label>
+            <textarea [(ngModel)]="editableData.evidence" rows="3"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- 4. RELEASE NOTES VIEW / EDIT -->
+      <!-- ======================================================= -->
+      <div *ngIf="type === 'releasenote' && data">
+        
+        <!-- VIEW MODE -->
+        <div *ngIf="mode === 'VIEW'" class="view-content">
+          <div class="version-banner" *ngIf="data.version">
+            <h3>Release Version {{ data.version }}</h3>
+          </div>
+
+          <div class="section-card" *ngIf="data.summary">
+            <h3>Summary</h3>
+            <p>{{ data.summary }}</p>
+          </div>
+
+          <div class="section-card" *ngIf="data.newFeatures?.length">
+            <h3 style="color: #10b981;">New Features</h3>
+            <ul class="styled-list">
+              <li *ngFor="let f of data.newFeatures">
+                <span class="bullet-check" style="background: #10b981;">+</span> {{ f }}
+              </li>
+            </ul>
+          </div>
+
+          <div class="section-card" *ngIf="data.improvements?.length">
+            <h3 style="color: #3b82f6;">Improvements</h3>
+            <ul class="dot-list">
+              <li *ngFor="let imp of data.improvements">{{ imp }}</li>
+            </ul>
+          </div>
+
+          <div class="section-card" *ngIf="data.bugFixes?.length">
+            <h3 style="color: #f59e0b;">Bug Fixes</h3>
+            <ul class="dot-list">
+              <li *ngFor="let bf of data.bugFixes">{{ bf }}</li>
+            </ul>
+          </div>
+
+          <div class="section-card" *ngIf="data.breakingChanges?.length">
+            <h3 style="color: #ef4444;">Breaking Changes</h3>
+            <ul class="dot-list">
+              <li *ngFor="let bc of data.breakingChanges">{{ bc }}</li>
+            </ul>
+          </div>
+
+          <div class="section-card" *ngIf="data.knownIssues?.length">
+            <h3 style="color: #8b5cf6;">Known Issues</h3>
+            <ul class="dot-list">
+              <li *ngFor="let ki of data.knownIssues">{{ ki }}</li>
+            </ul>
+          </div>
+
+          <div class="section-card" *ngIf="data.technicalNotes">
+            <h3>Technical Notes</h3>
+            <p>{{ data.technicalNotes }}</p>
+          </div>
+        </div>
+
+        <!-- EDIT MODE -->
+        <div *ngIf="mode === 'EDIT_ALL'" class="edit-form">
+          <div class="form-group">
+            <label>Version</label>
+            <input type="text" [(ngModel)]="editableData.version">
+          </div>
+
+          <div class="form-group">
+            <label>Summary</label>
+            <textarea [(ngModel)]="editableData.summary" rows="3"></textarea>
+          </div>
+
+          <div class="form-group">
+            <div class="label-with-action">
+              <label>New Features</label>
+              <button class="btn-text-action" (click)="addArrayItem(editableData.newFeatures)">+ Add Feature</button>
+            </div>
+            <div class="array-item" *ngFor="let f of editableData.newFeatures; let i = index; trackBy: trackByIndex">
+              <input type="text" [(ngModel)]="editableData.newFeatures[i]">
+              <button class="btn-remove-item" (click)="removeArrayItem(editableData.newFeatures, i)">✕</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="label-with-action">
+              <label>Bug Fixes</label>
+              <button class="btn-text-action" (click)="addArrayItem(editableData.bugFixes)">+ Add Bug Fix</button>
+            </div>
+            <div class="array-item" *ngFor="let bf of editableData.bugFixes; let i = index; trackBy: trackByIndex">
+              <input type="text" [(ngModel)]="editableData.bugFixes[i]">
+              <button class="btn-remove-item" (click)="removeArrayItem(editableData.bugFixes, i)">✕</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="modal-footer">
+      <div class="footer-left">
+        <button class="btn btn-danger-outline" (click)="onRejectClick()" [disabled]="saving">
+          Reject
+        </button>
+      </div>
+      <div class="footer-right">
+        <button class="btn btn-secondary" (click)="toggleEditMode()" [disabled]="saving">
+          {{ mode === 'EDIT_ALL' ? '✕ Cancel Edit' : '✏️ Edit All' }}
+        </button>
+        <!-- For requirement type: Accept All N Requirements -->
+        <button 
+          *ngIf="type === 'requirement'"
+          class="btn btn-success btn-accept-all" 
+          (click)="onAcceptClick()" 
+          [disabled]="saving">
+          {{ saving ? 'Saving...' : '✅ Accept All ' + requirementList.length + ' Requirement' + (requirementList.length !== 1 ? 's' : '') }}
+        </button>
+        <!-- For other types: regular Accept -->
+        <button 
+          *ngIf="type !== 'requirement'"
+          class="btn btn-success" 
+          (click)="onAcceptClick()" 
+          [disabled]="saving">
+          {{ saving ? 'Saving...' : 'Accept' }}
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ======================================================= -->
+<!-- CONFIRMATION POPUP: ONCE SAVED YOU CANNOT EDIT -->
+<!-- ======================================================= -->
+<div class="popup-backdrop" *ngIf="showConfirmPopup" (click)="cancelConfirm()">
+  <div class="popup-box" (click)="$event.stopPropagation()">
+    <div class="popup-icon-warning">⚠️</div>
+    <h3>Confirm Save</h3>
+    <p class="popup-warning-text" *ngIf="type === 'requirement'">
+      Save all <strong>{{ requirementList.length }}</strong> requirement{{ requirementList.length !== 1 ? 's' : '' }} to the database?
+      Each will be stored as a separate row. Once saved, you cannot edit this data.
+    </p>
+    <p class="popup-warning-text" *ngIf="type !== 'requirement'">Once saved, you cannot edit this data.</p>
+    <div class="popup-actions">
+      <button class="btn btn-secondary" (click)="cancelConfirm()">Cancel</button>
+      <button class="btn btn-success" (click)="confirmAccept()">Yes, Save All</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================= -->
+<!-- POST-ACCEPTANCE SUCCESS POPUP + DOWNLOAD BUTTON -->
+<!-- ======================================================= -->
+<div class="popup-backdrop" *ngIf="showSuccessPopup" (click)="closeModal()">
+  <div class="popup-box success-box" (click)="$event.stopPropagation()">
+    <div class="popup-icon-success">✓</div>
+    <h3>Data Saved Successfully</h3>
+    <p class="popup-success-text">{{ successMessage }}</p>
+    <div class="popup-actions success-actions">
+      <button class="btn btn-primary btn-download" (click)="download()">
+        {{ type === 'testcase' ? '📥 Download CSV' : '📥 Download PDF' }}
+      </button>
+      <button class="btn btn-secondary" (click)="closeModal()">Close</button>
+    </div>
+  </div>
+</div>

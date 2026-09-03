@@ -1,25 +1,23 @@
-package com.example.copilot.dto;
+package com.example.copilot.dto.accept;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class RequirementResponseDto {
-    private List<RequirementItemDto> requirements = new ArrayList<>();
-
-    // Backward compatibility fields
+public class RequirementAcceptRequest {
+    private String title;
+    private String description;
+    private String priority;
     private String summary;
     private String userStory;
     private List<Object> acceptanceCriteria;
     private List<Object> assumptions;
     private List<Object> dependencies;
     private List<Object> edgeCases;
+    private List<String> sources;
+    private String model;
+    private String promptVersion;
+    private Long executionTimeMs;
 }
