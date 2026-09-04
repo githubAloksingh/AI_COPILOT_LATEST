@@ -73,16 +73,19 @@ class GroundedItem(BaseModel):
 
 class RequirementItem(BaseModel):
     requirementId: str = "REQ-001"
+    userStoryId: Optional[str] = None
     title: str = ""
     summary: str = ""
     userStory: str = ""
+    description: Optional[str] = ""
     acceptanceCriteria: List[GroundedItem] = Field(default_factory=list)
+    businessRules: List[GroundedItem] = Field(default_factory=list)
     assumptions: List[GroundedItem] = Field(default_factory=list)
     dependencies: List[GroundedItem] = Field(default_factory=list)
     edgeCases: List[GroundedItem] = Field(default_factory=list)
     sources: Optional[List[str]] = Field(default_factory=list)
 
-    @field_validator("acceptanceCriteria", "assumptions", "dependencies", "edgeCases", mode="before")
+    @field_validator("acceptanceCriteria", "businessRules", "assumptions", "dependencies", "edgeCases", mode="before")
     @classmethod
     def coerce_grounded_items(cls, v):
         if not isinstance(v, list):
@@ -92,6 +95,9 @@ class RequirementItem(BaseModel):
 
 class RequirementResult(BaseModel):
     requirements: List[RequirementItem] = Field(default_factory=list)
+    userStories: Optional[List[dict]] = Field(default_factory=list)
+    functionalDesign: Optional[dict] = None
+    technicalDesign: Optional[dict] = None
 
 
 class RequirementGenerateResponse(BaseModel):

@@ -1,8 +1,8 @@
 <div class="test-generator-page">
-  <!-- Header -->
-  <div class="input-header">
-    <h2>Choose your input</h2>
-    <p>Generate test cases using Knowledge Base documents, codebase archives, or manual requirements.</p>
+  <!-- Page Header -->
+  <div class="page-header">
+    <h1>Test Generator</h1>
+    <p>Generate comprehensive, production-ready test cases using Knowledge Base projects or manual specifications.</p>
   </div>
 
   <!-- Toast Notification -->
@@ -10,281 +10,226 @@
     {{ toastMessage }}
   </div>
 
-  <!-- 4 Input Mode Cards -->
-  <div class="mode-cards-grid">
-    <!-- Card 1: BRD Document -->
-    <div 
-      class="mode-card" 
-      [class.active]="inputMode === 'brd'" 
-      (click)="setInputMode('brd')">
-      <div class="card-icon-wrap">
-        <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="16" y1="13" x2="8" y2="13"></line>
-          <line x1="16" y1="17" x2="8" y2="17"></line>
-          <polyline points="10 9 9 9 8 9"></polyline>
-        </svg>
-      </div>
-      <div class="card-title">BRD Document</div>
-      <div class="card-desc">Business requirements & acceptance criteria from Knowledge Base</div>
+  <div class="card">
+    <!-- Two Main Options at Top: Option A & Option B -->
+    <div class="input-mode-tabs">
+      <button 
+        type="button"
+        class="tab-btn" 
+        [class.active]="mainOption === 'kb'" 
+        (click)="setMainOption('kb')">
+        📁 Option A: Import from Knowledge Base
+      </button>
+      <button 
+        type="button"
+        class="tab-btn" 
+        [class.active]="mainOption === 'manual'" 
+        (click)="setMainOption('manual')">
+        ✍️ Option B: Manual Input
+      </button>
     </div>
 
-    <!-- Card 2: Project ZIP -->
-    <div 
-      class="mode-card" 
-      [class.active]="inputMode === 'zip'" 
-      (click)="setInputMode('zip')">
-      <div class="card-icon-wrap">
-        <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-      </div>
-      <div class="card-title">Project ZIP</div>
-      <div class="card-desc">Source code & implementation archive from Knowledge Base</div>
-    </div>
+    <!-- ============================================================ -->
+    <!-- OPTION A: IMPORT FROM KNOWLEDGE BASE                         -->
+    <!-- ============================================================ -->
+    <div *ngIf="mainOption === 'kb'" class="mode-panel kb-panel">
 
-    <!-- Card 3: BRD + Project -->
-    <div 
-      class="mode-card" 
-      [class.active]="inputMode === 'both'" 
-      (click)="setInputMode('both')">
-      <div class="card-icon-wrap">
-        <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-        </svg>
-      </div>
-      <div class="card-title">BRD + Project</div>
-      <div class="card-desc">Combine requirements with codebase context</div>
-    </div>
-
-    <!-- Card 4: Manual Input -->
-    <div 
-      class="mode-card" 
-      [class.active]="inputMode === 'manual'" 
-      (click)="setInputMode('manual')">
-      <div class="card-icon-wrap">
-        <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-        </svg>
-      </div>
-      <div class="card-title">Manual Input</div>
-      <div class="card-desc">Custom requirement specification & acceptance criteria</div>
-    </div>
-  </div>
-
-  <!-- Input Selection Panels Container -->
-  <div class="upload-container">
-
-    <!-- Mode: BRD Document -->
-    <div *ngIf="inputMode === 'brd'" class="mode-panel">
+      <!-- Step 1: Select Project Dropdown -->
       <div class="form-group">
-        <label class="upload-label">Select BRD Document from Knowledge Base <span class="required">*</span></label>
+        <label class="field-label">Select Project <span class="required">*</span></label>
         <select 
-          [ngModel]="selectedBrdId" 
-          (ngModelChange)="onBrdSelect($event)" 
+          [ngModel]="selectedProjectId" 
+          (ngModelChange)="onProjectChange($event)" 
           class="form-control"
           [disabled]="loading || loadingDocs">
-          <option [ngValue]="null">-- Select an Ingested BRD Document --</option>
-          <option *ngFor="let doc of brdDocuments" [value]="doc.id">
-            📄 {{ doc.fileName }} ({{ doc.fileType }}, {{ doc.chunkCount || 0 }} chunks)
+          <option [ngValue]="null">-- Select Project --</option>
+          <option *ngFor="let p of projects" [value]="p.id">
+            📂 {{ p.name }} ({{ p.brdDocuments.length }} BRDs, {{ p.codebaseDocuments.length }} Codebases)
           </option>
         </select>
-        <small class="helper-text" *ngIf="brdDocuments.length === 0 && !loadingDocs">
-          No ingested BRD documents found. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+        <small class="helper-text" *ngIf="projects.length === 0 && !loadingDocs">
+          No projects found in Knowledge Base. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
         </small>
       </div>
 
-      <!-- Selected BRD Document Card -->
-      <div *ngIf="selectedBrdDoc" class="selected-doc-badge">
-        <div class="doc-info">
-          <span class="doc-icon">📄</span>
-          <div>
-            <strong>{{ selectedBrdDoc.fileName }}</strong>
-            <div class="doc-sub">{{ selectedBrdDoc.fileType }} • {{ selectedBrdDoc.chunkCount || 0 }} chunks • Status: {{ selectedBrdDoc.status }}</div>
-          </div>
+      <!-- Step 2: Select Input Type Dropdown (Enabled ONLY after project is selected) -->
+      <div class="form-group" style="margin-top: 16px;">
+        <label class="field-label">
+          Select Input Type <span class="required">*</span>
+          <span class="field-hint" *ngIf="!selectedProjectId">(Select a project above first)</span>
+        </label>
+        <select 
+          [ngModel]="selectedInputType" 
+          (ngModelChange)="onInputTypeChange($event)" 
+          class="form-control"
+          [disabled]="!selectedProjectId || loading">
+          <option [ngValue]="null">-- Select Input Type --</option>
+          <option value="BRD">BRD</option>
+          <option value="Codebase">Codebase</option>
+          <option value="BRD + Codebase">BRD + Codebase</option>
+        </select>
+      </div>
+
+      <!-- Step 3: Dynamic Selection Sections based on Input Type -->
+
+      <!-- CASE 1: BRD Selection (Active for 'BRD' and 'BRD + Codebase') -->
+      <div *ngIf="selectedInputType === 'BRD' || selectedInputType === 'BRD + Codebase'" class="input-sub-section">
+        <div class="form-group">
+          <label class="field-label">
+            Select BRD <span class="required">*</span>
+            <span class="field-meta" *ngIf="selectedProject">({{ selectedProject.name }})</span>
+          </label>
+          <select 
+            [ngModel]="selectedBrdId" 
+            (ngModelChange)="onBrdSelect($event)" 
+            class="form-control"
+            [disabled]="loading">
+            <option [ngValue]="null">-- Select BRD --</option>
+            <option *ngFor="let doc of availableBrds" [value]="doc.id">
+              📄 {{ doc.fileName }} ({{ doc.fileType || 'doc' }}, {{ doc.chunkCount || 0 }} chunks)
+            </option>
+          </select>
+          <small class="helper-text" *ngIf="availableBrds.length === 0">
+            No BRD files available under this project. Upload BRD documents in the <a routerLink="/knowledge-base">Knowledge Base</a>.
+          </small>
         </div>
-        <button type="button" class="btn-remove-doc" (click)="removeBrdDoc()" [disabled]="loading">Remove</button>
-      </div>
-    </div>
 
-    <!-- Mode: Project ZIP -->
-    <div *ngIf="inputMode === 'zip'" class="mode-panel">
-      <div class="form-group">
-        <label class="upload-label">Select Project ZIP Archive from Knowledge Base <span class="required">*</span></label>
-        <select 
-          [ngModel]="selectedZipId" 
-          (ngModelChange)="onZipSelect($event)" 
-          class="form-control"
-          [disabled]="loading || loadingDocs">
-          <option [ngValue]="null">-- Select an Ingested Project ZIP Archive --</option>
-          <option *ngFor="let doc of zipDocuments" [value]="doc.id">
-            📦 {{ doc.fileName }} (ZIP archive, {{ doc.chunkCount || 0 }} chunks)
-          </option>
-        </select>
-        <small class="helper-text" *ngIf="zipDocuments.length === 0 && !loadingDocs">
-          No ingested ZIP archives found. Upload a ZIP archive in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
-        </small>
-      </div>
-
-      <!-- Selected ZIP Document Card -->
-      <div *ngIf="selectedZipDoc" class="selected-doc-badge">
-        <div class="doc-info">
-          <span class="doc-icon">📦</span>
-          <div>
-            <strong>{{ selectedZipDoc.fileName }}</strong>
-            <div class="doc-sub">ZIP Archive • {{ selectedZipDoc.chunkCount || 0 }} chunks • Status: {{ selectedZipDoc.status }}</div>
-          </div>
-        </div>
-        <button type="button" class="btn-remove-doc" (click)="removeZipDoc()" [disabled]="loading">Remove</button>
-      </div>
-    </div>
-
-    <!-- Mode: BRD + Project (Both) -->
-    <div *ngIf="inputMode === 'both'" class="mode-panel">
-      <!-- BRD Selector -->
-      <div class="upload-field-group">
-        <label class="upload-label">1. Select BRD Document from Knowledge Base <span class="required">*</span></label>
-        <select 
-          [ngModel]="selectedBrdId" 
-          (ngModelChange)="onBrdSelect($event)" 
-          class="form-control"
-          [disabled]="loading || loadingDocs">
-          <option [ngValue]="null">-- Select an Ingested BRD Document --</option>
-          <option *ngFor="let doc of brdDocuments" [value]="doc.id">
-            📄 {{ doc.fileName }} ({{ doc.fileType }}, {{ doc.chunkCount || 0 }} chunks)
-          </option>
-        </select>
-        <small class="helper-text" *ngIf="brdDocuments.length === 0 && !loadingDocs">
-          No ingested BRD documents found. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
-        </small>
-
+        <!-- Selected BRD Badge Card -->
         <div *ngIf="selectedBrdDoc" class="selected-doc-badge">
           <div class="doc-info">
             <span class="doc-icon">📄</span>
             <div>
               <strong>{{ selectedBrdDoc.fileName }}</strong>
-              <div class="doc-sub">{{ selectedBrdDoc.fileType }} • {{ selectedBrdDoc.chunkCount || 0 }} chunks • Status: {{ selectedBrdDoc.status }}</div>
+              <div class="doc-sub">{{ selectedBrdDoc.fileType }} • Status: {{ selectedBrdDoc.status }} • {{ selectedBrdDoc.chunkCount || 0 }} chunks ingested</div>
             </div>
           </div>
           <button type="button" class="btn-remove-doc" (click)="removeBrdDoc()" [disabled]="loading">Remove</button>
         </div>
       </div>
 
-      <!-- Project ZIP Selector -->
-      <div class="upload-field-group mt-field">
-        <label class="upload-label">2. Select Project ZIP Archive from Knowledge Base <span class="required">*</span></label>
-        <select 
-          [ngModel]="selectedZipId" 
-          (ngModelChange)="onZipSelect($event)" 
-          class="form-control"
-          [disabled]="loading || loadingDocs">
-          <option [ngValue]="null">-- Select an Ingested Project ZIP Archive --</option>
-          <option *ngFor="let doc of zipDocuments" [value]="doc.id">
-            📦 {{ doc.fileName }} (ZIP archive, {{ doc.chunkCount || 0 }} chunks)
-          </option>
-        </select>
-        <small class="helper-text" *ngIf="zipDocuments.length === 0 && !loadingDocs">
-          No ingested ZIP archives found. Upload a ZIP archive in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
-        </small>
+      <!-- CASE 2: Codebase Selection (Active for 'Codebase' and 'BRD + Codebase') -->
+      <div *ngIf="selectedInputType === 'Codebase' || selectedInputType === 'BRD + Codebase'" class="input-sub-section" [class.mt-field]="selectedInputType === 'BRD + Codebase'">
+        <div class="form-group">
+          <label class="field-label">
+            Select Codebase / Repository <span class="required">*</span>
+            <span class="field-meta" *ngIf="selectedProject">({{ selectedProject.name }})</span>
+          </label>
+          <select 
+            [ngModel]="selectedCodebaseId" 
+            (ngModelChange)="onCodebaseSelect($event)" 
+            class="form-control"
+            [disabled]="loading">
+            <option [ngValue]="null">-- Select Codebase --</option>
+            <option *ngFor="let doc of availableCodebases" [value]="doc.id">
+              📦 {{ doc.fileName }} (ZIP archive, {{ doc.chunkCount || 0 }} chunks)
+            </option>
+          </select>
+          <small class="helper-text" *ngIf="availableCodebases.length === 0">
+            No codebase archives available under this project. Upload project ZIPs in the <a routerLink="/knowledge-base">Knowledge Base</a>.
+          </small>
+        </div>
 
-        <div *ngIf="selectedZipDoc" class="selected-doc-badge">
+        <!-- Selected Codebase Badge Card -->
+        <div *ngIf="selectedCodebaseDoc" class="selected-doc-badge">
           <div class="doc-info">
             <span class="doc-icon">📦</span>
             <div>
-              <strong>{{ selectedZipDoc.fileName }}</strong>
-              <div class="doc-sub">ZIP Archive • {{ selectedZipDoc.chunkCount || 0 }} chunks • Status: {{ selectedZipDoc.status }}</div>
+              <strong>{{ selectedCodebaseDoc.fileName }}</strong>
+              <div class="doc-sub">ZIP Archive • Status: {{ selectedCodebaseDoc.status }} • {{ selectedCodebaseDoc.chunkCount || 0 }} chunks ingested</div>
             </div>
           </div>
-          <button type="button" class="btn-remove-doc" (click)="removeZipDoc()" [disabled]="loading">Remove</button>
+          <button type="button" class="btn-remove-doc" (click)="removeCodebaseDoc()" [disabled]="loading">Remove</button>
         </div>
       </div>
+
     </div>
 
-    <!-- Mode: Manual Input -->
-    <div *ngIf="inputMode === 'manual'" class="mode-panel">
+    <!-- ============================================================ -->
+    <!-- OPTION B: MANUAL INPUT                                       -->
+    <!-- ============================================================ -->
+    <div *ngIf="mainOption === 'manual'" class="mode-panel manual-panel">
       <div class="form-group">
-        <label class="upload-label">Requirement Title <span class="required">*</span></label>
+        <label class="field-label">Requirement Title <span class="required">*</span></label>
         <input 
           type="text" 
           [(ngModel)]="manualTitle" 
-          placeholder="e.g. User Authentication & Multi-Factor Login"
-          class="form-control">
+          placeholder="e.g. Employee Leave Management & Approval Flow"
+          class="form-control"
+          [disabled]="loading">
       </div>
 
       <div class="form-group" style="margin-top: 14px;">
-        <label class="upload-label">Problem / Requirement Details <span class="required">*</span></label>
+        <label class="field-label">Client Problem / Requirement Details <span class="required">*</span></label>
         <textarea 
           [(ngModel)]="manualDescription" 
           rows="4"
           placeholder="Describe the feature workflow, functional specifications, business rules, or user actions..."
-          class="form-control"></textarea>
+          class="form-control"
+          [disabled]="loading"></textarea>
       </div>
 
       <div class="form-group" style="margin-top: 14px;">
-        <label class="upload-label">Acceptance Criteria (Optional)</label>
+        <label class="field-label">Acceptance Criteria (Optional)</label>
         <textarea 
           [(ngModel)]="manualAcceptanceCriteria" 
           rows="3"
           placeholder="Given / When / Then criteria or numbered acceptance points..."
-          class="form-control"></textarea>
+          class="form-control"
+          [disabled]="loading"></textarea>
       </div>
     </div>
 
-  </div>
-
-  <!-- Test Coverage Types Section -->
-  <div class="coverage-section">
-    <div class="coverage-title">Test Coverage Types</div>
-    <div class="checkbox-group">
-      <label class="checkbox-label">
-        <input type="checkbox" [(ngModel)]="testTypes.functional">
-        <span>Functional Tests</span>
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" [(ngModel)]="testTypes.edgeCases">
-        <span>Edge & Boundary Cases</span>
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" [(ngModel)]="testTypes.security">
-        <span>Security & Validation</span>
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" [(ngModel)]="testTypes.performance">
-        <span>Performance & Load</span>
-      </label>
+    <!-- Test Coverage Types Section -->
+    <div class="coverage-section">
+      <div class="coverage-title">Test Coverage Types</div>
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="testTypes.functional">
+          <span>Functional Tests</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="testTypes.edgeCases">
+          <span>Edge & Boundary Cases</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="testTypes.security">
+          <span>Security & Validation</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="testTypes.performance">
+          <span>Performance & Load</span>
+        </label>
+      </div>
     </div>
-  </div>
 
-  <!-- Generate Action Row -->
-  <div class="action-row">
-    <button 
-      class="btn-generate" 
-      (click)="generate()" 
-      [disabled]="loading || !isInputValid()">
-      <span *ngIf="!loading">Generate Test Cases</span>
-      <span *ngIf="loading">Generating Test Cases...</span>
-      <span *ngIf="!loading" class="arrow-icon">↓</span>
-    </button>
-  </div>
+    <!-- Generate Action Row -->
+    <div class="action-row">
+      <button 
+        type="button"
+        class="btn-generate" 
+        (click)="generate()" 
+        [disabled]="loading || !isInputValid()">
+        <span *ngIf="!loading">Generate Test Cases</span>
+        <span *ngIf="loading">Generating Test Cases...</span>
+        <span *ngIf="!loading" class="arrow-icon">↓</span>
+      </button>
+    </div>
 
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading-container">
-    <div class="spinner"></div>
-    <span>Extracting knowledge context and synthesizing test cases with Gemini AI...</span>
-  </div>
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <div class="spinner"></div>
+      <span>Extracting knowledge context and synthesizing test cases with Gemini AI...</span>
+    </div>
 
-  <!-- Error Banner -->
-  <div *ngIf="error" class="error-banner">
-    {{ error }}
+    <!-- Error Banner -->
+    <div *ngIf="error" class="error-banner">
+      {{ error }}
+    </div>
+
   </div>
 </div>
 
-<!-- Reusable Generated Response Modal -->
+<!-- Reusable Generated Response Modal with Meta Summary and Structured Table -->
 <app-response-modal
   #responseModal
   [isOpen]="isModalOpen"
@@ -295,6 +240,7 @@
   [model]="model"
   [promptVersion]="promptVersion"
   [executionTimeMs]="executionTimeMs"
+  [meta]="modalMeta"
   [saving]="saving"
   (close)="isModalOpen = false"
   (accept)="onAccept($event)"

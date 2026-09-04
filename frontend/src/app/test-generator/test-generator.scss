@@ -9,11 +9,11 @@
   font-family: inherit;
 }
 
-.input-header {
+.page-header {
   margin-bottom: 24px;
 
-  h2 {
-    font-size: 1.4rem;
+  h1 {
+    font-size: 1.5rem;
     font-weight: 700;
     color: #0f172a;
     margin: 0 0 6px 0;
@@ -26,6 +26,88 @@
     font-size: 0.95rem;
   }
 }
+
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+}
+
+/* Two Main Options at Top: Option A & Option B */
+.input-mode-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 14px;
+
+  .tab-btn {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    &.active {
+      background: #F36F21;
+      color: #ffffff;
+      border-color: #E05600;
+      box-shadow: 0 4px 10px -1px rgba(243, 111, 33, 0.3);
+    }
+  }
+}
+
+.mode-panel {
+  animation: fadeIn 0.2s ease-in;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+
+  .required {
+    color: #ef4444;
+  }
+
+  .field-hint {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: #94a3b8;
+    margin-left: 6px;
+  }
+
+  .field-meta {
+    font-size: 0.825rem;
+    font-weight: 500;
+    color: #2563eb;
+    margin-left: 6px;
+  }
+}
+
+.input-sub-section {
+  margin-top: 18px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  animation: fadeIn 0.2s ease-in;
+
+  &.mt-field {
+    margin-top: 16px;
+  }
+}
+
 
 /* 4 Mode Selector Cards */
 .mode-cards-grid {

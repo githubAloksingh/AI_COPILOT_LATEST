@@ -74,6 +74,20 @@ class GeminiService:
             f"Failed to generate content with Gemini API. Check GEMINI_API_KEY. Cause: {last_error}"
         )
 
+    def generate_dict(self, prompt_text: str) -> Dict[str, Any]:
+        raw_output = self.generate_content(prompt_text)
+        cleaned_json = self.clean_json(raw_output)
+        try:
+            parsed = json.loads(cleaned_json)
+            if isinstance(parsed, dict):
+                return parsed
+            elif isinstance(parsed, list):
+                return {"items": parsed}
+            return {}
+        except Exception as e:
+            logger.error("Failed to parse Gemini JSON: %s | Raw: %s", e, raw_output)
+            raise RuntimeError(f"Invalid JSON from Gemini: {e}")
+
     def generate_structured(self, prompt_text: str, schema_cls: Type[T]) -> T:
         raw_output = self.generate_content(prompt_text)
         cleaned_json = self.clean_json(raw_output)

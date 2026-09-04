@@ -1,0 +1,232 @@
+<div class="page-header" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+  <div>
+    <div style="margin-bottom: 8px;">
+      <a routerLink="/knowledge-base" class="back-link" style="display: inline-flex; align-items: center; gap: 6px; color: #6366f1; text-decoration: none; font-weight: 500; font-size: 0.9rem;">
+        ← Back to Projects
+      </a>
+    </div>
+    <h1 *ngIf="project" style="margin: 0;">{{ project.projectName }}</h1>
+    <h1 *ngIf="!project">Project Details</h1>
+  </div>
+</div>
+
+<!-- Project Header Summary Card -->
+<div class="card" style="margin-bottom: 24px;" *ngIf="project">
+  <div class="project-info-grid">
+    <div class="info-item">
+      <span class="info-label">Department</span>
+      <span class="info-value">{{ project.department }}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Project Owner</span>
+      <span class="info-value">{{ project.projectOwner }}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Created By</span>
+      <span class="info-value">{{ project.createdBy || 'System' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Created Time</span>
+      <span class="info-value">{{ project.createdAt | date:'medium' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Status</span>
+      <span class="status-badge" [ngClass]="project.status ? project.status.toLowerCase() : 'active'">
+        {{ project.status }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Documents Section Card -->
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+    <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600;">Project Documents</h2>
+    
+    <div>
+      <button class="btn btn-primary" (click)="openUploadModal()">
+        Upload Document
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="docError" class="error-message" style="margin-bottom: 16px;">
+    {{ docError }}
+  </div>
+
+  <div *ngIf="loadingDocs && documents.length === 0" class="loading-indicator">
+    <div class="spinner"></div>
+    <span>Loading project documents...</span>
+  </div>
+
+  <div class="table-container" *ngIf="!loadingDocs || documents.length > 0">
+    <table *ngIf="documents.length > 0; else noDocs">
+      <thead>
+        <tr>
+          <th style="width: 60px;">S.No</th>
+          <th>Type</th>
+          <th>File</th>
+          <th>Size</th>
+          <th>Uploaded By</th>
+          <th>Uploaded Time</th>
+          <th>Version</th>
+          <th style="text-align: center; width: 80px;">View</th>
+          <th style="text-align: right; width: 90px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let doc of documents; let i = index">
+          <td>{{ i + 1 }}</td>
+          <td>
+            <span class="type-badge" [class.zip-badge]="!isBrd(doc.fileName)">
+              {{ getDocumentType(doc.fileName) }}
+            </span>
+          </td>
+          <td style="font-weight: 500; word-break: break-all;">
+            <div>{{ doc.fileName }}</div>
+            <div *ngIf="doc.status === 'PROCESSING' || doc.status === 'UPLOADING'" 
+                 style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">
+              <span class="spinner" style="width: 10px; height: 10px; border-width: 2px; margin: 0;"></span>
+              <span>Processing ingestion...</span>
+            </div>
+            <div *ngIf="doc.status === 'COMPLETED'" 
+                 style="display: inline-block; font-size: 0.75rem; color: #10b981; font-weight: 600; margin-top: 4px;">
+              ✓ Ready
+            </div>
+            <div *ngIf="doc.status === 'FAILED'" 
+                 style="font-size: 0.75rem; color: #ef4444; margin-top: 4px;">
+              ✖ {{ doc.errorMessage || 'Ingestion failed' }}
+            </div>
+          </td>
+          <td>{{ formatBytes(doc.fileSize) }}</td>
+          <td>{{ doc.uploadedBy || 'System' }}</td>
+          <td>{{ doc.createdAt | date:'short' }}</td>
+          <td>
+            <span class="version-badge">{{ doc.version || 'v1' }}</span>
+          </td>
+          <td style="text-align: center;">
+            <button *ngIf="isBrd(doc.fileName)" 
+                    class="eye-btn" 
+                    title="Preview BRD Content" 
+                    (click)="openPreview(doc)">
+              👁
+            </button>
+            <span *ngIf="!isBrd(doc.fileName)" style="color: #94a3b8; font-size: 0.85rem;">—</span>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn btn-outline danger-btn" style="padding: 4px 10px; font-size: 0.8rem;" (click)="deleteDocument(doc.id)">
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <ng-template #noDocs>
+      <div style="text-align: center; padding: 48px 20px; color: #64748b;">
+        <div style="font-size: 2.5rem; margin-bottom: 12px;">📁</div>
+        <p style="margin: 0 0 6px 0; font-weight: 500; font-size: 1rem; color: #334155;">No documents in this project yet.</p>
+        <p style="margin: 0; font-size: 0.875rem;">Click "Upload Document" above to add BRD or ZIP files.</p>
+      </div>
+    </ng-template>
+  </div>
+</div>
+
+<!-- Upload Document Modal -->
+<div class="modal-backdrop" *ngIf="showUploadModal" (click)="closeUploadModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600;">Upload Document</h3>
+      <button class="close-btn" (click)="closeUploadModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div *ngIf="uploadFormError" class="error-message" style="margin-bottom: 16px;">
+        {{ uploadFormError }}
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          Title <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="text" 
+               class="form-control" 
+               [(ngModel)]="uploadForm.title" 
+               placeholder="Enter document title"
+               style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          Type <span style="color: #ef4444;">*</span>
+        </label>
+        <select class="form-control" 
+                [(ngModel)]="uploadForm.type"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; background: white;">
+          <option value="BRD">BRD</option>
+          <option value="ZIP">ZIP</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          File <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="file" 
+               (change)="onFileSelected($event)" 
+               accept=".pdf,.txt,.docx,.csv,.md,.json,.zip"
+               style="width: 100%; padding: 6px 0; font-size: 0.875rem;">
+        <div *ngIf="uploadForm.file" style="font-size: 0.8rem; color: #10b981; margin-top: 4px;">
+          Selected: {{ uploadForm.file.name }} ({{ formatBytes(uploadForm.file.size) }})
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          Version <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="text" 
+               class="form-control" 
+               [(ngModel)]="uploadForm.version" 
+               placeholder="e.g. v1"
+               style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" (click)="closeUploadModal()" [disabled]="submittingUpload">Cancel</button>
+      <button class="btn btn-primary" (click)="submitUpload()" [disabled]="submittingUpload">
+        <span *ngIf="submittingUpload" class="spinner" style="width: 12px; height: 12px; border-width: 2px; margin-right: 6px;"></span>
+        {{ submittingUpload ? 'Uploading...' : 'Upload' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- BRD Preview Modal -->
+<div class="modal-backdrop" *ngIf="showPreviewModal" (click)="closePreview()">
+  <div class="modal-content brd-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.25rem;">📄</span>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600;">BRD Preview — {{ selectedDocName }}</h3>
+      </div>
+      <button class="close-btn" (click)="closePreview()">✕</button>
+    </div>
+
+    <div class="modal-body scrollable-content">
+      <div *ngIf="loadingPreview" class="loading-indicator" style="padding: 40px 0;">
+        <div class="spinner"></div>
+        <span>Loading document content...</span>
+      </div>
+
+      <div *ngIf="!loadingPreview">
+        <pre class="content-preview">{{ selectedDocContent }}</pre>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary" (click)="closePreview()">Close</button>
+    </div>
+  </div>
+</div>

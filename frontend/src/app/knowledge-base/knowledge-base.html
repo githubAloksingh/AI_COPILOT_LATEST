@@ -1,75 +1,146 @@
 <div class="page-header">
   <h1>Knowledge Base</h1>
-  <p>Upload project documents (PRDs, tech specs, API docs, large CSVs) to feed the AI's RAG context.</p>
+  <p>Manage projects and upload specifications (BRDs, technical docs, ZIP codebases) to feed the AI RAG context.</p>
 </div>
 
 <div class="card">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
-    <h2 style="margin: 0; font-size: 1.25rem;">Uploaded Documents</h2>
+    <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600;">Projects</h2>
     
-    <div>
-      <input type="file" id="fileUpload" style="display: none;" (change)="onFileSelected($event)" accept=".pdf,.txt,.docx,.csv,.md,.json">
-      <label for="fileUpload" class="btn btn-primary" style="cursor: pointer;" [class.disabled]="uploading">
-        {{ uploading ? 'Uploading...' : 'Upload Document' }}
-      </label>
-    </div>
+    <button class="btn btn-primary" (click)="openCreateModal()">
+      + Create Project
+    </button>
   </div>
   
   <div *ngIf="error" class="error-message" style="margin-bottom: 16px;">
     {{ error }}
   </div>
 
-  <div *ngIf="loading && documents.length === 0" class="loading-indicator">
+  <div *ngIf="loading && projects.length === 0" class="loading-indicator">
     <div class="spinner"></div>
-    <span>Loading documents...</span>
+    <span>Loading projects...</span>
   </div>
 
-  <div class="table-container" *ngIf="!loading || documents.length > 0">
-    <table *ngIf="documents.length > 0; else noDocs">
+  <div class="table-container" *ngIf="!loading || projects.length > 0">
+    <table *ngIf="projects.length > 0; else noProjects">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>File Name</th>
-          <th>Type</th>
-          <th>Size</th>
+          <th style="width: 60px;">S.No</th>
+          <th>Project Name</th>
+          <th>Department</th>
+          <th>Project Owner</th>
+          <th>Created By</th>
+          <th>Creation Time</th>
           <th>Status</th>
-          <th>Actions</th>
+          <th style="text-align: right; width: 100px;">Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let doc of documents">
-          <td>{{ doc.id }}</td>
-          <td style="font-weight: 500;">{{ doc.fileName }}</td>
-          <td>{{ doc.fileType }}</td>
-          <td>{{ formatBytes(doc.fileSize) }}</td>
-          <td>
-            <div style="display: inline-flex; align-items: center; gap: 6px;">
-              <span *ngIf="doc.status === 'PROCESSING' || doc.status === 'UPLOADING'" 
-                    class="spinner" 
-                    style="width: 12px; height: 12px; border-width: 2px; margin: 0;"></span>
-              <span [ngStyle]="{
-                'color': doc.status === 'COMPLETED' ? '#10b981' : (doc.status === 'FAILED' ? '#ef4444' : '#f59e0b'),
-                'font-weight': '600',
-                'font-size': '0.875rem'
-              }">
-                {{ doc.status }}
-              </span>
-            </div>
-            <div *ngIf="doc.status === 'FAILED' && doc.errorMessage" 
-                 style="font-size: 0.75rem; color: #ef4444; max-width: 250px; margin-top: 4px; word-break: break-word;">
-              {{ doc.errorMessage }}
-            </div>
+        <tr *ngFor="let proj of projects; let i = index" 
+            class="project-row" 
+            (click)="navigateToProject(proj.id)">
+          <td>{{ i + 1 }}</td>
+          <td style="font-weight: 600; color: #4f46e5;" class="project-name-cell">
+            {{ proj.projectName }}
           </td>
+          <td>{{ proj.department }}</td>
+          <td>{{ proj.projectOwner }}</td>
+          <td>{{ proj.createdBy || 'System' }}</td>
+          <td>{{ proj.createdAt | date:'short' }}</td>
           <td>
-            <button class="btn btn-outline" style="padding: 6px 12px; font-size: 0.85rem;" (click)="deleteDocument(doc.id)">Delete</button>
+            <span class="status-badge" [ngClass]="proj.status ? proj.status.toLowerCase() : 'active'">
+              {{ proj.status }}
+            </span>
+          </td>
+          <td style="text-align: right;" (click)="$event.stopPropagation()">
+            <button class="btn btn-outline danger-btn" 
+                    style="padding: 4px 10px; font-size: 0.8rem;" 
+                    (click)="deleteProject($event, proj.id)">
+              Delete
+            </button>
           </td>
         </tr>
       </tbody>
     </table>
-    <ng-template #noDocs>
-      <div style="text-align: center; padding: 40px; color: #64748b;">
-        No documents found. Upload a document to build the knowledge base.
+
+    <ng-template #noProjects>
+      <div style="text-align: center; padding: 48px 20px; color: #64748b;">
+        <div style="font-size: 2.5rem; margin-bottom: 12px;">📂</div>
+        <p style="margin: 0 0 8px 0; font-weight: 500; font-size: 1rem; color: #334155;">No projects found.</p>
+        <p style="margin: 0; font-size: 0.875rem;">Create a project to get started with document management.</p>
       </div>
     </ng-template>
+  </div>
+</div>
+
+<!-- Create Project Modal -->
+<div class="modal-backdrop" *ngIf="showCreateModal" (click)="closeCreateModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600;">Create New Project</h3>
+      <button class="close-btn" (click)="closeCreateModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div *ngIf="formError" class="error-message" style="margin-bottom: 16px;">
+        {{ formError }}
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          Project Name <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="text" 
+               class="form-control" 
+               [(ngModel)]="newProject.projectName" 
+               placeholder="e.g. Payments Gateway V2"
+               style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          Department <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="text" 
+               class="form-control" 
+               [(ngModel)]="newProject.department" 
+               placeholder="e.g. Engineering / QA"
+               style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          Project Owner <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="text" 
+               class="form-control" 
+               [(ngModel)]="newProject.projectOwner" 
+               placeholder="e.g. Jane Doe"
+               style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label class="form-label" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem;">
+          Status
+        </label>
+        <select class="form-control" 
+                [(ngModel)]="newProject.status"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; background: white;">
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="IN_PROGRESS">IN_PROGRESS</option>
+          <option value="COMPLETED">COMPLETED</option>
+          <option value="ON_HOLD">ON_HOLD</option>
+          <option value="ARCHIVED">ARCHIVED</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" (click)="closeCreateModal()" [disabled]="submitting">Cancel</button>
+      <button class="btn btn-primary" (click)="createProject()" [disabled]="submitting">
+        <span *ngIf="submitting" class="spinner" style="width: 12px; height: 12px; border-width: 2px; margin-right: 6px;"></span>
+        {{ submitting ? 'Creating...' : 'Create Project' }}
+      </button>
+    </div>
   </div>
 </div>

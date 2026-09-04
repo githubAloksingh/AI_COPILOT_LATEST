@@ -7,30 +7,6 @@
   background-color: #f8fafc;
 }
 
-/* Top Header Bar */
-.top-header {
-  height: 42px;
-  background: linear-gradient(90deg, #F36F21 0%, #E05600 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  font-size: 0.875rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  z-index: 100;
-
-  .top-left {
-    display: flex;
-    align-items: center;
-
-    .app-subtitle {
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
-  }
-}
-
 .app-layout {
   display: flex;
   flex: 1;
@@ -46,17 +22,34 @@
 }
 
 .sidebar-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 20px 20px 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   background-color: #ffffff;
 
   .brand-logo {
-    height: 38px;
-    max-width: 150px;
+    height: 48px;
+    max-width: 175px;
     object-fit: contain;
+  }
+
+  .sdlc-suite-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFF7ED;
+    color: #EA580C;
+    border: 1px solid #FFEDD5;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.6px;
+    box-shadow: 0 1px 2px rgba(234, 88, 12, 0.05);
   }
 }
 
@@ -105,9 +98,178 @@
   }
 }
 
+.nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-sub-menu {
+  display: flex;
+  flex-direction: column;
+
+  a {
+    padding: 8px 20px 8px 36px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #64748b;
+    gap: 8px;
+
+    .sub-tree-icon {
+      font-family: monospace;
+      color: #94a3b8;
+      font-size: 0.8rem;
+    }
+
+    &:hover {
+      background-color: #fff5ee;
+      color: #F36F21;
+
+      .sub-tree-icon {
+        color: #F36F21;
+      }
+    }
+
+    &.active-link {
+      background-color: #FFF3EB;
+      color: #F36F21;
+      border-left-color: #F36F21;
+      font-weight: 600;
+
+      .sub-tree-icon {
+        color: #F36F21;
+      }
+    }
+  }
+}
+
+.sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid #e2e8f0;
+  background-color: #fafbfc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .user-profile-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F36F21 0%, #E05600 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .user-details {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+
+      .user-name {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #0f172a;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+
+      .user-role-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        display: inline-block;
+        width: fit-content;
+        margin-top: 2px;
+
+        &.role-admin {
+          background-color: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+        }
+
+        &.role-user {
+          background-color: #f0fdf4;
+          color: #15803d;
+          border: 1px solid #bbf7d0;
+        }
+      }
+    }
+  }
+
+  .btn-logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+
+    &:hover {
+      background-color: #fef2f2;
+      color: #dc2626;
+      border-color: #fecaca;
+    }
+  }
+}
+
 .main-content {
   flex: 1;
   overflow-y: auto;
   padding: 28px 36px;
   background-color: #f8fafc;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+
+    .sidebar-header {
+      padding: 12px 8px;
+
+      .brand-logo {
+        height: 28px;
+        max-width: 44px;
+      }
+
+      .sdlc-suite-badge {
+        font-size: 0.65rem;
+        padding: 5px 4px;
+        letter-spacing: 0;
+      }
+    }
+
+    .sidebar-nav a {
+      padding: 12px 0;
+      justify-content: center;
+
+      span {
+        display: none;
+      }
+    }
+  }
+
+  .main-content {
+    padding: 16px 14px;
+  }
 }

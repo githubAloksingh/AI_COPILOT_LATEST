@@ -17,12 +17,49 @@ public class IngestionService {
 
     private final DocumentRepository documentRepository;
     private final AiServiceClient aiServiceClient;
+    private final AuditService auditService;
 
     public Document uploadDocument(MultipartFile file) {
+        return uploadDocument(null, file, null, null, "System", "v1");
+    }
+
+    public Document uploadDocument(Long projectId, MultipartFile file, String uploadedBy, String version) {
+        return uploadDocument(projectId, file, null, null, uploadedBy, version);
+    }
+
+    public Document uploadDocument(Long projectId, MultipartFile file, String title, String customType, String uploadedBy, String version) {
+        String originalFileName = file.getOriginalFilename();
+        String finalName = (title != null && !title.trim().isEmpty()) ? title.trim() : originalFileName;
+        String calculatedVersion = version;
+
+        if (projectId != null && (version == null || version.isEmpty() || "v1".equalsIgnoreCase(version))) {
+            java.util.List<Document> existing = documentRepository.findByProjectIdAndFileNameOrderByCreatedAtDesc(projectId, finalName);
+            if (existing != null && !existing.isEmpty()) {
+                int maxVersion = 1;
+                for (Document d : existing) {
+                    String v = d.getVersion();
+                    if (v != null && v.toLowerCase().startsWith("v")) {
+                        try {
+                            int num = Integer.parseInt(v.substring(1));
+                            if (num > maxVersion) {
+                                maxVersion = num;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+                calculatedVersion = "v" + (maxVersion + 1);
+            } else {
+                calculatedVersion = "v1";
+            }
+        }
+
         Document doc = new Document();
-        doc.setFileName(file.getOriginalFilename());
-        doc.setFileType(file.getContentType() != null ? file.getContentType() : "unknown");
+        doc.setProjectId(projectId);
+        doc.setFileName(finalName);
+        doc.setFileType(customType != null && !customType.trim().isEmpty() ? customType.trim() : (file.getContentType() != null ? file.getContentType() : "unknown"));
         doc.setFileSize(file.getSize());
+        doc.setUploadedBy(uploadedBy != null && !uploadedBy.trim().isEmpty() ? uploadedBy.trim() : "System");
+        doc.setVersion(calculatedVersion != null && !calculatedVersion.trim().isEmpty() ? calculatedVersion.trim() : "v1");
         doc.setStatus("PROCESSING");
         return documentRepository.save(doc);
     }
@@ -37,6 +74,7 @@ public class IngestionService {
             return;
         }
 
+        long startTime = System.currentTimeMillis();
         try {
             AiIngestionResponse response = aiServiceClient.ingestDocument(
                     documentId,
@@ -48,9 +86,13 @@ public class IngestionService {
             document.setStatus("COMPLETED");
             document.setErrorMessage(null);
             documentRepository.save(document);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
+                    "Uploaded document: " + document.getFileName() + " (" + response.getChunk_count() + " chunks)", null, "Parser", "v1.0", "COMPLETED", "COMPLETED", duration, null, null, document.getFileName(), document.getVersion(), document.getFileType());
             log.info("Successfully completed ingestion for document ID: {} ({} chunks)", document.getId(), response.getChunk_count());
 
         } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
             log.error("Failed to process document ID {}: {}", documentId, e.getMessage(), e);
             document.setStatus("FAILED");
             String err = e.getMessage() != null ? e.getMessage() : "Unknown error during ingestion";
@@ -59,6 +101,9 @@ public class IngestionService {
             }
             document.setErrorMessage(err);
             documentRepository.save(document);
+
+            auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
+                    "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration, err, null, document.getFileName(), document.getVersion(), document.getFileType());
         }
     }
 }

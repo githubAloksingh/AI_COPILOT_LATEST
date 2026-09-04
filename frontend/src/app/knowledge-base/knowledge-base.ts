@@ -1,122 +1,139 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ApiService } from '../core/api';
 
 @Component({
   selector: 'app-knowledge-base',
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './knowledge-base.html'
+  imports: [CommonModule, FormsModule],
+  templateUrl: './knowledge-base.html',
+  styleUrls: ['./knowledge-base.scss']
 })
-export class KnowledgeBase implements OnInit, OnDestroy {
-  documents: any[] = [];
+export class KnowledgeBase implements OnInit {
+  projects: any[] = [];
   loading = true;
-  uploading = false;
   error = '';
-  private pollInterval: any = null;
+  submitting = false;
 
-  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
+  // Create Project Modal state
+  showCreateModal = false;
+  newProject = {
+    projectName: '',
+    department: '',
+    projectOwner: '',
+    status: 'ACTIVE',
+    createdBy: 'System'
+  };
+  formError = '';
+
+  constructor(
+    private api: ApiService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
-    this.loadDocuments();
+    this.loadProjects();
   }
 
-  ngOnDestroy() {
-    this.stopPolling();
-  }
+  loadProjects() {
+    this.loading = true;
+    this.error = '';
+    this.cdr.markForCheck();
 
-  loadDocuments(silent = false) {
-    if (!silent) {
-      this.loading = true;
-      this.cdr.markForCheck();
-    }
-
-    this.api.getDocuments().subscribe({
+    this.api.getProjects().subscribe({
       next: (res) => {
         if (res.success) {
-          this.documents = res.data || [];
-          this.checkPollingNeeded();
+          this.projects = res.data || [];
+        } else {
+          this.error = res.message || 'Failed to load projects';
         }
         this.loading = false;
         this.cdr.markForCheck();
       },
       error: () => {
         this.loading = false;
-        this.error = 'Failed to load documents';
-        this.stopPolling();
+        this.error = 'Failed to load projects. Please try again.';
         this.cdr.markForCheck();
       }
     });
   }
 
-  private checkPollingNeeded() {
-    const hasActiveProcessing = this.documents.some(
-      doc => doc.status === 'PROCESSING' || doc.status === 'UPLOADING'
-    );
+  openCreateModal() {
+    this.newProject = {
+      projectName: '',
+      department: '',
+      projectOwner: '',
+      status: 'ACTIVE',
+      createdBy: 'System'
+    };
+    this.formError = '';
+    this.showCreateModal = true;
+  }
 
-    if (hasActiveProcessing) {
-      if (!this.pollInterval) {
-        this.pollInterval = setInterval(() => {
-          this.loadDocuments(true);
-        }, 3000);
+  closeCreateModal() {
+    this.showCreateModal = false;
+    this.formError = '';
+  }
+
+  createProject() {
+    if (!this.newProject.projectName.trim()) {
+      this.formError = 'Project Name is required.';
+      return;
+    }
+    if (!this.newProject.department.trim()) {
+      this.formError = 'Department is required.';
+      return;
+    }
+    if (!this.newProject.projectOwner.trim()) {
+      this.formError = 'Project Owner is required.';
+      return;
+    }
+
+    this.submitting = true;
+    this.formError = '';
+    this.cdr.markForCheck();
+
+    this.api.createProject(this.newProject).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.closeCreateModal();
+          this.loadProjects();
+        } else {
+          this.formError = res.message || 'Failed to create project';
+        }
+        this.submitting = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.formError = err.error?.message || 'Failed to create project.';
+        this.submitting = false;
+        this.cdr.markForCheck();
       }
-    } else {
-      this.stopPolling();
-    }
+    });
   }
 
-  private stopPolling() {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
-    }
+  navigateToProject(projectId: number) {
+    this.router.navigate(['/knowledge-base/projects', projectId]);
   }
 
-  onFileSelected(event: any) {
-    const file: File = event.target.files[0];
-    if (file) {
-      this.uploading = true;
-      this.error = '';
-      this.cdr.markForCheck();
-      
-      this.api.uploadDocument(file).subscribe({
+  deleteProject(event: Event, projectId: number) {
+    event.stopPropagation(); // Prevent row click navigation
+    if (confirm('Are you sure you want to delete this project and all associated documents?')) {
+      this.api.deleteProject(projectId).subscribe({
         next: (res) => {
           if (res.success) {
-            this.loadDocuments(true);
+            this.loadProjects();
           } else {
-            this.error = res.message || 'Upload failed';
+            this.error = res.message || 'Failed to delete project';
           }
-          this.uploading = false;
-          event.target.value = '';
-          this.cdr.markForCheck();
         },
         error: (err) => {
-          this.error = err.error?.message || 'Failed to upload document. Please check file size and format.';
-          this.uploading = false;
-          event.target.value = '';
-          this.cdr.markForCheck();
+          this.error = err.error?.message || 'Failed to delete project';
         }
       });
     }
-  }
-
-  deleteDocument(id: number) {
-    if (confirm('Are you sure you want to delete this document?')) {
-      this.api.deleteDocument(id).subscribe({
-        next: () => {
-          this.loadDocuments();
-          this.cdr.markForCheck();
-        }
-      });
-    }
-  }
-
-  formatBytes(bytes: number, decimals = 2) {
-    if (!+bytes) return '0 Bytes';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
   }
 }

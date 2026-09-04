@@ -155,6 +155,45 @@ def generate_requirements(req: RequirementGenerateRequest):
         )
 
 
+@router.post("/user-story/generate", response_model=RequirementGenerateResponse)
+def generate_user_story(req: RequirementGenerateRequest):
+    """Generate structured user story using dedicated User Story prompt."""
+    try:
+        return rag_service.generate_user_story(req)
+    except Exception as e:
+        logger.error("User story generation failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"User story generation failed: {str(e)}"
+        )
+
+
+@router.post("/functional-design/generate", response_model=RequirementGenerateResponse)
+def generate_functional_design(req: RequirementGenerateRequest):
+    """Generate structured functional design using dedicated Functional Design prompt."""
+    try:
+        return rag_service.generate_functional_design(req)
+    except Exception as e:
+        logger.error("Functional design generation failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Functional design generation failed: {str(e)}"
+        )
+
+
+@router.post("/technical-design/generate", response_model=RequirementGenerateResponse)
+def generate_technical_design(req: RequirementGenerateRequest):
+    """Generate structured technical design using dedicated Technical Design prompt."""
+    try:
+        return rag_service.generate_technical_design(req)
+    except Exception as e:
+        logger.error("Technical design generation failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Technical design generation failed: {str(e)}"
+        )
+
+
 @router.post("/test-cases/generate", response_model=TestCaseGenerateResponse)
 def generate_test_cases(req: TestCaseGenerateRequest):
     """Generate structured test cases (positive, negative, edge) with RAG context."""

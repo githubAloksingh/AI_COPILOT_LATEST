@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -34,10 +35,17 @@ public class AuditService {
     }
 
     public void logAudit(String feature, String input, List<String> retrievedSources, String model, String promptVersion, String output, String status, long executionTimeMs, String errorMessage) {
+        logAuditFull(feature, "Generate", "System", "SYSTEM", input, retrievedSources, model, promptVersion, output, status, executionTimeMs, errorMessage, null, null, null, null);
+    }
+
+    public void logAuditFull(String feature, String action, String userName, String userRole, String input, List<String> retrievedSources, String model, String promptVersion, String output, String status, long executionTimeMs, String errorMessage, String projectName, String documentName, String documentVersion, String inputType) {
         try {
             AuditLog audit = new AuditLog();
             audit.setRequestId(UUID.randomUUID().toString());
+            audit.setUserName(userName != null && !userName.trim().isEmpty() ? userName : "System");
+            audit.setUserRole(userRole != null && !userRole.trim().isEmpty() ? userRole : "SYSTEM");
             audit.setFeature(feature);
+            audit.setAction(action != null ? action : "Execute");
             audit.setInput(input);
             audit.setRetrievedSources(retrievedSources);
             audit.setModel(model);
@@ -46,11 +54,15 @@ public class AuditService {
             audit.setStatus(status);
             audit.setExecutionTimeMs(executionTimeMs);
             audit.setErrorMessage(errorMessage);
+            audit.setProjectName(projectName);
+            audit.setDocumentName(documentName);
+            audit.setDocumentVersion(documentVersion);
+            audit.setInputType(inputType);
             auditLogRepository.save(audit);
         } catch (Exception e) {
             log.error("Failed to save audit log: {}", e.getMessage());
         }
-        
+
         logGeneration(feature, promptVersion, model, status, executionTimeMs);
     }
 }

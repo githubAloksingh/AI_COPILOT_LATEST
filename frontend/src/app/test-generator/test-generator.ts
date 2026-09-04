@@ -5,6 +5,13 @@ import { RouterModule } from '@angular/router';
 import { ApiService } from '../core/api';
 import { ResponseModal } from '../core/components/response-modal/response-modal';
 
+export interface KbProject {
+  id: string;
+  name: string;
+  brdDocuments: any[];
+  codebaseDocuments: any[];
+}
+
 @Component({
   selector: 'app-test-generator',
   standalone: true,
@@ -15,23 +22,33 @@ import { ResponseModal } from '../core/components/response-modal/response-modal'
 export class TestGenerator implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
 
-  // Selected input mode: 'brd' | 'zip' | 'both' | 'manual'
-  inputMode: 'brd' | 'zip' | 'both' | 'manual' = 'brd';
+  // Top-level input option: 'kb' (Option A) | 'manual' (Option B)
+  mainOption: 'kb' | 'manual' = 'kb';
 
-  // Knowledge Base Documents
+  // Raw Knowledge Base documents
   documents: any[] = [];
-  brdDocuments: any[] = [];
-  zipDocuments: any[] = [];
   loadingDocs = false;
 
-  // Selected Knowledge Base documents
+  // Projects derived from Knowledge Base documents
+  projects: KbProject[] = [];
+  selectedProjectId: string | null = null;
+  selectedProject: KbProject | null = null;
+
+  // Input Type under Option A: 'BRD' | 'Codebase' | 'BRD + Codebase' | null
+  selectedInputType: 'BRD' | 'Codebase' | 'BRD + Codebase' | null = null;
+
+  // Available documents for the currently selected project
+  availableBrds: any[] = [];
+  availableCodebases: any[] = [];
+
+  // Selected BRD and Codebase under Option A
   selectedBrdId: number | null = null;
   selectedBrdDoc: any = null;
 
-  selectedZipId: number | null = null;
-  selectedZipDoc: any = null;
+  selectedCodebaseId: number | null = null;
+  selectedCodebaseDoc: any = null;
 
-  // Manual Input fields
+  // Option B: Manual Input fields
   manualTitle = '';
   manualDescription = '';
   manualAcceptanceCriteria = '';
@@ -58,6 +75,7 @@ export class TestGenerator implements OnInit {
   model = 'gemini-3.7-flash';
   promptVersion = 'testcase-v1';
   executionTimeMs = 0;
+  modalMeta: { project?: string; inputType?: string; brd?: string; codebase?: string } = {};
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
@@ -71,30 +89,165 @@ export class TestGenerator implements OnInit {
       next: (res) => {
         if (res.success) {
           this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
-          this.brdDocuments = this.documents.filter(d => !d.fileName.toLowerCase().endsWith('.zip'));
-          this.zipDocuments = this.documents.filter(d => 
-            d.fileName.toLowerCase().endsWith('.zip') || (d.fileType && d.fileType.toLowerCase().includes('zip'))
-          );
+          this.buildProjects(this.documents);
+        } else {
+          this.buildProjects([]);
         }
         this.loadingDocs = false;
         this.cdr.markForCheck();
       },
       error: () => {
+        this.buildProjects([]);
         this.loadingDocs = false;
         this.cdr.markForCheck();
       }
     });
   }
 
-  setInputMode(mode: 'brd' | 'zip' | 'both' | 'manual') {
-    this.inputMode = mode;
+  buildProjects(completedDocs: any[]) {
+    const projectMap = new Map<string, { id: string; name: string; brds: any[]; codebases: any[] }>();
+
+    for (const doc of completedDocs) {
+      const isCodebase = (doc.fileName && doc.fileName.toLowerCase().endsWith('.zip')) ||
+                         (doc.fileType && doc.fileType.toLowerCase().includes('zip'));
+      const projName = this.extractProjectName(doc.fileName);
+      const projId = projName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+      if (!projectMap.has(projId)) {
+        projectMap.set(projId, {
+          id: projId,
+          name: projName,
+          brds: [],
+          codebases: []
+        });
+      }
+
+      const proj = projectMap.get(projId)!;
+      if (isCodebase) {
+        proj.codebases.push(doc);
+      } else {
+        proj.brds.push(doc);
+      }
+    }
+
+    const result: KbProject[] = [];
+    for (const item of projectMap.values()) {
+      result.push({
+        id: item.id,
+        name: item.name,
+        brdDocuments: item.brds,
+        codebaseDocuments: item.codebases
+      });
+    }
+
+    // If multiple projects exist, also prepend "All Knowledge Base Projects"
+    if (result.length > 1) {
+      const allBrds = completedDocs.filter(d => 
+        !(d.fileName && d.fileName.toLowerCase().endsWith('.zip')) && 
+        !(d.fileType && d.fileType.toLowerCase().includes('zip'))
+      );
+      const allCodebases = completedDocs.filter(d => 
+        (d.fileName && d.fileName.toLowerCase().endsWith('.zip')) || 
+        (d.fileType && d.fileType.toLowerCase().includes('zip'))
+      );
+      result.unshift({
+        id: 'all-kb-projects',
+        name: 'All Knowledge Base Projects',
+        brdDocuments: allBrds,
+        codebaseDocuments: allCodebases
+      });
+    } else if (result.length === 0) {
+      // Fallback default project if no documents yet
+      result.push({
+        id: 'default-project',
+        name: 'Default Project',
+        brdDocuments: [],
+        codebaseDocuments: []
+      });
+    }
+
+    this.projects = result;
+
+    // Restore selected project if previously selected
+    if (this.selectedProjectId) {
+      this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
+      if (this.selectedProject) {
+        this.availableBrds = this.selectedProject.brdDocuments;
+        this.availableCodebases = this.selectedProject.codebaseDocuments;
+      }
+    }
+  }
+
+  extractProjectName(fileName: string): string {
+    if (!fileName) return 'Default Project';
+    const cleanName = fileName.replace(/\.[^/.]+$/, '');
+
+    // Check delimiters: ' - ', '_', ' / ', ':'
+    const parts = cleanName.split(/[-_:]/);
+    if (parts.length > 1) {
+      const candidate = parts[0].trim();
+      if (candidate.length > 1 && !/^(brd|doc|document|code|codebase|repo|file|spec|req|test)$/i.test(candidate)) {
+        return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+      }
+    }
+
+    // Match common domain keywords
+    const lower = cleanName.toLowerCase();
+    if (lower.includes('copilot')) return 'AI Work Copilot';
+    if (lower.includes('bank')) return 'Banking Application';
+    if (lower.includes('ecom') || lower.includes('store') || lower.includes('shop')) return 'E-Commerce Platform';
+    if (lower.includes('hrms') || lower.includes('employee')) return 'HRMS Portal';
+    if (lower.includes('payment')) return 'Payment Gateway';
+
+    return 'Default Project';
+  }
+
+  setMainOption(option: 'kb' | 'manual') {
+    this.mainOption = option;
+    this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  onProjectChange(projectId: any) {
+    this.selectedProjectId = projectId || null;
+    this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
+
+    if (this.selectedProject) {
+      this.availableBrds = this.selectedProject.brdDocuments;
+      this.availableCodebases = this.selectedProject.codebaseDocuments;
+    } else {
+      this.availableBrds = [];
+      this.availableCodebases = [];
+      this.selectedInputType = null;
+    }
+
+    // Reset document selections when project changes
+    this.selectedBrdId = null;
+    this.selectedBrdDoc = null;
+    this.selectedCodebaseId = null;
+    this.selectedCodebaseDoc = null;
+    this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  onInputTypeChange(type: any) {
+    this.selectedInputType = type || null;
+
+    // Reset irrelevant selections based on chosen type
+    if (this.selectedInputType === 'BRD') {
+      this.selectedCodebaseId = null;
+      this.selectedCodebaseDoc = null;
+    } else if (this.selectedInputType === 'Codebase') {
+      this.selectedBrdId = null;
+      this.selectedBrdDoc = null;
+    }
     this.error = '';
     this.cdr.markForCheck();
   }
 
   onBrdSelect(docId: any) {
     this.selectedBrdId = docId ? Number(docId) : null;
-    this.selectedBrdDoc = this.documents.find(d => d.id === this.selectedBrdId) || null;
+    this.selectedBrdDoc = this.availableBrds.find(d => d.id === this.selectedBrdId) || null;
     this.error = '';
     this.cdr.markForCheck();
   }
@@ -105,16 +258,16 @@ export class TestGenerator implements OnInit {
     this.cdr.markForCheck();
   }
 
-  onZipSelect(docId: any) {
-    this.selectedZipId = docId ? Number(docId) : null;
-    this.selectedZipDoc = this.documents.find(d => d.id === this.selectedZipId) || null;
+  onCodebaseSelect(docId: any) {
+    this.selectedCodebaseId = docId ? Number(docId) : null;
+    this.selectedCodebaseDoc = this.availableCodebases.find(d => d.id === this.selectedCodebaseId) || null;
     this.error = '';
     this.cdr.markForCheck();
   }
 
-  removeZipDoc() {
-    this.selectedZipId = null;
-    this.selectedZipDoc = null;
+  removeCodebaseDoc() {
+    this.selectedCodebaseId = null;
+    this.selectedCodebaseDoc = null;
     this.cdr.markForCheck();
   }
 
@@ -125,37 +278,66 @@ export class TestGenerator implements OnInit {
   isInputValid(): boolean {
     if (!this.hasCoverageType()) return false;
 
-    if (this.inputMode === 'brd') {
-      return !!this.selectedBrdId;
-    } else if (this.inputMode === 'zip') {
-      return !!this.selectedZipId;
-    } else if (this.inputMode === 'both') {
-      return !!this.selectedBrdId && !!this.selectedZipId;
-    } else if (this.inputMode === 'manual') {
+    if (this.mainOption === 'kb') {
+      if (!this.selectedProjectId) return false;
+      if (!this.selectedInputType) return false;
+
+      if (this.selectedInputType === 'BRD') {
+        return !!this.selectedBrdId;
+      } else if (this.selectedInputType === 'Codebase') {
+        return !!this.selectedCodebaseId;
+      } else if (this.selectedInputType === 'BRD + Codebase') {
+        return !!this.selectedBrdId && !!this.selectedCodebaseId;
+      }
+      return false;
+    } else {
+      // Option B: Manual Input
       return !!(this.manualTitle.trim() && this.manualDescription.trim());
     }
-    return false;
+  }
+
+  getValidationMessage(): string | null {
+    if (this.mainOption === 'kb') {
+      if (!this.selectedProjectId) {
+        return 'No project selected.';
+      }
+      if (!this.selectedInputType) {
+        return 'Please select an Input Type (BRD, Codebase, or BRD + Codebase).';
+      }
+      if (this.selectedInputType === 'BRD' && !this.selectedBrdId) {
+        return 'Please select a BRD.';
+      }
+      if (this.selectedInputType === 'Codebase' && !this.selectedCodebaseId) {
+        return 'Please select a codebase.';
+      }
+      if (this.selectedInputType === 'BRD + Codebase') {
+        if (!this.selectedBrdId && !this.selectedCodebaseId) {
+          return 'Please select both BRD and Codebase.';
+        }
+        if (!this.selectedBrdId) {
+          return 'Please select a BRD.';
+        }
+        if (!this.selectedCodebaseId) {
+          return 'Please select a codebase.';
+        }
+      }
+    } else {
+      if (!this.manualTitle.trim() || !this.manualDescription.trim()) {
+        return 'Please enter manual input.';
+      }
+    }
+
+    if (!this.hasCoverageType()) {
+      return 'Please select at least one test coverage type.';
+    }
+
+    return null;
   }
 
   generate() {
-    if (!this.isInputValid()) {
-      if (!this.hasCoverageType()) {
-        this.error = 'Please select at least one test coverage type.';
-      } else if (this.inputMode === 'brd' && !this.selectedBrdId) {
-        this.error = 'Please select a BRD document from Knowledge Base.';
-      } else if (this.inputMode === 'zip' && !this.selectedZipId) {
-        this.error = 'Please select a Project ZIP archive from Knowledge Base.';
-      } else if (this.inputMode === 'both') {
-        if (!this.selectedBrdId && !this.selectedZipId) {
-          this.error = 'Please select both a BRD document and a Project ZIP archive from Knowledge Base.';
-        } else if (!this.selectedBrdId) {
-          this.error = 'Please select a BRD document from Knowledge Base.';
-        } else if (!this.selectedZipId) {
-          this.error = 'Please select a Project ZIP archive from Knowledge Base.';
-        }
-      } else if (this.inputMode === 'manual') {
-        this.error = 'Please provide both Requirement Title and Problem / Requirement Description.';
-      }
+    const validationError = this.getValidationMessage();
+    if (validationError) {
+      this.error = validationError;
       this.cdr.markForCheck();
       return;
     }
@@ -175,19 +357,44 @@ export class TestGenerator implements OnInit {
     let docId: string | null = null;
     let zipDocId: string | null = null;
 
-    if (this.inputMode === 'brd') {
-      title = this.selectedBrdDoc ? `Test Cases for ${this.selectedBrdDoc.fileName}` : 'BRD Test Cases';
-      docId = String(this.selectedBrdId);
-    } else if (this.inputMode === 'zip') {
-      title = this.selectedZipDoc ? `Test Cases for ${this.selectedZipDoc.fileName}` : 'Project ZIP Test Cases';
-      zipDocId = String(this.selectedZipId);
-    } else if (this.inputMode === 'both') {
-      title = `Test Cases: ${this.selectedBrdDoc?.fileName || 'BRD'} & ${this.selectedZipDoc?.fileName || 'Project ZIP'}`;
-      docId = String(this.selectedBrdId);
-      zipDocId = String(this.selectedZipId);
-    } else if (this.inputMode === 'manual') {
+    if (this.mainOption === 'kb') {
+      const projName = this.selectedProject?.name || 'Knowledge Base Project';
+
+      if (this.selectedInputType === 'BRD') {
+        title = `Test Cases for ${projName} - ${this.selectedBrdDoc?.fileName || 'BRD'}`;
+        docId = String(this.selectedBrdId);
+        this.modalMeta = {
+          project: projName,
+          inputType: 'BRD',
+          brd: this.selectedBrdDoc?.fileName
+        };
+      } else if (this.selectedInputType === 'Codebase') {
+        title = `Test Cases for ${projName} - ${this.selectedCodebaseDoc?.fileName || 'Codebase'}`;
+        zipDocId = String(this.selectedCodebaseId);
+        this.modalMeta = {
+          project: projName,
+          inputType: 'Codebase',
+          codebase: this.selectedCodebaseDoc?.fileName
+        };
+      } else if (this.selectedInputType === 'BRD + Codebase') {
+        title = `Test Cases: ${projName} (${this.selectedBrdDoc?.fileName || 'BRD'} & ${this.selectedCodebaseDoc?.fileName || 'Codebase'})`;
+        docId = String(this.selectedBrdId);
+        zipDocId = String(this.selectedCodebaseId);
+        this.modalMeta = {
+          project: projName,
+          inputType: 'BRD + Codebase',
+          brd: this.selectedBrdDoc?.fileName,
+          codebase: this.selectedCodebaseDoc?.fileName
+        };
+      }
+    } else {
       title = `${this.manualTitle}\n${this.manualDescription}`.trim();
       acceptanceCriteria = this.manualAcceptanceCriteria.trim();
+      this.modalMeta = {
+        project: 'Manual Input',
+        inputType: 'Manual Specification',
+        brd: this.manualTitle.trim() || undefined
+      };
     }
 
     const payload: any = {
@@ -209,7 +416,7 @@ export class TestGenerator implements OnInit {
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
         } else {
-          this.error = res.message || 'Test case generation failed';
+          this.error = res.message || 'Test case generation failed. Please try again.';
         }
         this.loading = false;
         this.cdr.markForCheck();
@@ -229,13 +436,16 @@ export class TestGenerator implements OnInit {
     const items = Array.isArray(event.editedData) ? event.editedData : (event.editedData.items || []);
 
     let requirementTitle = 'Generated Test Cases';
-    if (this.inputMode === 'brd' && this.selectedBrdDoc) {
-      requirementTitle = `BRD: ${this.selectedBrdDoc.fileName}`;
-    } else if (this.inputMode === 'zip' && this.selectedZipDoc) {
-      requirementTitle = `Project ZIP: ${this.selectedZipDoc.fileName}`;
-    } else if (this.inputMode === 'both') {
-      requirementTitle = `BRD: ${this.selectedBrdDoc?.fileName || 'BRD'} & ZIP: ${this.selectedZipDoc?.fileName || 'Project'}`;
-    } else if (this.inputMode === 'manual') {
+    if (this.mainOption === 'kb') {
+      const projName = this.selectedProject?.name || 'Project';
+      if (this.selectedInputType === 'BRD') {
+        requirementTitle = `${projName}: ${this.selectedBrdDoc?.fileName || 'BRD'}`;
+      } else if (this.selectedInputType === 'Codebase') {
+        requirementTitle = `${projName}: ${this.selectedCodebaseDoc?.fileName || 'Codebase'}`;
+      } else if (this.selectedInputType === 'BRD + Codebase') {
+        requirementTitle = `${projName}: ${this.selectedBrdDoc?.fileName || 'BRD'} & ${this.selectedCodebaseDoc?.fileName || 'Codebase'}`;
+      }
+    } else {
       requirementTitle = this.manualTitle.trim() || 'Manual Requirement';
     }
 

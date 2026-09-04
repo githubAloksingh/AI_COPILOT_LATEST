@@ -27,6 +27,21 @@ public class RequirementController {
         return ApiResponse.success(requirementService.generateRequirement(request), "Requirement generated successfully");
     }
 
+    @PostMapping("/user-story")
+    public ApiResponse<AiRequirementResponse> generateUserStory(@RequestBody RequirementRequest request) {
+        return ApiResponse.success(requirementService.generateUserStory(request), "User story generated successfully");
+    }
+
+    @PostMapping("/functional-design")
+    public ApiResponse<AiRequirementResponse> generateFunctionalDesign(@RequestBody RequirementRequest request) {
+        return ApiResponse.success(requirementService.generateFunctionalDesign(request), "Functional design generated successfully");
+    }
+
+    @PostMapping("/technical-design")
+    public ApiResponse<AiRequirementResponse> generateTechnicalDesign(@RequestBody RequirementRequest request) {
+        return ApiResponse.success(requirementService.generateTechnicalDesign(request), "Technical design generated successfully");
+    }
+
     /** Accept a single selected requirement (backward compatible) */
     @PostMapping("/accept")
     public ApiResponse<Requirement> acceptRequirement(@RequestBody RequirementAcceptRequest request) {

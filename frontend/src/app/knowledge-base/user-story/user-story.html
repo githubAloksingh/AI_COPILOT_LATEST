@@ -1,0 +1,109 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>User Story Generation</h1>
+    <p class="page-subtitle">
+      Generate detailed User Stories and acceptance criteria from Knowledge Base documents or manual text input.
+    </p>
+  </div>
+
+  <div *ngIf="toastMessage" class="toast-banner" [ngClass]="'toast-' + toastType">
+    {{ toastMessage }}
+  </div>
+
+  <div class="card main-card">
+    <!-- Option Tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab" 
+              [class.active]="inputMode === 'kb'" 
+              (click)="setInputMode('kb')">
+        📁 Option A: Import from Knowledge Base
+      </button>
+      <button class="mode-tab" 
+              [class.active]="inputMode === 'manual'" 
+              (click)="setInputMode('manual')">
+        ✍️ Option B: Enter Text
+      </button>
+    </div>
+
+    <!-- OPTION A: Import from Knowledge Base -->
+    <div class="mode-panel" *ngIf="inputMode === 'kb'">
+      <div class="form-group">
+        <label class="field-label">
+          Select Knowledge Base Document <span class="required">*</span>
+        </label>
+        <div class="kb-select-wrap">
+          <select class="form-control" 
+                  [ngModel]="selectedDocumentId" 
+                  (ngModelChange)="onDocumentSelect($event)">
+            <option [ngValue]="null" disabled>-- Choose a document from Knowledge Base --</option>
+            <option *ngFor="let doc of documents" [value]="doc.id">
+              📄 {{ doc.fileName }} ({{ doc.version || 'v1' }})
+            </option>
+          </select>
+        </div>
+
+        <div *ngIf="selectedDocument" class="selected-doc-badge">
+          <div class="doc-info">
+            <span class="doc-icon">📄</span>
+            <div>
+              <strong>{{ selectedDocument.fileName }}</strong>
+              <span class="doc-sub">Status: {{ selectedDocument.status }} • Version: {{ selectedDocument.version || 'v1' }}</span>
+            </div>
+          </div>
+          <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B: Enter Text -->
+    <div class="mode-panel" *ngIf="inputMode === 'manual'">
+      <div class="form-group">
+        <label class="field-label">Feature Title / Headline (Optional)</label>
+        <input type="text" 
+               class="form-control" 
+               [(ngModel)]="manualTitle" 
+               placeholder="e.g. User Authentication & Multi-factor Login">
+      </div>
+
+      <div class="form-group" style="margin-top: 16px;">
+        <label class="field-label">
+          Requirement Details / Text Input <span class="required">*</span>
+        </label>
+        <textarea class="form-control text-area" 
+                  rows="6" 
+                  [(ngModel)]="manualText" 
+                  placeholder="Enter or paste the business requirements, feature description, or user workflow here..."></textarea>
+      </div>
+    </div>
+
+    <!-- Validation Error Banner -->
+    <div *ngIf="error" class="error-banner">
+      ⚠️ {{ error }}
+    </div>
+
+    <!-- Action Button -->
+    <div class="action-row" style="margin-top: 24px;">
+      <button class="btn-generate" 
+              (click)="generateUserStory()" 
+              [disabled]="loading || !isInputValid()">
+        <span *ngIf="loading" class="spinner"></span>
+        <span>{{ loading ? 'Generating User Story...' : 'Generate User Story' }}</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Response Output Modal -->
+<app-response-modal
+  [isOpen]="isModalOpen"
+  type="userstory"
+  title="Generated User Stories"
+  [data]="generatedResult"
+  [sources]="sources"
+  [model]="model"
+  [meta]="getModalMeta()"
+  [executionTimeMs]="executionTimeMs"
+  (close)="isModalOpen = false"
+  (acceptAll)="onAcceptAll($event)"
+  (reject)="onReject()">
+</app-response-modal>

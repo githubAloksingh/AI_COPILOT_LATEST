@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -14,6 +15,9 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RequirementResponseDto {
     private List<RequirementItemDto> requirements = new ArrayList<>();
+    private List<Map<String, Object>> userStories = new ArrayList<>();
+    private Map<String, Object> functionalDesign;
+    private Map<String, Object> technicalDesign;
 
     // Backward compatibility fields
     private String summary;

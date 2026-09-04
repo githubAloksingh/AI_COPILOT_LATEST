@@ -1,9 +1,24 @@
 <div class="page-header">
   <h1>Audit & History</h1>
-  <p>Track all AI interactions, generations, and context usage for compliance.</p>
+  <p>Track all application activities, AI generations, and feature executions.</p>
 </div>
 
 <div class="card">
+  <!-- ADMIN User Filter Dropdown -->
+  <div *ngIf="isAdmin" style="display: flex; justify-content: flex-end; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f1f5f9; background: #fafafa; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <label for="userFilterSelect" style="font-size: 0.85rem; font-weight: 600; color: #475569;">Filter User:</label>
+      <select 
+        id="userFilterSelect" 
+        [(ngModel)]="userFilter" 
+        (change)="loadLogs()" 
+        style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; background: #ffffff;">
+        <option value="ALL">All Users</option>
+        <option *ngFor="let u of availableUsers" [value]="u">{{ u }}</option>
+      </select>
+    </div>
+  </div>
+
   <div *ngIf="loading" class="loading-indicator">
     <div class="spinner"></div>
     <span>Loading audit logs...</span>
@@ -14,9 +29,9 @@
       <thead>
         <tr>
           <th>Time</th>
+          <th *ngIf="isAdmin">User</th>
           <th>Feature</th>
           <th>Status</th>
-          <th>Model</th>
           <th>Exec Time</th>
           <th>Action</th>
         </tr>
@@ -25,29 +40,31 @@
         <ng-container *ngFor="let log of logs">
           <tr>
             <td style="white-space: nowrap; font-size: 0.85rem;">{{ formatDate(log.timestamp) }}</td>
+            <td *ngIf="isAdmin" style="font-weight: 600; font-size: 0.85rem; color: #1e293b;">
+              {{ log.userName || 'System' }}
+            </td>
             <td>
               <span class="feature-badge">{{ log.feature }}</span>
             </td>
             <td>
-              <span class="status-badge status-accepted" *ngIf="log.status === 'SUCCESS' || log.status === 'ACCEPTED'">
-                [ ACCEPTED ]
+              <span class="status-badge status-accepted" *ngIf="log.status === 'SUCCESS' || log.status === 'ACCEPTED' || log.status === 'COMPLETED'">
+                [ {{ log.status === 'COMPLETED' ? 'COMPLETED' : 'ACCEPTED' }} ]
               </span>
-              <span class="status-badge status-failed" *ngIf="log.status !== 'SUCCESS' && log.status !== 'ACCEPTED'">
+              <span class="status-badge status-failed" *ngIf="log.status !== 'SUCCESS' && log.status !== 'ACCEPTED' && log.status !== 'COMPLETED'">
                 {{ log.status }}
               </span>
             </td>
-            <td style="font-size: 0.85rem;">{{ log.model }}</td>
-            <td style="font-size: 0.85rem;">{{ log.executionTimeMs }} ms</td>
+            <td style="font-size: 0.85rem;">{{ log.executionTimeMs || 0 }} ms</td>
             <td>
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 0.825rem;" (click)="toggleExpand(log)">
-                {{ log.expanded ? 'Close' : 'View Output' }}
+                {{ log.expanded ? 'Close' : 'View Details' }}
               </button>
             </td>
           </tr>
 
           <!-- Expanded Detail View -->
           <tr *ngIf="log.expanded">
-            <td colspan="6" class="expanded-row-container">
+            <td [attr.colspan]="isAdmin ? 6 : 5" class="expanded-row-container">
               <div class="audit-details-card">
                 
                 <!-- Input Section -->

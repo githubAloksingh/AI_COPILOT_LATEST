@@ -34,6 +34,14 @@ public class AuditLog extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String errorMessage;
 
+    private String userName = "User A";
+    private String userRole = "USER";
+    private String action; // Generate, Upload, Edit, Accept, Reject, Delete, Download PDF
+    private String projectName;
+    private String documentName;
+    private String documentVersion;
+    private String inputType;
+
     public java.time.LocalDateTime getTimestamp() {
         return getCreatedAt();
     }

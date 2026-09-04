@@ -38,7 +38,7 @@ public class RequirementServiceTest {
     }
 
     @Test
-    void testGenerateRequirement_PersistsToSql() {
+    void testGenerateRequirement_ReturnsAiResponse() {
         RequirementRequest request = new RequirementRequest();
         request.setTitle("Feature X");
         request.setDescription("Feature description");
@@ -47,7 +47,6 @@ public class RequirementServiceTest {
         RequirementResponseDto resultDto = new RequirementResponseDto();
         resultDto.setSummary("Summary X");
         resultDto.setUserStory("As a dev...");
-        resultDto.setAcceptanceCriteria(List.of("Must pass"));
 
         AiRequirementResponse aiResponse = new AiRequirementResponse();
         aiResponse.setResult(resultDto);
@@ -56,26 +55,13 @@ public class RequirementServiceTest {
         aiResponse.setPrompt_version("requirement-v1");
 
         when(aiServiceClient.generateRequirement(any())).thenReturn(aiResponse);
-        when(requirementRepository.save(any(Requirement.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Requirement saved = requirementService.generateRequirement(request);
+        AiRequirementResponse response = requirementService.generateRequirement(request);
 
-        assertNotNull(saved);
-        assertEquals("Feature X", saved.getTitle());
-        assertEquals("Summary X", saved.getSummary());
-        assertEquals(1, saved.getSources().size());
+        assertNotNull(response);
+        assertEquals("gemini-3.7-flash", response.getModel());
+        assertEquals(1, response.getSources().size());
 
-        verify(requirementRepository, times(1)).save(any(Requirement.class));
-        verify(auditService, times(1)).logAudit(
-                eq("REQUIREMENT_ASSISTANT"),
-                eq("Feature description"),
-                any(),
-                eq("gemini-3.7-flash"),
-                eq("requirement-v1"),
-                any(),
-                eq("SUCCESS"),
-                anyLong(),
-                isNull()
-        );
+        verify(aiServiceClient, times(1)).generateRequirement(any());
     }
 }

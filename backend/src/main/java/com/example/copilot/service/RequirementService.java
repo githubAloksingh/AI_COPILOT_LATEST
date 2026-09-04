@@ -8,6 +8,7 @@ import com.example.copilot.dto.accept.RequirementItemRequest;
 import com.example.copilot.dto.ai.AiRequirementResponse;
 import com.example.copilot.entity.Requirement;
 import com.example.copilot.repository.RequirementRepository;
+import com.example.copilot.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,11 +29,82 @@ public class RequirementService {
     private final AuditService auditService;
 
     public AiRequirementResponse generateRequirement(RequirementRequest request) {
+        long startTime = System.currentTimeMillis();
         try {
-            return aiServiceClient.generateRequirement(request);
+            AiRequirementResponse resp = aiServiceClient.generateRequirement(request);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    resp.getSources(), resp.getModel(), resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+            return resp;
         } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
             log.error("Error generating requirement preview: ", e);
             throw new RuntimeException("Failed to generate requirement: " + e.getMessage(), e);
+        }
+    }
+
+    public AiRequirementResponse generateUserStory(RequirementRequest request) {
+        long startTime = System.currentTimeMillis();
+        try {
+            AiRequirementResponse resp = aiServiceClient.generateUserStory(request);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    resp.getSources(), resp.getModel(), resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+            return resp;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
+            log.error("Error generating user story preview: ", e);
+            throw new RuntimeException("Failed to generate user story: " + e.getMessage(), e);
+        }
+    }
+
+    public AiRequirementResponse generateFunctionalDesign(RequirementRequest request) {
+        long startTime = System.currentTimeMillis();
+        try {
+            AiRequirementResponse resp = aiServiceClient.generateFunctionalDesign(request);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    resp.getSources(), resp.getModel(), resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+            return resp;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
+            log.error("Error generating functional design preview: ", e);
+            throw new RuntimeException("Failed to generate functional design: " + e.getMessage(), e);
+        }
+    }
+
+    public AiRequirementResponse generateTechnicalDesign(RequirementRequest request) {
+        long startTime = System.currentTimeMillis();
+        try {
+            AiRequirementResponse resp = aiServiceClient.generateTechnicalDesign(request);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    resp.getSources(), resp.getModel(), resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+            return resp;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
+                    request.getDescription() != null ? request.getDescription() : request.getTitle(),
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
+            log.error("Error generating technical design preview: ", e);
+            throw new RuntimeException("Failed to generate technical design: " + e.getMessage(), e);
         }
     }
 
@@ -62,16 +134,20 @@ public class RequirementService {
         String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "requirement-v2";
         String outputStr = request.getSummary() != null ? request.getSummary() : "";
 
-        auditService.logAudit(
-                "REQUIREMENT_ASSISTANT",
+        auditService.logAuditFull(
+                "Requirement Assistant",
+                "ACCEPT",
+                UserContext.getCurrentUser(),
+                UserContext.getCurrentRole(),
                 request.getDescription() != null ? request.getDescription() : request.getTitle(),
                 request.getSources(),
                 model,
                 promptVersion,
                 outputStr,
-                "SUCCESS",
+                "ACCEPTED",
                 execTime,
-                null
+                null,
+                null, null, null, null
         );
 
         return saved;
@@ -116,16 +192,20 @@ public class RequirementService {
             savedList.add(saved);
 
             // One audit log entry per requirement for full traceability
-            auditService.logAudit(
-                    "REQUIREMENT_ASSISTANT",
+            auditService.logAuditFull(
+                    "Requirement Assistant",
+                    "ACCEPT",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
                     "[" + brdName + "] " + (item.getRequirementId() != null ? item.getRequirementId() : "") + " " + (item.getTitle() != null ? item.getTitle() : ""),
                     sources,
                     model,
                     promptVer,
                     item.getSummary() != null ? item.getSummary() : "",
-                    "SUCCESS",
+                    "ACCEPTED",
                     execTime,
-                    null
+                    null,
+                    null, brdName, null, null
             );
         }
 

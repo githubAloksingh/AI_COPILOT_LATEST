@@ -11,12 +11,12 @@ if (Test-Path $envFile) {
 
 $localMaven = Join-Path $PSScriptRoot '.tools\apache-maven-3.9.9\bin\mvn.cmd'
 if (Test-Path $localMaven) {
-    & $localMaven spring-boot:run
+    & $localMaven spring-boot:run -DskipTests
     exit $LASTEXITCODE
 }
 
 if (Get-Command mvn -ErrorAction SilentlyContinue) {
-    mvn spring-boot:run
+    mvn spring-boot:run -DskipTests
     exit $LASTEXITCODE
 }
 

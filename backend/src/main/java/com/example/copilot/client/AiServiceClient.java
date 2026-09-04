@@ -70,6 +70,21 @@ public class AiServiceClient {
         }
     }
 
+    public String getDocumentContent(Long documentId) {
+        String url = aiServiceUrl + "/api/ai/documents/" + documentId + "/content";
+        try {
+            ResponseEntity<java.util.Map> response = restTemplate.getForEntity(url, java.util.Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Object content = response.getBody().get("content");
+                return content != null ? content.toString() : "";
+            }
+            return "";
+        } catch (Exception e) {
+            log.error("Failed to retrieve content for document {} from AI service: {}", documentId, e.getMessage());
+            return "Unable to retrieve content for document " + documentId + ": " + e.getMessage();
+        }
+    }
+
     public AiRequirementResponse generateRequirement(RequirementRequest request) {
         String url = aiServiceUrl + "/api/ai/requirements/generate";
         HttpHeaders headers = new HttpHeaders();
@@ -85,6 +100,60 @@ public class AiServiceClient {
         } catch (Exception e) {
             log.error("Failed to generate requirement via AI service: {}", e.getMessage());
             throw new RuntimeException("AI Service Requirement Generation Failed: " + e.getMessage(), e);
+        }
+    }
+
+    public AiRequirementResponse generateUserStory(RequirementRequest request) {
+        String url = aiServiceUrl + "/api/ai/user-story/generate";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<RequirementRequest> requestEntity = new HttpEntity<>(request, headers);
+        try {
+            ResponseEntity<AiRequirementResponse> response = restTemplate.postForEntity(url, requestEntity, AiRequirementResponse.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            log.error("Failed to generate user story via AI service: {}", e.getMessage());
+            throw new RuntimeException("AI Service User Story Generation Failed: " + e.getMessage(), e);
+        }
+    }
+
+    public AiRequirementResponse generateFunctionalDesign(RequirementRequest request) {
+        String url = aiServiceUrl + "/api/ai/functional-design/generate";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<RequirementRequest> requestEntity = new HttpEntity<>(request, headers);
+        try {
+            ResponseEntity<AiRequirementResponse> response = restTemplate.postForEntity(url, requestEntity, AiRequirementResponse.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            log.error("Failed to generate functional design via AI service: {}", e.getMessage());
+            throw new RuntimeException("AI Service Functional Design Generation Failed: " + e.getMessage(), e);
+        }
+    }
+
+    public AiRequirementResponse generateTechnicalDesign(RequirementRequest request) {
+        String url = aiServiceUrl + "/api/ai/technical-design/generate";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<RequirementRequest> requestEntity = new HttpEntity<>(request, headers);
+        try {
+            ResponseEntity<AiRequirementResponse> response = restTemplate.postForEntity(url, requestEntity, AiRequirementResponse.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            log.error("Failed to generate technical design via AI service: {}", e.getMessage());
+            throw new RuntimeException("AI Service Technical Design Generation Failed: " + e.getMessage(), e);
         }
     }
 

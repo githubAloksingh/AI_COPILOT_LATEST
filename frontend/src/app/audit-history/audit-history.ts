@@ -1,22 +1,43 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api';
 
 @Component({
   selector: 'app-audit-history',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './audit-history.html',
   styleUrl: './audit-history.scss'
 })
 export class AuditHistory implements OnInit {
   logs: any[] = [];
   loading = true;
+  userFilter = 'ALL';
+  availableUsers = ['User A', 'User B', 'User C', 'Admin'];
 
-  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
+  constructor(public api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
-    this.api.getAuditLogs().subscribe({
+    this.loadLogs();
+  }
+
+  get currentUser(): string {
+    return this.api.getCurrentUser();
+  }
+
+  get currentRole(): 'ADMIN' | 'USER' {
+    return this.api.getCurrentRole();
+  }
+
+  get isAdmin(): boolean {
+    return this.currentRole === 'ADMIN';
+  }
+
+  loadLogs() {
+    this.loading = true;
+    const filter = this.isAdmin ? this.userFilter : this.currentUser;
+    this.api.getAuditLogs(filter).subscribe({
       next: (res) => {
         if (res.success) {
           this.logs = (res.data || []).map((log: any) => {
@@ -38,6 +59,13 @@ export class AuditHistory implements OnInit {
               isArrayOutput: Array.isArray(parsed)
             };
           });
+
+          // Collect distinct users for admin filter dropdown
+          const setUsers = new Set<string>(['User A', 'User B', 'User C', 'Admin']);
+          this.logs.forEach(l => {
+            if (l.userName) setUsers.add(l.userName);
+          });
+          this.availableUsers = Array.from(setUsers);
         }
         this.loading = false;
         this.cdr.markForCheck();

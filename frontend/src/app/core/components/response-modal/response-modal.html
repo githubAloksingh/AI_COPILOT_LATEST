@@ -11,25 +11,25 @@
             {{ mode === 'EDIT_ALL' ? 'EDIT ALL MODE' : 'REVIEW MODE' }}
           </span>
           <span class="badge badge-time" *ngIf="executionTimeMs > 0">{{ executionTimeMs }} ms</span>
-          <span class="badge badge-count" *ngIf="type === 'requirement' && requirementList.length > 1">
-            {{ requirementList.length }} Requirements
+          <span class="badge badge-count" *ngIf="isRequirementLike && requirementList.length > 1">
+            {{ requirementList.length }} Items
           </span>
         </div>
       </div>
       <button class="close-btn" (click)="closeModal()" aria-label="Close modal">✕</button>
     </div>
 
-    <!-- Requirement Selection Bar for Multiple Generated Requirements -->
-    <div class="req-tabs-bar" *ngIf="type === 'requirement' && requirementList.length > 0">
-      <div class="tabs-label">Requirements:</div>
+    <!-- Selection Bar for Multiple Generated Items (Requirements / User Stories) -->
+    <div class="req-tabs-bar" *ngIf="(type === 'requirement' || type === 'userstory') && requirementList.length > 1">
+      <div class="tabs-label">Items:</div>
       <div class="tabs-scroll">
         <button 
           *ngFor="let req of requirementList; let i = index"
           class="req-tab-btn" 
           [class.active]="selectedReqIndex === i"
           (click)="selectRequirement(i)">
-          <span class="tab-id">{{ req.requirementId || ('REQ-' + (i + 1)) }}</span>
-          <span class="tab-title">{{ req.title || ('Requirement ' + (i + 1)) }}</span>
+          <span class="tab-id">{{ req.userStoryId || req.requirementId || ('ITEM-' + (i + 1)) }}</span>
+          <span class="tab-title">{{ req.title || ('Item ' + (i + 1)) }}</span>
         </button>
       </div>
     </div>
@@ -38,25 +38,32 @@
     <div class="modal-body">
       
       <!-- ======================================================= -->
-      <!-- 1. REQUIREMENT ASSISTANT VIEW / EDIT -->
+      <!-- 1. REQUIREMENT / USER STORY VIEW & EDIT -->
       <!-- ======================================================= -->
-      <div *ngIf="type === 'requirement' && currentRequirement">
+      <div *ngIf="(type === 'requirement' || type === 'userstory') && currentRequirement">
         
         <!-- VIEW MODE -->
         <div *ngIf="mode === 'VIEW'" class="view-content">
           
-          <!-- Requirement Title Banner -->
+          <!-- Requirement / User Story Title Banner -->
           <div class="req-title-banner">
-            <span class="req-id-badge">{{ currentRequirement.requirementId || 'REQ' }}</span>
+            <span class="req-id-badge">{{ currentRequirement.userStoryId || currentRequirement.requirementId || 'REQ' }}</span>
             <h3>{{ currentRequirement.title }}</h3>
           </div>
 
-          <div class="section-card" *ngIf="currentRequirement.summary">
-            <h3>Summary</h3>
-            <p>{{ currentRequirement.summary }}</p>
+          <!-- User Story Card -->
+          <div class="section-card user-story-card" *ngIf="currentRequirement.userStory">
+            <h3>User Story</h3>
+            <div class="user-story-callout">
+              <strong>📖 </strong>{{ currentRequirement.userStory }}
+            </div>
           </div>
 
-
+          <!-- Description or Summary -->
+          <div class="section-card" *ngIf="currentRequirement.description || currentRequirement.summary">
+            <h3>{{ type === 'userstory' ? 'Description' : 'Summary' }}</h3>
+            <p>{{ currentRequirement.description || currentRequirement.summary }}</p>
+          </div>
 
           <!-- Acceptance Criteria with Grounding & Source Traceability -->
           <div class="section-card" *ngIf="currentRequirement.acceptanceCriteria?.length">
@@ -71,6 +78,29 @@
                       class="grounding-badge" 
                       [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
                       {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ REQUIRES CONFIRMATION' : getItemGrounding(item) }}
+                    </span>
+                    <span class="source-pill" *ngFor="let src of getItemSource(item)">
+                      📌 {{ src }}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Business Rules -->
+          <div class="section-card" *ngIf="currentRequirement.businessRules?.length">
+            <h3>Business Rules</h3>
+            <ul class="styled-list">
+              <li *ngFor="let item of currentRequirement.businessRules">
+                <span class="bullet-check" style="color: #F36F21;">⚖️</span>
+                <div class="item-content-wrap">
+                  <span class="item-text">{{ getItemText(item) }}</span>
+                  <div class="grounding-tags-row">
+                    <span 
+                      class="grounding-badge" 
+                      [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                      {{ getItemGrounding(item) }}
                     </span>
                     <span class="source-pill" *ngFor="let src of getItemSource(item)">
                       📌 {{ src }}
@@ -145,34 +175,30 @@
           </div>
         </div>
 
-        <!-- EDIT ALL MODE — All requirements as stacked editable panels -->
+        <!-- EDIT ALL MODE -->
         <div *ngIf="mode === 'EDIT_ALL'" class="edit-all-container">
           <div class="edit-all-header">
             <span class="edit-all-icon">✏️</span>
-            <span>Editing All <strong>{{ editableRequirements.length }}</strong> Requirements — review and modify each before saving</span>
+            <span>Editing All <strong>{{ editableRequirements.length }}</strong> Items — review and modify each before saving</span>
           </div>
 
-          <!-- One panel per requirement -->
           <div 
             class="edit-req-panel" 
             *ngFor="let req of editableRequirements; let i = index; trackBy: trackByIndex">
 
-            <!-- Panel Header (collapsible) -->
             <div class="edit-panel-header" (click)="togglePanel(i)">
               <div class="panel-header-left">
-                <span class="panel-req-id">{{ req.requirementId || ('REQ-' + (i + 1)) }}</span>
-                <span class="panel-req-title">{{ req.title || ('Requirement ' + (i + 1)) }}</span>
+                <span class="panel-req-id">{{ req.userStoryId || req.requirementId || ('ITEM-' + (i + 1)) }}</span>
+                <span class="panel-req-title">{{ req.title || ('Item ' + (i + 1)) }}</span>
               </div>
               <span class="panel-collapse-icon">{{ collapsedPanels[i] ? '▶' : '▼' }}</span>
             </div>
 
-            <!-- Panel Body -->
             <div class="edit-panel-body" *ngIf="!collapsedPanels[i]">
-
               <div class="grid-2-col">
                 <div class="form-group">
-                  <label>Requirement ID</label>
-                  <input type="text" [(ngModel)]="req.requirementId" placeholder="REQ-001">
+                  <label>ID</label>
+                  <input type="text" [(ngModel)]="req.requirementId" placeholder="US-001">
                 </div>
                 <div class="form-group">
                   <label>Priority</label>
@@ -189,12 +215,15 @@
                 <input type="text" [(ngModel)]="req.title">
               </div>
 
-              <div class="form-group">
-                <label>Summary</label>
-                <textarea [(ngModel)]="req.summary" rows="3"></textarea>
+              <div class="form-group" *ngIf="req.userStory !== undefined">
+                <label>User Story</label>
+                <input type="text" [(ngModel)]="req.userStory" placeholder="As a [role], I want [capability] so that [benefit]">
               </div>
 
-
+              <div class="form-group">
+                <label>Description / Summary</label>
+                <textarea [(ngModel)]="req.summary" rows="3"></textarea>
+              </div>
 
               <div class="form-group">
                 <div class="label-with-action">
@@ -206,6 +235,19 @@
                     [ngModel]="getItemText(req.acceptanceCriteria[j])"
                     (ngModelChange)="req.acceptanceCriteria[j] = { text: $event, grounding: 'DERIVED', source: [] }">
                   <button class="btn-remove-item" (click)="removeArrayItem(req.acceptanceCriteria, j)">✕</button>
+                </div>
+              </div>
+
+              <div class="form-group" *ngIf="req.businessRules?.length">
+                <div class="label-with-action">
+                  <label>Business Rules</label>
+                  <button class="btn-text-action" (click)="addArrayItem(req.businessRules)">+ Add</button>
+                </div>
+                <div class="array-item" *ngFor="let br of req.businessRules; let j = index; trackBy: trackByIndex">
+                  <input type="text"
+                    [ngModel]="getItemText(req.businessRules[j])"
+                    (ngModelChange)="req.businessRules[j] = { text: $event, grounding: 'DERIVED', source: [] }">
+                  <button class="btn-remove-item" (click)="removeArrayItem(req.businessRules, j)">✕</button>
                 </div>
               </div>
 
@@ -257,12 +299,435 @@
       </div>
 
       <!-- ======================================================= -->
-      <!-- 2. TEST CASES VIEW / EDIT -->
+      <!-- 2. FUNCTIONAL DESIGN VIEW -->
+      <!-- ======================================================= -->
+      <div *ngIf="type === 'functionaldesign' && (functionalDesignData || currentRequirement)">
+        <div class="view-content" *ngIf="(functionalDesignData || currentRequirement) as fd">
+          <!-- Title Banner -->
+          <div class="req-title-banner">
+            <span class="req-id-badge" style="background: #F36F21;">FD-001</span>
+            <h3>{{ fd.title || 'Functional Design Specification' }}</h3>
+          </div>
+
+          <!-- Objective -->
+          <div class="section-card" *ngIf="fd.objective">
+            <h3>Objective</h3>
+            <p>{{ fd.objective }}</p>
+          </div>
+
+          <!-- Scope -->
+          <div class="section-card" *ngIf="fd.scope?.length">
+            <h3>Scope</h3>
+            <ul class="dot-list">
+              <li *ngFor="let item of fd.scope">{{ item }}</li>
+            </ul>
+          </div>
+
+          <!-- Actors -->
+          <div class="section-card" *ngIf="fd.actors?.length">
+            <h3>Actors</h3>
+            <div class="grid-2-col">
+              <div *ngFor="let actor of fd.actors" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                <strong style="color: #0f172a; font-size: 0.95rem;">👤 {{ actor.name }}</strong>
+                <p style="margin-top: 4px; font-size: 0.85rem; color: #475569;">{{ actor.description }}</p>
+                <span class="grounding-badge grounding-explicit" *ngIf="actor.grounding" style="margin-top: 6px; display: inline-block;">{{ actor.grounding }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preconditions -->
+          <div class="section-card" *ngIf="fd.preconditions?.length">
+            <h3>Preconditions</h3>
+            <ul class="dot-list">
+              <li *ngFor="let item of fd.preconditions">
+                <div class="item-content-wrap">
+                  <span>{{ getItemText(item) }}</span>
+                  <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                    <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">{{ getItemGrounding(item) }}</span>
+                    <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Main Flow -->
+          <div class="section-card" *ngIf="fd.mainFlow?.length">
+            <h3>Main Flow</h3>
+            <div class="testcases-table-wrap">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">Step</th>
+                    <th style="width: 120px;">Actor</th>
+                    <th>Action</th>
+                    <th>System Response</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let step of fd.mainFlow">
+                    <td><strong>{{ step.step }}</strong></td>
+                    <td><span class="pill pill-type">{{ step.actor }}</span></td>
+                    <td>{{ step.action }}</td>
+                    <td>{{ step.systemResponse }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Alternate Flows -->
+          <div class="section-card" *ngIf="fd.alternateFlows?.length">
+            <h3>Alternate Flows</h3>
+            <div *ngFor="let af of fd.alternateFlows" style="margin-bottom: 12px;">
+              <strong style="color: #2563eb;">🔀 {{ af.name }}</strong>
+              <ul class="dot-list" style="margin-top: 6px;">
+                <li *ngFor="let s of af.steps">{{ s }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Validations -->
+          <div class="section-card" *ngIf="fd.validations?.length">
+            <h3>Validations</h3>
+            <ul class="styled-list">
+              <li *ngFor="let v of fd.validations">
+                <span class="bullet-check">✓</span>
+                <div class="item-content-wrap">
+                  <span><strong>{{ v.field }}:</strong> {{ v.rule }}</span>
+                  <div class="grounding-tags-row">
+                    <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(v).toLowerCase()">{{ getItemGrounding(v) }}</span>
+                    <span class="source-pill" *ngFor="let src of getItemSource(v)">📌 {{ src }}</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Business Rules -->
+          <div class="section-card" *ngIf="fd.businessRules?.length">
+            <h3>Business Rules</h3>
+            <ul class="styled-list">
+              <li *ngFor="let br of fd.businessRules">
+                <span class="bullet-check" style="color: #F36F21;">⚖️</span>
+                <div class="item-content-wrap">
+                  <span>{{ getItemText(br) }}</span>
+                  <div class="grounding-tags-row">
+                    <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(br).toLowerCase()">{{ getItemGrounding(br) }}</span>
+                    <span class="source-pill" *ngFor="let src of getItemSource(br)">📌 {{ src }}</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Inputs & Outputs -->
+          <div class="grid-2-col">
+            <div class="section-card" *ngIf="fd.inputs?.length">
+              <h3>Inputs</h3>
+              <ul class="dot-list">
+                <li *ngFor="let inp of fd.inputs">
+                  <strong>{{ inp.name }}</strong> ({{ inp.required ? 'Required' : 'Optional' }}, format: {{ inp.format }}): {{ inp.description }}
+                </li>
+              </ul>
+            </div>
+
+            <div class="section-card" *ngIf="fd.outputs?.length">
+              <h3>Outputs</h3>
+              <ul class="dot-list">
+                <li *ngFor="let out of fd.outputs">
+                  {{ out.description }}
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Error Handling -->
+          <div class="section-card" *ngIf="fd.errorHandling?.length">
+            <h3>Error Handling</h3>
+            <ul class="styled-list">
+              <li *ngFor="let eh of fd.errorHandling">
+                <span class="bullet-check" style="color: #dc2626;">⚠️</span>
+                <div>
+                  <strong>{{ eh.scenario }}:</strong> {{ eh.expectedBehavior }}
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Dependencies & Assumptions -->
+          <div class="grid-2-col">
+            <div class="section-card" *ngIf="fd.dependencies?.length">
+              <h3>Dependencies</h3>
+              <ul class="dot-list">
+                <li *ngFor="let d of fd.dependencies">{{ getItemText(d) }}</li>
+              </ul>
+            </div>
+
+            <div class="section-card" *ngIf="fd.assumptions?.length">
+              <h3>Assumptions</h3>
+              <ul class="dot-list">
+                <li *ngFor="let a of fd.assumptions">{{ getItemText(a) }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Fallback summary if simple model returned -->
+          <div class="section-card" *ngIf="!fd.objective && currentRequirement?.summary">
+            <h3>Overview</h3>
+            <p>{{ currentRequirement.summary }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- 3. TECHNICAL DESIGN VIEW -->
+      <!-- ======================================================= -->
+      <div *ngIf="type === 'technicaldesign' && (technicalDesignData || currentRequirement)">
+        <div class="view-content" *ngIf="(technicalDesignData || currentRequirement) as td">
+          <!-- Title Banner -->
+          <div class="req-title-banner">
+            <span class="req-id-badge" style="background: #10b981;">TD-001</span>
+            <h3>{{ td.title || 'Technical Design Specification' }}</h3>
+          </div>
+
+          <!-- Technical Objective -->
+          <div class="section-card" *ngIf="td.objective">
+            <h3>Technical Objective</h3>
+            <p>{{ td.objective }}</p>
+          </div>
+
+          <!-- Requirement Summary -->
+          <div class="section-card" *ngIf="td.requirementSummary">
+            <h3>Requirement Summary</h3>
+            <p>{{ td.requirementSummary }}</p>
+          </div>
+
+          <!-- Components -->
+          <div class="section-card" *ngIf="td.components?.length">
+            <h3>Components</h3>
+            <div class="grid-2-col">
+              <div *ngFor="let comp of td.components" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                <strong style="color: #0f172a; font-size: 0.95rem;">⚙️ {{ comp.name }}</strong>
+                <p style="margin-top: 4px; font-size: 0.85rem; color: #475569;">{{ comp.responsibility }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Architecture Flow -->
+          <div class="section-card" *ngIf="td.architectureFlow?.length">
+            <h3>Architecture Flow</h3>
+            <div class="testcases-table-wrap">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">Step</th>
+                    <th style="width: 160px;">Component</th>
+                    <th>Technical Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let step of td.architectureFlow">
+                    <td><strong>{{ step.step }}</strong></td>
+                    <td><span class="pill pill-type">{{ step.component }}</span></td>
+                    <td>{{ step.action }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- APIs -->
+          <div class="section-card" *ngIf="td.apis?.length">
+            <h3>APIs</h3>
+            <div class="testcases-table-wrap">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>API Name</th>
+                    <th style="width: 90px;">Method</th>
+                    <th>Endpoint</th>
+                    <th>Purpose</th>
+                    <th style="width: 120px;">Status Codes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let api of td.apis">
+                    <td><strong>{{ api.name }}</strong></td>
+                    <td><span class="pill pill-priority">{{ api.method }}</span></td>
+                    <td><code>{{ api.endpoint }}</code></td>
+                    <td>{{ api.purpose }}</td>
+                    <td><span *ngFor="let sc of api.statusCodes" class="pill pill-type" style="margin-right: 4px;">{{ sc }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Data Model -->
+          <div class="section-card" *ngIf="td.dataModel?.length">
+            <h3>Data Model</h3>
+            <div *ngFor="let dm of td.dataModel" style="margin-bottom: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+              <strong style="color: #0f172a; font-size: 0.95rem;">🗄️ Entity: {{ dm.entity }}</strong>
+              <div class="testcases-table-wrap" style="margin-top: 8px;" *ngIf="dm.fields?.length">
+                <table class="modal-table">
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>Type</th>
+                      <th>Required</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let f of dm.fields">
+                      <td><code>{{ f.name }}</code></td>
+                      <td>{{ f.type }}</td>
+                      <td>{{ f.required ? 'Yes' : 'No' }}</td>
+                      <td>{{ f.description }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div *ngIf="dm.relationships?.length" style="margin-top: 8px; font-size: 0.85rem; color: #64748b;">
+                <strong>Relationships:</strong> {{ dm.relationships.join(', ') }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Business Logic & Validation -->
+          <div class="grid-2-col">
+            <div class="section-card" *ngIf="td.businessLogic?.length">
+              <h3>Business Logic</h3>
+              <ul class="dot-list">
+                <li *ngFor="let bl of td.businessLogic">{{ bl.rule || getItemText(bl) }}</li>
+              </ul>
+            </div>
+
+            <div class="section-card" *ngIf="td.validation?.length">
+              <h3>Validation</h3>
+              <ul class="dot-list">
+                <li *ngFor="let val of td.validation">{{ val.validation || getItemText(val) }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Error Handling & Security -->
+          <div class="grid-2-col">
+            <div class="section-card" *ngIf="td.errorHandling?.length">
+              <h3>Error Handling</h3>
+              <ul class="styled-list">
+                <li *ngFor="let eh of td.errorHandling">
+                  <span class="bullet-check" style="color: #ef4444;">⚠️</span>
+                  <div>
+                    <strong>{{ eh.scenario }}:</strong> {{ eh.handling }}
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <div class="section-card" *ngIf="td.security?.length">
+              <h3>Security</h3>
+              <ul class="styled-list">
+                <li *ngFor="let sec of td.security">
+                  <span class="bullet-check" style="color: #3b82f6;">🔒</span>
+                  <div>{{ sec.consideration || getItemText(sec) }}</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Database Changes & Integrations -->
+          <div class="grid-2-col">
+            <div class="section-card" *ngIf="td.databaseChanges?.length">
+              <h3>Database Changes</h3>
+              <ul class="dot-list">
+                <li *ngFor="let dbc of td.databaseChanges">{{ dbc.change || getItemText(dbc) }}</li>
+              </ul>
+            </div>
+
+            <div class="section-card" *ngIf="td.integrations?.length">
+              <h3>Integrations</h3>
+              <ul class="styled-list">
+                <li *ngFor="let int of td.integrations">
+                  <span class="bullet-check" style="color: #10b981;">🔌</span>
+                  <div>
+                    <strong>{{ int.system }}:</strong> {{ int.purpose }}
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Performance Considerations & Implementation Notes -->
+          <div class="grid-2-col">
+            <div class="section-card" *ngIf="td.performanceConsiderations?.length">
+              <h3>Performance Considerations</h3>
+              <ul class="dot-list">
+                <li *ngFor="let pc of td.performanceConsiderations">{{ pc.consideration || getItemText(pc) }}</li>
+              </ul>
+            </div>
+
+            <div class="section-card" *ngIf="td.implementationNotes?.length">
+              <h3>Implementation Notes</h3>
+              <ul class="dot-list">
+                <li *ngFor="let inote of td.implementationNotes">{{ inote.note || getItemText(inote) }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Dependencies & Assumptions -->
+          <div class="grid-2-col">
+            <div class="section-card" *ngIf="td.dependencies?.length">
+              <h3>Dependencies</h3>
+              <ul class="dot-list">
+                <li *ngFor="let d of td.dependencies">{{ d.dependency || getItemText(d) }}</li>
+              </ul>
+            </div>
+
+            <div class="section-card" *ngIf="td.assumptions?.length">
+              <h3>Assumptions</h3>
+              <ul class="dot-list">
+                <li *ngFor="let a of td.assumptions">{{ a.text || getItemText(a) }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Fallback summary if simple model returned -->
+          <div class="section-card" *ngIf="!td.objective && currentRequirement?.summary">
+            <h3>Overview</h3>
+            <p>{{ currentRequirement.summary }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- 4. TEST CASES VIEW / EDIT -->
       <!-- ======================================================= -->
       <div *ngIf="type === 'testcase' && data">
         
         <!-- VIEW MODE -->
         <div *ngIf="mode === 'VIEW'" class="view-content">
+          <!-- Metadata Summary (Project, Input Type, BRD, Codebase) -->
+          <div class="testcase-meta-summary" *ngIf="meta">
+            <div class="meta-badge" *ngIf="meta.project">
+              <span class="meta-label">Project:</span>
+              <strong class="meta-val">{{ meta.project }}</strong>
+            </div>
+            <div class="meta-badge" *ngIf="meta.inputType">
+              <span class="meta-label">Input Type:</span>
+              <strong class="meta-val">{{ meta.inputType }}</strong>
+            </div>
+            <div class="meta-badge" *ngIf="meta.brd">
+              <span class="meta-label">BRD:</span>
+              <strong class="meta-val">📄 {{ meta.brd }}</strong>
+            </div>
+            <div class="meta-badge" *ngIf="meta.codebase">
+              <span class="meta-label">Codebase:</span>
+              <strong class="meta-val">📦 {{ meta.codebase }}</strong>
+            </div>
+          </div>
+
           <div class="testcases-table-wrap">
             <table class="modal-table">
               <thead>
@@ -336,7 +801,7 @@
       </div>
 
       <!-- ======================================================= -->
-      <!-- 3. DEFECT TRIAGE VIEW / EDIT -->
+      <!-- 5. DEFECT TRIAGE VIEW / EDIT -->
       <!-- ======================================================= -->
       <div *ngIf="type === 'defect' && data">
         
@@ -420,7 +885,7 @@
       </div>
 
       <!-- ======================================================= -->
-      <!-- 4. RELEASE NOTES VIEW / EDIT -->
+      <!-- 6. RELEASE NOTES VIEW / EDIT -->
       <!-- ======================================================= -->
       <div *ngIf="type === 'releasenote' && data">
         
@@ -519,26 +984,32 @@
 
     <!-- Modal Footer Actions -->
     <div class="modal-footer">
-      <div class="footer-left">
+      <div class="footer-left" style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn btn-primary btn-download" (click)="download()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;">
+          {{ type === 'testcase' ? '📥 Download CSV' : '📥 Download PDF' }}
+        </button>
         <button class="btn btn-danger-outline" (click)="onRejectClick()" [disabled]="saving">
           Reject
         </button>
       </div>
       <div class="footer-right">
+        <button class="btn btn-secondary" (click)="closeModal()" [disabled]="saving">
+          Close
+        </button>
         <button class="btn btn-secondary" (click)="toggleEditMode()" [disabled]="saving">
           {{ mode === 'EDIT_ALL' ? '✕ Cancel Edit' : '✏️ Edit All' }}
         </button>
-        <!-- For requirement type: Accept All N Requirements -->
+        <!-- For requirement, userstory, functionaldesign, technicaldesign -->
         <button 
-          *ngIf="type === 'requirement'"
+          *ngIf="isRequirementLike"
           class="btn btn-success btn-accept-all" 
           (click)="onAcceptClick()" 
           [disabled]="saving">
-          {{ saving ? 'Saving...' : '✅ Accept All ' + requirementList.length + ' Requirement' + (requirementList.length !== 1 ? 's' : '') }}
+          {{ saving ? 'Saving...' : '✅ Accept All ' + requirementList.length + ' Item' + (requirementList.length !== 1 ? 's' : '') }}
         </button>
         <!-- For other types: regular Accept -->
         <button 
-          *ngIf="type !== 'requirement'"
+          *ngIf="!isRequirementLike"
           class="btn btn-success" 
           (click)="onAcceptClick()" 
           [disabled]="saving">
@@ -557,11 +1028,11 @@
   <div class="popup-box" (click)="$event.stopPropagation()">
     <div class="popup-icon-warning">⚠️</div>
     <h3>Confirm Save</h3>
-    <p class="popup-warning-text" *ngIf="type === 'requirement'">
-      Save all <strong>{{ requirementList.length }}</strong> requirement{{ requirementList.length !== 1 ? 's' : '' }} to the database?
+    <p class="popup-warning-text" *ngIf="isRequirementLike">
+      Save all <strong>{{ requirementList.length }}</strong> item{{ requirementList.length !== 1 ? 's' : '' }} to the database?
       Each will be stored as a separate row. Once saved, you cannot edit this data.
     </p>
-    <p class="popup-warning-text" *ngIf="type !== 'requirement'">Once saved, you cannot edit this data.</p>
+    <p class="popup-warning-text" *ngIf="!isRequirementLike">Once saved, you cannot edit this data.</p>
     <div class="popup-actions">
       <button class="btn btn-secondary" (click)="cancelConfirm()">Cancel</button>
       <button class="btn btn-success" (click)="confirmAccept()">Yes, Save All</button>

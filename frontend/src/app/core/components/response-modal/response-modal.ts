@@ -12,7 +12,7 @@ import { ExportService } from '../../services/export.service';
 })
 export class ResponseModal implements OnInit, OnChanges {
   @Input() isOpen = false;
-  @Input() type: 'requirement' | 'testcase' | 'defect' | 'releasenote' = 'requirement';
+  @Input() type: 'requirement' | 'testcase' | 'defect' | 'releasenote' | 'userstory' | 'functionaldesign' | 'technicaldesign' = 'requirement';
   @Input() title = 'Generated AI Response';
   @Input() data: any = null;
   @Input() sources: string[] = [];
@@ -20,6 +20,7 @@ export class ResponseModal implements OnInit, OnChanges {
   @Input() promptVersion = '';
   @Input() executionTimeMs = 0;
   @Input() saving = false;
+  @Input() meta?: { project?: string; inputType?: string; brd?: string; codebase?: string };
 
   @Output() close = new EventEmitter<void>();
   /** For requirement type: emits all requirements (bulk) */
@@ -125,10 +126,29 @@ export class ResponseModal implements OnInit, OnChanges {
     this.cdr.markForCheck();
   }
 
+  get isRequirementLike(): boolean {
+    return this.type === 'requirement' || this.type === 'userstory' || this.type === 'functionaldesign' || this.type === 'technicaldesign';
+  }
+
+  get functionalDesignData(): any {
+    return this.data?.functionalDesign || null;
+  }
+
+  get technicalDesignData(): any {
+    return this.data?.technicalDesign || null;
+  }
+
+  get userStoryList(): any[] {
+    if (this.data && Array.isArray(this.data.userStories) && this.data.userStories.length > 0) {
+      return this.data.userStories;
+    }
+    return this.requirementList;
+  }
+
   confirmAccept() {
     this.showConfirmPopup = false;
 
-    if (this.type === 'requirement') {
+    if (this.isRequirementLike) {
       // Emit ALL requirements (edited or original)
       const reqs = this.mode === 'EDIT_ALL' ? this.editableRequirements : this.requirementList;
       this.acceptAll.emit({
@@ -173,6 +193,15 @@ export class ResponseModal implements OnInit, OnChanges {
     if (this.type === 'testcase') {
       const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
       this.exportService.downloadTestCaseCsv(items, 'test-cases');
+    } else if (this.type === 'userstory') {
+      const allReqs = this.mode === 'EDIT_ALL' ? this.editableRequirements : this.requirementList;
+      this.exportService.downloadUserStoryPdf(allReqs);
+    } else if (this.type === 'functionaldesign') {
+      const fd = this.functionalDesignData || finalData;
+      this.exportService.downloadFunctionalDesignPdf(fd);
+    } else if (this.type === 'technicaldesign') {
+      const td = this.technicalDesignData || finalData;
+      this.exportService.downloadTechnicalDesignPdf(td);
     } else if (this.type === 'requirement') {
       // Export ALL requirements into one PDF
       const allReqs = this.mode === 'EDIT_ALL' ? this.editableRequirements : this.requirementList;

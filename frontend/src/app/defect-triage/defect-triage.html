@@ -44,29 +44,8 @@
       <button class="btn-remove-zip" (click)="removeSelectedZip()" [disabled]="loading">Remove</button>
     </div>
 
-    <!-- Optional Defect Context Details -->
-    <div class="context-group">
-      <div class="form-group">
-        <label>Defect Title / Subject <span class="text-muted">(Optional)</span></label>
-        <input 
-          type="text" 
-          [(ngModel)]="defectTitle" 
-          placeholder="e.g. NullPointerException in Payment Gateway service or Order Processing Failure"
-          class="form-control"
-          [disabled]="loading">
-      </div>
-
-      <div class="form-group">
-        <label>Specific Error Logs / Stack Trace / Symptoms <span class="text-muted">(Optional)</span></label>
-        <textarea 
-          [(ngModel)]="logsOrSymptoms" 
-          rows="4" 
-          placeholder="Paste relevant exception stack traces, HTTP error dumps, or symptoms observed..."
-          class="form-control"
-          [disabled]="loading"></textarea>
-      </div>
-    </div>
   </div>
+
 
   <div class="action-row">
     <button 
