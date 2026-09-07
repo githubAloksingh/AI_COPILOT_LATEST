@@ -2,18 +2,20 @@ package com.example.copilot.service;
 
 import com.example.copilot.client.AiServiceClient;
 import com.example.copilot.entity.Document;
+import com.example.copilot.entity.DocumentChunk;
+import com.example.copilot.repository.DocumentChunkRepository;
 import com.example.copilot.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-
 @Service
 @RequiredArgsConstructor
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
+    private final DocumentChunkRepository documentChunkRepository;
     private final AiServiceClient aiServiceClient;
     private final AuditService auditService;
 
@@ -27,6 +29,10 @@ public class DocumentService {
 
     public String getDocumentContent(Long id) {
         return aiServiceClient.getDocumentContent(id);
+    }
+
+    public List<DocumentChunk> getDocumentChunks(Long id) {
+        return documentChunkRepository.findByDocumentIdOrderByChunkIndexAsc(id);
     }
 
     public void deleteDocument(Long id) {

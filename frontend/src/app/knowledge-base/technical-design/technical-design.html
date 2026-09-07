@@ -2,7 +2,7 @@
   <div class="page-header">
     <h1>Technical Design Generation</h1>
     <p class="page-subtitle">
-      Generate technical architecture specs, system component designs, API schemas, and data models from Knowledge Base documents or manual text input.
+      Generate technical architecture specs, system component designs, API schemas, and data models from Knowledge Base project documents or manual text input.
     </p>
   </div>
 
@@ -16,7 +16,7 @@
       <button class="mode-tab" 
               [class.active]="inputMode === 'kb'" 
               (click)="setInputMode('kb')">
-        📁 Option A: Import from Knowledge Base
+        📁 Option A: Import from Knowledge Base (Project & File)
       </button>
       <button class="mode-tab" 
               [class.active]="inputMode === 'manual'" 
@@ -27,31 +27,69 @@
 
     <!-- OPTION A: Import from Knowledge Base -->
     <div class="mode-panel" *ngIf="inputMode === 'kb'">
+      <!-- Step 1: Select Project -->
       <div class="form-group">
         <label class="field-label">
-          Select Knowledge Base Document <span class="required">*</span>
+          1. Select Project <span class="required">*</span>
+        </label>
+        <div class="kb-select-wrap">
+          <select class="form-control" 
+                  [ngModel]="selectedProjectId" 
+                  (ngModelChange)="onProjectChange($event)"
+                  [disabled]="loading || loadingProjects">
+            <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
+            <option *ngFor="let proj of projects" [value]="proj.id">
+              📂 {{ proj.projectName }} ({{ proj.department || 'General' }})
+            </option>
+          </select>
+        </div>
+        <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects" style="color: #64748b; margin-top: 4px; display: block;">
+          No projects found. Please create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+        </small>
+      </div>
+
+      <!-- Step 2: Select Document -->
+      <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
+        <label class="field-label">
+          2. Select Document from Project <span class="required">*</span>
         </label>
         <div class="kb-select-wrap">
           <select class="form-control" 
                   [ngModel]="selectedDocumentId" 
-                  (ngModelChange)="onDocumentSelect($event)">
-            <option [ngValue]="null" disabled>-- Choose a document from Knowledge Base --</option>
+                  (ngModelChange)="onDocumentSelect($event)"
+                  [disabled]="loading || loadingDocs">
+            <option [ngValue]="null">-- Select Document --</option>
             <option *ngFor="let doc of documents" [value]="doc.id">
-              📄 {{ doc.fileName }} ({{ doc.version || 'v1' }})
+              📄 {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} Chunks)
             </option>
           </select>
         </div>
+        <small class="helper-text" *ngIf="documents.length === 0 && !loadingDocs" style="color: #64748b; margin-top: 4px; display: block;">
+          No documents found in this project. Upload files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
+        </small>
+      </div>
 
-        <div *ngIf="selectedDocument" class="selected-doc-badge">
-          <div class="doc-info">
-            <span class="doc-icon">📄</span>
-            <div>
-              <strong>{{ selectedDocument.fileName }}</strong>
-              <span class="doc-sub">Status: {{ selectedDocument.status }} • Version: {{ selectedDocument.version || 'v1' }}</span>
-            </div>
+      <!-- Selected Document Badge -->
+      <div *ngIf="selectedDocument" class="selected-doc-badge" style="margin-top: 16px;">
+        <div class="doc-info">
+          <span class="doc-icon">📄</span>
+          <div>
+            <strong>{{ selectedDocument.fileName }}</strong>
+            <span class="doc-sub">
+              Project: {{ selectedProject?.projectName }} • Version: {{ selectedDocument.version || 'v1' }} • {{ selectedDocument.chunkCount || 0 }} Chunks
+            </span>
           </div>
-          <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
         </div>
+        <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
+      </div>
+
+      <!-- Optional specific prompt -->
+      <div class="form-group" style="margin-top: 16px;">
+        <label class="field-label">Optional: Specific Architecture Focus / Constraints</label>
+        <textarea class="form-control text-area" 
+                  rows="3" 
+                  [(ngModel)]="customPrompt" 
+                  placeholder="e.g. Focus on database schema normalization, indexing strategy, REST API endpoints, and caching layer..."></textarea>
       </div>
     </div>
 
@@ -95,6 +133,7 @@
 
 <!-- Response Output Modal -->
 <app-response-modal
+  #responseModal
   [isOpen]="isModalOpen"
   type="technicaldesign"
   title="Generated Technical Design Specification"
@@ -103,7 +142,9 @@
   [model]="model"
   [meta]="getModalMeta()"
   [executionTimeMs]="executionTimeMs"
+  [saving]="saving"
   (close)="isModalOpen = false"
   (acceptAll)="onAcceptAll($event)"
+  (accept)="onAccept($event)"
   (reject)="onReject()">
 </app-response-modal>

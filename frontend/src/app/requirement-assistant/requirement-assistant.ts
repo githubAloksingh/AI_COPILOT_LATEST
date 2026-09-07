@@ -1,13 +1,14 @@
 import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { ApiService } from '../core/api';
 import { ResponseModal } from '../core/components/response-modal/response-modal';
 
 @Component({
   selector: 'app-requirement-assistant',
   standalone: true,
-  imports: [CommonModule, FormsModule, ResponseModal],
+  imports: [CommonModule, FormsModule, RouterModule, ResponseModal],
   templateUrl: './requirement-assistant.html',
   styleUrl: './requirement-assistant.scss'
 })
@@ -15,18 +16,25 @@ export class RequirementAssistant implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
 
   // Input Mode: 'manual' OR 'kb'
-  inputMode: 'manual' | 'kb' = 'manual';
+  inputMode: 'manual' | 'kb' = 'kb';
 
   // Manual Input fields
   title = '';
   description = '';
   priority = 'Medium';
 
-  // Knowledge Base selection
+  // Knowledge Base 2-Step Selection: Project -> Document
+  projects: any[] = [];
+  selectedProjectId: number | null = null;
+  selectedProject: any = null;
+  loadingProjects = false;
+
   documents: any[] = [];
   selectedDocumentId: number | null = null;
   selectedDocument: any = null;
   loadingDocs = false;
+
+  customQuery = '';
 
   // State
   loading = false;
@@ -46,24 +54,54 @@ export class RequirementAssistant implements OnInit {
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
-    this.loadDocuments();
+    this.loadProjects();
   }
 
-  loadDocuments() {
-    this.loadingDocs = true;
-    this.api.getDocuments().subscribe({
+  loadProjects() {
+    this.loadingProjects = true;
+    this.cdr.markForCheck();
+    this.api.getProjects().subscribe({
       next: (res) => {
         if (res.success) {
-          this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
+          this.projects = res.data || [];
         }
-        this.loadingDocs = false;
+        this.loadingProjects = false;
         this.cdr.markForCheck();
       },
       error: () => {
-        this.loadingDocs = false;
+        this.loadingProjects = false;
         this.cdr.markForCheck();
       }
     });
+  }
+
+  onProjectChange(projectId: any) {
+    this.selectedProjectId = projectId ? Number(projectId) : null;
+    this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
+    this.selectedDocumentId = null;
+    this.selectedDocument = null;
+    this.documents = [];
+    this.error = '';
+
+    if (this.selectedProjectId) {
+      this.loadingDocs = true;
+      this.cdr.markForCheck();
+      this.api.getProjectDocuments(this.selectedProjectId).subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
+          }
+          this.loadingDocs = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.loadingDocs = false;
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.cdr.markForCheck();
+    }
   }
 
   setInputMode(mode: 'manual' | 'kb') {
@@ -78,6 +116,7 @@ export class RequirementAssistant implements OnInit {
     if (this.selectedDocument && !this.title) {
       this.title = 'Requirements from ' + this.selectedDocument.fileName;
     }
+    this.error = '';
     this.cdr.markForCheck();
   }
 
@@ -89,7 +128,7 @@ export class RequirementAssistant implements OnInit {
 
   isInputValid(): boolean {
     if (this.inputMode === 'kb') {
-      return !!this.selectedDocumentId;
+      return !!(this.selectedProjectId && this.selectedDocumentId);
     }
     return !!(this.title.trim() && this.description.trim());
   }
@@ -97,7 +136,7 @@ export class RequirementAssistant implements OnInit {
   generate() {
     if (!this.isInputValid()) {
       this.error = this.inputMode === 'kb' 
-        ? 'Please select a document from Knowledge Base.'
+        ? 'Please select a Project and Document from Knowledge Base.'
         : 'Please enter both Title and Requirement details.';
       return;
     }
@@ -106,11 +145,21 @@ export class RequirementAssistant implements OnInit {
     this.error = '';
     this.cdr.markForCheck();
 
+    const desc = this.inputMode === 'kb'
+      ? (this.customQuery.trim() || 'Synthesize comprehensive business requirements, user personas, acceptance criteria, and edge cases from document.')
+      : this.description.trim();
+
     const payload: any = {
-      title: this.title || (this.selectedDocument ? 'Requirements from ' + this.selectedDocument.fileName : 'Requirement'),
-      description: this.description || '',
+      title: this.title.trim() || (this.selectedDocument ? 'Requirements from ' + this.selectedDocument.fileName : 'Requirement'),
+      description: desc,
       priority: this.priority,
-      document_id: this.selectedDocumentId ? String(this.selectedDocumentId) : null
+      document_id: this.selectedDocumentId ? String(this.selectedDocumentId) : null,
+      projectId: this.selectedProjectId,
+      projectName: this.selectedProject?.projectName || null,
+      documentId: this.selectedDocumentId,
+      documentName: this.selectedDocument?.fileName || null,
+      documentVersion: this.selectedDocument?.version || null,
+      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL'
     };
 
     this.api.generateRequirement(payload).subscribe({
@@ -130,24 +179,29 @@ export class RequirementAssistant implements OnInit {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.error = err.error?.message || 'We couldn\'t generate the response. Please check services and try again.';
+        this.error = err.error?.message || 'We could not generate the response. Please check services and try again.';
         this.loading = false;
         this.cdr.markForCheck();
       }
     });
   }
 
-  /** Bulk accept — called when user clicks "Accept All N Requirements" */
+  /** Bulk accept — saves all N requirements as separate DB rows with project and document linkage */
   onAcceptAll(event: { requirements: any[]; isEdited: boolean }) {
     this.saving = true;
     this.cdr.markForCheck();
 
     const brdName = this.selectedDocument?.fileName
-      || this.selectedDocument?.filename
-      || (this.inputMode === 'manual' ? 'Manual Input' : 'Unknown BRD');
+      || (this.inputMode === 'manual' ? (this.title || 'Manual Input') : 'Unknown Document');
 
     const bulkPayload = {
       brdName: brdName,
+      projectId: this.selectedProjectId,
+      projectName: this.selectedProject?.projectName || null,
+      documentId: this.selectedDocumentId,
+      documentName: this.selectedDocument?.fileName || null,
+      documentVersion: this.selectedDocument?.version || null,
+      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL',
       model: this.model,
       promptVersion: this.promptVersion,
       executionTimeMs: this.executionTimeMs,
@@ -173,7 +227,7 @@ export class RequirementAssistant implements OnInit {
             this.responseModal.notifySuccess(event.isEdited);
           }
           const count = bulkPayload.items.length;
-          this.showToast(`${count} requirement${count > 1 ? 's' : ''} saved successfully from "${brdName}". Recorded in Audit History.`, 'success');
+          this.showToast(`${count} requirement${count > 1 ? 's' : ''} saved successfully to database! Recorded in Audit History.`, 'success');
         } else {
           this.error = res.message || 'Failed to save requirements.';
         }
@@ -188,16 +242,14 @@ export class RequirementAssistant implements OnInit {
     });
   }
 
-  /** Legacy single-accept — kept for backward compatibility */
   onAccept(event: { editedData: any; isEdited: boolean; selectedIndex?: number }) {
     const req = event.editedData;
     this.onAcceptAll({ requirements: [req], isEdited: event.isEdited });
   }
 
-
   onReject() {
     this.isModalOpen = false;
-    this.showToast('Data rejected successfully.', 'info');
+    this.showToast('Generation rejected.', 'info');
     this.cdr.markForCheck();
   }
 

@@ -6,6 +6,12 @@ import java.util.List;
 
 @Data
 public class TestCaseAcceptRequest {
+    private Long projectId;
+    private Long documentId;
+    private String projectName;
+    private String documentName;
+    private String documentVersion;
+
     private String requirement;
     private Long requirementId;
     private List<TestCaseItemDto> testCases;

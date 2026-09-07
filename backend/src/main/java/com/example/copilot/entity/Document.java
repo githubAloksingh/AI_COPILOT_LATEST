@@ -22,6 +22,9 @@ public class Document extends BaseEntity {
 
     @Column(name = "version")
     private String version = "v1";
+
+    @Column(name = "chunk_count")
+    private Integer chunkCount = 0;
     
     // UPLOADING, PROCESSING, COMPLETED, FAILED
     private String status;

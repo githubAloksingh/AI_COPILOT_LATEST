@@ -8,5 +8,6 @@ public class AiIngestionResponse {
     private String document_id;
     private String file_name;
     private int chunk_count;
+    private java.util.List<String> chunks;
     private String message;
 }

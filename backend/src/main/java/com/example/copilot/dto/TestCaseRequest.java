@@ -15,4 +15,10 @@ public class TestCaseRequest {
 
     @JsonProperty("zip_document_id")
     private String zipDocumentId;
+
+    private Long projectId;
+    private String projectName;
+    private String documentName;
+    private String documentVersion;
+    private String inputType;
 }

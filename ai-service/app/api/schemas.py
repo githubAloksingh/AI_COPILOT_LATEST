@@ -20,6 +20,7 @@ class IngestionResponse(BaseModel):
     document_id: str
     file_name: str
     chunk_count: int
+    chunks: Optional[List[str]] = None
     message: str
 
 
@@ -205,6 +206,7 @@ class ReleaseNoteGenerateResponse(BaseModel):
 # ----------------------------------------------------
 class DailyStatusGenerateRequest(BaseModel):
     sprintInformation: str
+    document_id: Optional[str] = None
 
 
 class DailyStatusResult(BaseModel):

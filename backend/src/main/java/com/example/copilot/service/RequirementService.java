@@ -30,19 +30,22 @@ public class RequirementService {
 
     public AiRequirementResponse generateRequirement(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
+        String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
         try {
             AiRequirementResponse resp = aiServiceClient.generateRequirement(request);
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
-                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             log.error("Error generating requirement preview: ", e);
             throw new RuntimeException("Failed to generate requirement: " + e.getMessage(), e);
         }
@@ -50,19 +53,22 @@ public class RequirementService {
 
     public AiRequirementResponse generateUserStory(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
+        String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
         try {
             AiRequirementResponse resp = aiServiceClient.generateUserStory(request);
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
-                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             log.error("Error generating user story preview: ", e);
             throw new RuntimeException("Failed to generate user story: " + e.getMessage(), e);
         }
@@ -70,19 +76,22 @@ public class RequirementService {
 
     public AiRequirementResponse generateFunctionalDesign(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
+        String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
         try {
             AiRequirementResponse resp = aiServiceClient.generateFunctionalDesign(request);
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
-                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             log.error("Error generating functional design preview: ", e);
             throw new RuntimeException("Failed to generate functional design: " + e.getMessage(), e);
         }
@@ -90,30 +99,35 @@ public class RequirementService {
 
     public AiRequirementResponse generateTechnicalDesign(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
+        String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
         try {
             AiRequirementResponse resp = aiServiceClient.generateTechnicalDesign(request);
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null, null, null, null, null);
+                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
-                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(), null, null, null, null);
+                    null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
             log.error("Error generating technical design preview: ", e);
             throw new RuntimeException("Failed to generate technical design: " + e.getMessage(), e);
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Single accept (backward compatible — kept for any existing callers)
+    // Single accept (backward compatible)
     // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public Requirement acceptRequirement(RequirementAcceptRequest request) {
         Requirement requirement = new Requirement();
+        requirement.setProjectId(request.getProjectId());
+        requirement.setDocumentId(request.getDocumentId());
         requirement.setTitle(request.getTitle());
         requirement.setDescription(request.getDescription());
         requirement.setPriority(request.getPriority() != null ? request.getPriority() : "Medium");
@@ -147,7 +161,10 @@ public class RequirementService {
                 "ACCEPTED",
                 execTime,
                 null,
-                null, null, null, null
+                request.getProjectName(),
+                request.getDocumentName(),
+                request.getDocumentVersion(),
+                "Requirement Document"
         );
 
         return saved;
@@ -173,6 +190,8 @@ public class RequirementService {
 
         for (RequirementItemRequest item : items) {
             Requirement req = new Requirement();
+            req.setProjectId(request.getProjectId());
+            req.setDocumentId(request.getDocumentId());
             req.setBrdName(brdName);
             req.setRequirementId(item.getRequirementId());
             req.setTitle(item.getTitle());
@@ -205,11 +224,14 @@ public class RequirementService {
                     "ACCEPTED",
                     execTime,
                     null,
-                    null, brdName, null, null
+                    request.getProjectName(),
+                    request.getDocumentName() != null ? request.getDocumentName() : brdName,
+                    request.getDocumentVersion(),
+                    "BRD Document"
             );
         }
 
-        log.info("Bulk accepted {} requirements from BRD: {}", savedList.size(), brdName);
+        log.info("Bulk accepted {} requirements from BRD: {} in project: {}", savedList.size(), brdName, request.getProjectName());
         return savedList;
     }
 
@@ -250,5 +272,3 @@ public class RequirementService {
         return result;
     }
 }
-
-

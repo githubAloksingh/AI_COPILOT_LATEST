@@ -420,9 +420,13 @@ class RagService:
 
     def generate_daily_status(self, req: DailyStatusGenerateRequest) -> DailyStatusGenerateResponse:
         start_time = time.time()
-        chunks, sources = self.retrieval.retrieve_relevant_context(req.sprintInformation)
+        chunks, sources = self.retrieval.retrieve_relevant_context(
+            query=req.sprintInformation or "daily scrum standup status updates",
+            document_id=req.document_id
+        )
+        combined_context = "\n\n---\n\n".join(chunks)
         
-        prompt = build_daily_status_prompt(req.sprintInformation)
+        prompt = build_daily_status_prompt(req.sprintInformation, context=combined_context)
         result = self.gemini.generate_structured(prompt, DailyStatusResult)
         exec_time_ms = int((time.time() - start_time) * 1000)
 

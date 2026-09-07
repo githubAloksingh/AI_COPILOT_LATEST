@@ -14,6 +14,12 @@ import java.util.Map;
 @Setter
 public class Defect extends BaseEntity {
 
+    @Column(name = "project_id")
+    private Long projectId;
+
+    @Column(name = "document_id")
+    private Long documentId;
+
     private String title;
     
     @Column(columnDefinition = "TEXT")

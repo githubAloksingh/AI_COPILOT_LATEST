@@ -6,6 +6,7 @@ import com.example.copilot.dto.DailyStatusResponseDto;
 import com.example.copilot.dto.ai.AiDailyStatusResponse;
 import com.example.copilot.entity.DailyStatus;
 import com.example.copilot.repository.DailyStatusRepository;
+import com.example.copilot.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,10 +24,11 @@ public class DailyStatusService {
 
     public DailyStatus generateDailyStatus(DailyStatusRequest request) {
         long startTime = System.currentTimeMillis();
-        String feature = "DAILY_STATUS";
+        String feature = "Daily Status";
         String status = "SUCCESS";
         String errorMsg = null;
         List<String> sources = null;
+        String inputType = request.getInputType() != null ? request.getInputType() : "Daily Scrum Updates";
 
         try {
             AiDailyStatusResponse aiResponse = aiServiceClient.generateDailyStatus(request);
@@ -34,6 +36,8 @@ public class DailyStatusService {
             sources = aiResponse.getSources();
 
             DailyStatus dailyStatus = new DailyStatus();
+            dailyStatus.setProjectId(request.getProjectId());
+            dailyStatus.setDocumentId(request.getDocumentId() != null ? Long.parseLong(request.getDocumentId()) : null);
             dailyStatus.setSprintInformation(request.getSprintInformation());
 
             if (parsedResponse != null) {
@@ -47,33 +51,49 @@ public class DailyStatusService {
 
             DailyStatus saved = dailyStatusRepository.save(dailyStatus);
 
-            auditService.logAudit(
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
                     feature,
-                    request.getSprintInformation(),
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getSprintInformation() != null ? request.getSprintInformation() : "Daily Status Generation",
                     sources,
                     aiResponse.getModel() != null ? aiResponse.getModel() : "gemini-3.7-flash",
                     aiResponse.getPrompt_version() != null ? aiResponse.getPrompt_version() : "status-v1",
                     parsedResponse != null ? parsedResponse.toString() : "",
                     status,
-                    System.currentTimeMillis() - startTime,
-                    null
+                    duration,
+                    null,
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
             );
             return saved;
 
         } catch (Exception e) {
             status = "FAILED";
             errorMsg = e.getMessage();
+            long duration = System.currentTimeMillis() - startTime;
             log.error("Error generating daily status: ", e);
-            auditService.logAudit(
+            auditService.logAuditFull(
                     feature,
-                    request.getSprintInformation(),
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getSprintInformation() != null ? request.getSprintInformation() : "Daily Status Generation",
                     sources,
                     "gemini-3.7-flash",
                     "status-v1",
                     null,
                     status,
-                    System.currentTimeMillis() - startTime,
-                    errorMsg
+                    duration,
+                    errorMsg,
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
             );
             throw new RuntimeException("Failed to generate daily status", e);
         }

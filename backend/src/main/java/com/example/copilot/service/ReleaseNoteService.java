@@ -6,6 +6,7 @@ import com.example.copilot.dto.accept.ReleaseNoteAcceptRequest;
 import com.example.copilot.dto.ai.AiReleaseNoteResponse;
 import com.example.copilot.entity.ReleaseNote;
 import com.example.copilot.repository.ReleaseNoteRepository;
+import com.example.copilot.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,9 +22,50 @@ public class ReleaseNoteService {
     private final AuditService auditService;
 
     public AiReleaseNoteResponse generateReleaseNotes(ReleaseNoteRequest request) {
+        long startTime = System.currentTimeMillis();
+        String inputType = request.getInputType() != null ? request.getInputType() : "Sprint Information / Document";
         try {
-            return aiServiceClient.generateReleaseNotes(request);
+            AiReleaseNoteResponse resp = aiServiceClient.generateReleaseNotes(request);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Release Notes",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getSprintInformation() != null ? request.getSprintInformation() : "Release Notes Generation",
+                    resp.getSources(),
+                    resp.getModel(),
+                    resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "",
+                    "SUCCESS",
+                    duration,
+                    null,
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
+            );
+            return resp;
         } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Release Notes",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getSprintInformation() != null ? request.getSprintInformation() : "Release Notes Generation",
+                    null,
+                    "gemini-3.7-flash",
+                    "release-v1",
+                    null,
+                    "FAILED",
+                    duration,
+                    e.getMessage(),
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
+            );
             log.error("Error generating release notes preview: ", e);
             throw new RuntimeException("Failed to generate release notes: " + e.getMessage(), e);
         }
@@ -32,6 +74,8 @@ public class ReleaseNoteService {
     @Transactional
     public ReleaseNote acceptReleaseNotes(ReleaseNoteAcceptRequest request) {
         ReleaseNote releaseNote = new ReleaseNote();
+        releaseNote.setProjectId(request.getProjectId());
+        releaseNote.setDocumentId(request.getDocumentId());
         releaseNote.setVersion(request.getVersion() != null ? request.getVersion() : "1.0.0");
         releaseNote.setSprintInformation(request.getSprintInformation());
         releaseNote.setSummary(request.getSummary());
@@ -49,19 +93,25 @@ public class ReleaseNoteService {
         String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "release-v1";
         String outputStr = request.getSummary() != null ? request.getSummary() : "";
 
-        auditService.logAudit(
-                "RELEASE_NOTES",
+        auditService.logAuditFull(
+                "Release Notes",
+                "ACCEPT",
+                UserContext.getCurrentUser(),
+                UserContext.getCurrentRole(),
                 request.getSprintInformation() != null ? request.getSprintInformation() : "Release notes",
                 request.getSources(),
                 model,
                 promptVersion,
                 outputStr,
-                "SUCCESS",
+                "ACCEPTED",
                 execTime,
-                null
+                null,
+                request.getProjectName(),
+                request.getDocumentName(),
+                request.getDocumentVersion(),
+                "Sprint Release Notes"
         );
 
         return saved;
     }
 }
-

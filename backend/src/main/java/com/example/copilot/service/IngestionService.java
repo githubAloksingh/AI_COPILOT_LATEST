@@ -3,12 +3,19 @@ package com.example.copilot.service;
 import com.example.copilot.client.AiServiceClient;
 import com.example.copilot.dto.ai.AiIngestionResponse;
 import com.example.copilot.entity.Document;
+import com.example.copilot.entity.DocumentChunk;
+import com.example.copilot.entity.Project;
+import com.example.copilot.repository.DocumentChunkRepository;
 import com.example.copilot.repository.DocumentRepository;
+import com.example.copilot.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -16,6 +23,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class IngestionService {
 
     private final DocumentRepository documentRepository;
+    private final DocumentChunkRepository documentChunkRepository;
+    private final ProjectRepository projectRepository;
     private final AiServiceClient aiServiceClient;
     private final AuditService auditService;
 
@@ -85,11 +94,34 @@ public class IngestionService {
 
             document.setStatus("COMPLETED");
             document.setErrorMessage(null);
+            document.setChunkCount(response.getChunk_count());
             documentRepository.save(document);
+
+            // Persist chunks directly into MySQL document_chunk table
+            if (response.getChunks() != null && !response.getChunks().isEmpty()) {
+                documentChunkRepository.deleteByDocumentId(documentId);
+                List<DocumentChunk> chunkEntities = new ArrayList<>();
+                for (int i = 0; i < response.getChunks().size(); i++) {
+                    DocumentChunk chunk = new DocumentChunk();
+                    chunk.setDocumentId(documentId);
+                    chunk.setChunkIndex(i);
+                    chunk.setChunkText(response.getChunks().get(i));
+                    chunkEntities.add(chunk);
+                }
+                documentChunkRepository.saveAll(chunkEntities);
+            }
+
+            // Resolve Project Name for audit log
+            String projectName = "General";
+            if (document.getProjectId() != null) {
+                projectName = projectRepository.findById(document.getProjectId())
+                        .map(Project::getProjectName).orElse("General");
+            }
+
             long duration = System.currentTimeMillis() - startTime;
             auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
-                    "Uploaded document: " + document.getFileName() + " (" + response.getChunk_count() + " chunks)", null, "Parser", "v1.0", "COMPLETED", "COMPLETED", duration, null, null, document.getFileName(), document.getVersion(), document.getFileType());
-            log.info("Successfully completed ingestion for document ID: {} ({} chunks)", document.getId(), response.getChunk_count());
+                    "Uploaded document: " + document.getFileName() + " (" + response.getChunk_count() + " chunks)", null, "Parser", "v1.0", "COMPLETED", "COMPLETED", duration, null, projectName, document.getFileName(), document.getVersion(), document.getFileType());
+            log.info("Successfully completed ingestion for document ID: {} ({} chunks) in project '{}'", document.getId(), response.getChunk_count(), projectName);
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
@@ -102,8 +134,14 @@ public class IngestionService {
             document.setErrorMessage(err);
             documentRepository.save(document);
 
+            String projectName = "General";
+            if (document.getProjectId() != null) {
+                projectName = projectRepository.findById(document.getProjectId())
+                        .map(Project::getProjectName).orElse("General");
+            }
+
             auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
-                    "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration, err, null, document.getFileName(), document.getVersion(), document.getFileType());
+                    "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration, err, projectName, document.getFileName(), document.getVersion(), document.getFileType());
         }
     }
 }

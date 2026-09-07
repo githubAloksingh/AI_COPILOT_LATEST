@@ -14,6 +14,12 @@ import java.util.Map;
 @Setter
 public class Requirement extends BaseEntity {
 
+    @Column(name = "project_id")
+    private Long projectId;
+
+    @Column(name = "document_id")
+    private Long documentId;
+
     /** BRD / document name this requirement was generated from */
     @Column(name = "brd_name")
     private String brdName;

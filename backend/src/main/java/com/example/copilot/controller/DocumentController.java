@@ -60,6 +60,11 @@ public class DocumentController {
         return ApiResponse.success(content, "Document content retrieved");
     }
 
+    @GetMapping("/api/documents/{id}/chunks")
+    public ApiResponse<List<com.example.copilot.entity.DocumentChunk>> getDocumentChunks(@PathVariable Long id) {
+        return ApiResponse.success(documentService.getDocumentChunks(id), "Document chunks retrieved");
+    }
+
     @DeleteMapping("/api/documents/{id}")
     public ApiResponse<Void> deleteDocument(@PathVariable Long id) {
         documentService.deleteDocument(id);

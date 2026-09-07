@@ -13,6 +13,12 @@ import java.util.List;
 @Setter
 public class ReleaseNote extends BaseEntity {
 
+    @Column(name = "project_id")
+    private Long projectId;
+
+    @Column(name = "document_id")
+    private Long documentId;
+
     private String version;
     
     @Column(columnDefinition = "TEXT")

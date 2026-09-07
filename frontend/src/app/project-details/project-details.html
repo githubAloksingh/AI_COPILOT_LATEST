@@ -70,6 +70,7 @@
           <th>Uploaded By</th>
           <th>Uploaded Time</th>
           <th>Version</th>
+          <th>Chunks</th>
           <th style="text-align: center; width: 80px;">View</th>
           <th style="text-align: right; width: 90px;">Actions</th>
         </tr>
@@ -103,6 +104,14 @@
           <td>{{ doc.createdAt | date:'short' }}</td>
           <td>
             <span class="version-badge">{{ doc.version || 'v1' }}</span>
+          </td>
+          <td>
+            <button class="btn btn-outline" 
+                    style="padding: 2px 8px; font-size: 0.78rem; border-radius: 12px; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; cursor: pointer;" 
+                    title="View Chunks stored in DB"
+                    (click)="openChunksModal(doc)">
+              {{ doc.chunkCount || 0 }} Chunks
+            </button>
           </td>
           <td style="text-align: center;">
             <button *ngIf="isBrd(doc.fileName)" 
@@ -230,3 +239,49 @@
     </div>
   </div>
 </div>
+
+<!-- Document Chunks Modal -->
+<div class="modal-backdrop" *ngIf="showChunksModal" (click)="closeChunksModal()">
+  <div class="modal-content brd-modal" (click)="$event.stopPropagation()" style="max-width: 800px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.25rem;">📑</span>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600;">
+          Document Chunks — {{ chunksDocName }} ({{ chunksList.length }} Chunks Stored in DB)
+        </h3>
+      </div>
+      <button class="close-btn" (click)="closeChunksModal()">✕</button>
+    </div>
+
+    <div class="modal-body scrollable-content" style="max-height: 65vh; overflow-y: auto;">
+      <div *ngIf="loadingChunks" class="loading-indicator" style="padding: 40px 0;">
+        <div class="spinner"></div>
+        <span>Retrieving chunks from MySQL database...</span>
+      </div>
+
+      <div *ngIf="!loadingChunks && chunksList.length === 0" style="text-align: center; padding: 40px 0; color: #64748b;">
+        <p>No chunks found for this document in the database.</p>
+      </div>
+
+      <div *ngIf="!loadingChunks && chunksList.length > 0" style="display: flex; flex-direction: column; gap: 14px;">
+        <div *ngFor="let chunk of chunksList" 
+             style="border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+            <span style="font-weight: 600; font-size: 0.85rem; color: #0284c7;">
+              Chunk #{{ chunk.chunkIndex + 1 }}
+            </span>
+            <span style="font-size: 0.75rem; color: #64748b;">
+              {{ chunk.chunkText ? chunk.chunkText.length : 0 }} chars
+            </span>
+          </div>
+          <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.825rem; color: #334155; margin: 0; line-height: 1.5;">{{ chunk.chunkText }}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary" (click)="closeChunksModal()">Close</button>
+    </div>
+  </div>
+</div>
+

@@ -7,6 +7,12 @@ import java.util.List;
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RequirementBulkAcceptRequest {
+    private Long projectId;
+    private Long documentId;
+    private String projectName;
+    private String documentName;
+    private String documentVersion;
+
     /** BRD document name e.g. "Project1_BRD.pdf" */
     private String brdName;
 

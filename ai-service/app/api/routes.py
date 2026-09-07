@@ -77,6 +77,7 @@ async def ingest_document(
             document_id=document_id,
             file_name=name,
             chunk_count=stored_count,
+            chunks=chunks,
             message=f"Successfully ingested and embedded {stored_count} chunks"
         )
     except HTTPException:

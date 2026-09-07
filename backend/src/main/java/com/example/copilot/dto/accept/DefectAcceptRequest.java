@@ -6,6 +6,12 @@ import java.util.Map;
 
 @Data
 public class DefectAcceptRequest {
+    private Long projectId;
+    private Long documentId;
+    private String projectName;
+    private String documentName;
+    private String documentVersion;
+
     private String title;
     private String description;
     private String logs;

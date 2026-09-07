@@ -14,11 +14,15 @@ export class AuditHistory implements OnInit {
   logs: any[] = [];
   loading = true;
   userFilter = 'ALL';
-  availableUsers = ['User A', 'User B', 'User C', 'Admin'];
+  projectFilter = 'ALL';
+  availableUsers: string[] = [];
+  availableProjects: string[] = [];
 
   constructor(public api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
+    this.loadUsers();
+    this.loadProjects();
     this.loadLogs();
   }
 
@@ -32,6 +36,28 @@ export class AuditHistory implements OnInit {
 
   get isAdmin(): boolean {
     return this.currentRole === 'ADMIN';
+  }
+
+  loadUsers() {
+    this.api.getUsers().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.availableUsers = res.data.map((u: any) => u.username || u.name);
+        }
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  loadProjects() {
+    this.api.getProjects().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.availableProjects = res.data.map((p: any) => p.projectName);
+        }
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   loadLogs() {
@@ -60,12 +86,21 @@ export class AuditHistory implements OnInit {
             };
           });
 
-          // Collect distinct users for admin filter dropdown
-          const setUsers = new Set<string>(['User A', 'User B', 'User C', 'Admin']);
+          // Also collect any project names present in logs
+          const setProjects = new Set<string>(this.availableProjects);
           this.logs.forEach(l => {
-            if (l.userName) setUsers.add(l.userName);
+            if (l.projectName) setProjects.add(l.projectName);
           });
-          this.availableUsers = Array.from(setUsers);
+          this.availableProjects = Array.from(setProjects);
+
+          // If availableUsers wasn't populated yet, collect from logs
+          if (this.availableUsers.length === 0) {
+            const setUsers = new Set<string>();
+            this.logs.forEach(l => {
+              if (l.userName) setUsers.add(l.userName);
+            });
+            this.availableUsers = Array.from(setUsers);
+          }
         }
         this.loading = false;
         this.cdr.markForCheck();
@@ -75,6 +110,13 @@ export class AuditHistory implements OnInit {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  get filteredLogs(): any[] {
+    if (this.projectFilter === 'ALL') {
+      return this.logs;
+    }
+    return this.logs.filter(l => l.projectName === this.projectFilter);
   }
 
   formatDate(timestamp: string) {

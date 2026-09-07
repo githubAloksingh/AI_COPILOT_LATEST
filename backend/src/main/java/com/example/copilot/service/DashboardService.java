@@ -15,7 +15,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DashboardService {
 
+    private final ProjectRepository projectRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentChunkRepository documentChunkRepository;
     private final RequirementRepository requirementRepository;
     private final TestCaseRepository testCaseRepository;
     private final DefectRepository defectRepository;
@@ -26,7 +28,9 @@ public class DashboardService {
     public Map<String, Object> getDashboardStats() {
         Map<String, Object> stats = new HashMap<>();
         
+        stats.put("projectsCreated", projectRepository.count());
         stats.put("documentsUploaded", documentRepository.count());
+        stats.put("chunksStored", documentChunkRepository.count());
         stats.put("requirementsGenerated", requirementRepository.count());
         stats.put("testCasesGenerated", testCaseRepository.count());
         stats.put("defectsTriaged", defectRepository.count());

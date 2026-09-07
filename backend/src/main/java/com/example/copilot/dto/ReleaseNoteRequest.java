@@ -10,4 +10,10 @@ public class ReleaseNoteRequest {
     
     @JsonProperty("document_id")
     private String documentId;
+
+    private Long projectId;
+    private String projectName;
+    private String documentName;
+    private String documentVersion;
+    private String inputType;
 }

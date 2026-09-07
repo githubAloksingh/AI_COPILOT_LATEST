@@ -6,6 +6,7 @@ import com.example.copilot.dto.accept.DefectAcceptRequest;
 import com.example.copilot.dto.ai.AiDefectResponse;
 import com.example.copilot.entity.Defect;
 import com.example.copilot.repository.DefectRepository;
+import com.example.copilot.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,7 +36,6 @@ public class DefectService {
             String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "uploaded_log.txt";
             String fileContent = new String(file.getBytes(), StandardCharsets.UTF_8);
 
-            // Cap logs at 60,000 characters to fit context window comfortably
             if (fileContent.length() > 60000) {
                 fileContent = fileContent.substring(0, 60000) + "\n... [truncated due to size]";
             }
@@ -45,8 +45,10 @@ public class DefectService {
             request.setDescription("Automated triage for uploaded file: " + fileName);
             request.setLogs(fileContent);
             request.setEnvironment("Uploaded File Environment");
+            request.setDocumentName(fileName);
+            request.setInputType("Log File");
 
-            return aiServiceClient.analyzeDefect(request);
+            return analyzeDefect(request);
         } catch (Exception e) {
             log.error("Error analyzing uploaded defect file: ", e);
             throw new RuntimeException("Failed to analyze defect file: " + e.getMessage(), e);
@@ -54,9 +56,50 @@ public class DefectService {
     }
 
     public AiDefectResponse analyzeDefect(DefectRequest request) {
+        long startTime = System.currentTimeMillis();
+        String inputType = request.getInputType() != null ? request.getInputType() : "Defect Context / Logs";
         try {
-            return aiServiceClient.analyzeDefect(request);
+            AiDefectResponse resp = aiServiceClient.analyzeDefect(request);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Defect Triage",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getTitle() != null ? request.getTitle() : "Defect Triage Analysis",
+                    resp.getSources(),
+                    resp.getModel(),
+                    resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "",
+                    "SUCCESS",
+                    duration,
+                    null,
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
+            );
+            return resp;
         } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Defect Triage",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getTitle() != null ? request.getTitle() : "Defect Triage Analysis",
+                    null,
+                    "gemini-3.7-flash",
+                    "defect-v1",
+                    null,
+                    "FAILED",
+                    duration,
+                    e.getMessage(),
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
+            );
             log.error("Error generating defect triage preview: ", e);
             throw new RuntimeException("Failed to analyze defect: " + e.getMessage(), e);
         }
@@ -65,6 +108,8 @@ public class DefectService {
     @Transactional
     public Defect acceptDefect(DefectAcceptRequest request) {
         Defect defect = new Defect();
+        defect.setProjectId(request.getProjectId());
+        defect.setDocumentId(request.getDocumentId());
         defect.setTitle(request.getTitle() != null ? request.getTitle() : "Defect Triage");
         defect.setDescription(request.getDescription());
         defect.setLogs(request.getLogs());
@@ -89,19 +134,25 @@ public class DefectService {
         String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "defect-v1";
         String outputStr = request.getProbableRootCause() != null ? request.getProbableRootCause() : "";
 
-        auditService.logAudit(
-                "DEFECT_TRIAGE",
-                request.getTitle() != null ? request.getTitle() : "Defect triage file",
+        auditService.logAuditFull(
+                "Defect Triage",
+                "ACCEPT",
+                UserContext.getCurrentUser(),
+                UserContext.getCurrentRole(),
+                request.getTitle() != null ? request.getTitle() : "Defect Triage",
                 request.getSources(),
                 model,
                 promptVersion,
                 outputStr,
-                "SUCCESS",
+                "ACCEPTED",
                 execTime,
-                null
+                null,
+                request.getProjectName(),
+                request.getDocumentName(),
+                request.getDocumentVersion(),
+                "Defect Triage Report"
         );
 
         return saved;
     }
 }
-

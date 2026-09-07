@@ -39,6 +39,12 @@ export class ProjectDetails implements OnInit, OnDestroy {
   selectedDocContent = '';
   loadingPreview = false;
 
+  // Document Chunks Modal State
+  showChunksModal = false;
+  chunksDocName = '';
+  chunksList: any[] = [];
+  loadingChunks = false;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -267,6 +273,34 @@ export class ProjectDetails implements OnInit, OnDestroy {
     this.showPreviewModal = false;
     this.selectedDocName = '';
     this.selectedDocContent = '';
+  }
+
+  openChunksModal(doc: any) {
+    this.chunksDocName = doc.fileName;
+    this.chunksList = [];
+    this.loadingChunks = true;
+    this.showChunksModal = true;
+    this.cdr.markForCheck();
+
+    this.api.getDocumentChunks(doc.id).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.chunksList = res.data || [];
+        }
+        this.loadingChunks = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingChunks = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  closeChunksModal() {
+    this.showChunksModal = false;
+    this.chunksDocName = '';
+    this.chunksList = [];
   }
 
   formatBytes(bytes: number, decimals = 2) {

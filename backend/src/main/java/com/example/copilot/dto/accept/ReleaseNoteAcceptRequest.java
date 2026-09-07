@@ -5,6 +5,12 @@ import java.util.List;
 
 @Data
 public class ReleaseNoteAcceptRequest {
+    private Long projectId;
+    private Long documentId;
+    private String projectName;
+    private String documentName;
+    private String documentVersion;
+
     private String version;
     private String sprintInformation;
     private String summary;

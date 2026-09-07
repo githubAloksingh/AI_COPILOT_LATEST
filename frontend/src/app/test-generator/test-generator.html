@@ -18,7 +18,7 @@
         class="tab-btn" 
         [class.active]="mainOption === 'kb'" 
         (click)="setMainOption('kb')">
-        📁 Option A: Import from Knowledge Base
+        📁 Option A: Import from Knowledge Base (Project & File)
       </button>
       <button 
         type="button"
@@ -36,61 +36,59 @@
 
       <!-- Step 1: Select Project Dropdown -->
       <div class="form-group">
-        <label class="field-label">Select Project <span class="required">*</span></label>
+        <label class="field-label">1. Select Project <span class="required">*</span></label>
         <select 
           [ngModel]="selectedProjectId" 
           (ngModelChange)="onProjectChange($event)" 
           class="form-control"
-          [disabled]="loading || loadingDocs">
-          <option [ngValue]="null">-- Select Project --</option>
+          [disabled]="loading || loadingProjects">
+          <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
           <option *ngFor="let p of projects" [value]="p.id">
-            📂 {{ p.name }} ({{ p.brdDocuments.length }} BRDs, {{ p.codebaseDocuments.length }} Codebases)
+            📂 {{ p.projectName }} ({{ p.department || 'General' }})
           </option>
         </select>
-        <small class="helper-text" *ngIf="projects.length === 0 && !loadingDocs">
-          No projects found in Knowledge Base. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+        <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects">
+          No projects found in Knowledge Base. Create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
         </small>
       </div>
 
       <!-- Step 2: Select Input Type Dropdown (Enabled ONLY after project is selected) -->
-      <div class="form-group" style="margin-top: 16px;">
+      <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
         <label class="field-label">
-          Select Input Type <span class="required">*</span>
-          <span class="field-hint" *ngIf="!selectedProjectId">(Select a project above first)</span>
+          2. Select Artifact Type to Test <span class="required">*</span>
         </label>
         <select 
           [ngModel]="selectedInputType" 
           (ngModelChange)="onInputTypeChange($event)" 
           class="form-control"
           [disabled]="!selectedProjectId || loading">
-          <option [ngValue]="null">-- Select Input Type --</option>
-          <option value="BRD">BRD</option>
-          <option value="Codebase">Codebase</option>
-          <option value="BRD + Codebase">BRD + Codebase</option>
+          <option value="BRD">BRD / Requirements Document</option>
+          <option value="Codebase">Project Codebase (ZIP Archive)</option>
+          <option value="BRD + Codebase">BRD + Codebase (Full Scope)</option>
         </select>
       </div>
 
       <!-- Step 3: Dynamic Selection Sections based on Input Type -->
 
       <!-- CASE 1: BRD Selection (Active for 'BRD' and 'BRD + Codebase') -->
-      <div *ngIf="selectedInputType === 'BRD' || selectedInputType === 'BRD + Codebase'" class="input-sub-section">
+      <div *ngIf="selectedProjectId && (selectedInputType === 'BRD' || selectedInputType === 'BRD + Codebase')" class="input-sub-section" style="margin-top: 16px;">
         <div class="form-group">
           <label class="field-label">
-            Select BRD <span class="required">*</span>
-            <span class="field-meta" *ngIf="selectedProject">({{ selectedProject.name }})</span>
+            Select BRD Document <span class="required">*</span>
+            <span class="field-meta" *ngIf="selectedProject">({{ selectedProject.projectName }})</span>
           </label>
           <select 
             [ngModel]="selectedBrdId" 
             (ngModelChange)="onBrdSelect($event)" 
             class="form-control"
-            [disabled]="loading">
+            [disabled]="loading || loadingDocs">
             <option [ngValue]="null">-- Select BRD --</option>
             <option *ngFor="let doc of availableBrds" [value]="doc.id">
-              📄 {{ doc.fileName }} ({{ doc.fileType || 'doc' }}, {{ doc.chunkCount || 0 }} chunks)
+              📄 {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} chunks)
             </option>
           </select>
-          <small class="helper-text" *ngIf="availableBrds.length === 0">
-            No BRD files available under this project. Upload BRD documents in the <a routerLink="/knowledge-base">Knowledge Base</a>.
+          <small class="helper-text" *ngIf="availableBrds.length === 0 && !loadingDocs">
+            No BRD documents available in this project. Upload BRD files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
           </small>
         </div>
 
@@ -108,24 +106,24 @@
       </div>
 
       <!-- CASE 2: Codebase Selection (Active for 'Codebase' and 'BRD + Codebase') -->
-      <div *ngIf="selectedInputType === 'Codebase' || selectedInputType === 'BRD + Codebase'" class="input-sub-section" [class.mt-field]="selectedInputType === 'BRD + Codebase'">
+      <div *ngIf="selectedProjectId && (selectedInputType === 'Codebase' || selectedInputType === 'BRD + Codebase')" class="input-sub-section" style="margin-top: 16px;">
         <div class="form-group">
           <label class="field-label">
-            Select Codebase / Repository <span class="required">*</span>
-            <span class="field-meta" *ngIf="selectedProject">({{ selectedProject.name }})</span>
+            Select Codebase Archive (ZIP) <span class="required">*</span>
+            <span class="field-meta" *ngIf="selectedProject">({{ selectedProject.projectName }})</span>
           </label>
           <select 
             [ngModel]="selectedCodebaseId" 
             (ngModelChange)="onCodebaseSelect($event)" 
             class="form-control"
-            [disabled]="loading">
-            <option [ngValue]="null">-- Select Codebase --</option>
+            [disabled]="loading || loadingDocs">
+            <option [ngValue]="null">-- Select Codebase ZIP --</option>
             <option *ngFor="let doc of availableCodebases" [value]="doc.id">
               📦 {{ doc.fileName }} (ZIP archive, {{ doc.chunkCount || 0 }} chunks)
             </option>
           </select>
-          <small class="helper-text" *ngIf="availableCodebases.length === 0">
-            No codebase archives available under this project. Upload project ZIPs in the <a routerLink="/knowledge-base">Knowledge Base</a>.
+          <small class="helper-text" *ngIf="availableCodebases.length === 0 && !loadingDocs">
+            No ZIP archives available in this project. Upload project ZIPs in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
           </small>
         </div>
 
@@ -140,6 +138,17 @@
           </div>
           <button type="button" class="btn-remove-doc" (click)="removeCodebaseDoc()" [disabled]="loading">Remove</button>
         </div>
+      </div>
+
+      <!-- Optional Test Prompt/Questions -->
+      <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
+        <label class="field-label">Optional: Specific Test Scenarios / Custom Instructions</label>
+        <textarea 
+          [(ngModel)]="customTestInstructions" 
+          rows="3"
+          placeholder="e.g. Focus specifically on edge cases for invalid payment tokens, concurrency race conditions, and session timeout..."
+          class="form-control"
+          [disabled]="loading"></textarea>
       </div>
 
     </div>

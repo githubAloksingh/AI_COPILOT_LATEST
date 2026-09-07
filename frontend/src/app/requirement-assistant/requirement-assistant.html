@@ -1,6 +1,6 @@
 <div class="page-header">
   <h1>Requirement Assistant</h1>
-  <p>Generate structured, production-ready requirement specifications using Knowledge Base or manual inputs.</p>
+  <p>Generate structured, production-ready requirement specifications from Knowledge Base project documents or manual specifications.</p>
 </div>
 
 <!-- Toast Notification -->
@@ -15,7 +15,7 @@
       class="tab-btn" 
       [class.active]="inputMode === 'kb'" 
       (click)="setInputMode('kb')">
-      📁 Option A: Import from Knowledge Base
+      📁 Option A: Import from Knowledge Base (Project & File)
     </button>
     <button 
       class="tab-btn" 
@@ -25,22 +25,41 @@
     </button>
   </div>
 
-  <!-- Option A: Knowledge Base Selection -->
+  <!-- Option A: Knowledge Base 2-Step Selection -->
   <div *ngIf="inputMode === 'kb'" class="mode-panel kb-panel">
+    <!-- Step 1: Select Project -->
     <div class="form-group">
-      <label>Select Project Document from Knowledge Base</label>
+      <label>1. Select Project <span class="required">*</span></label>
+      <select 
+        [ngModel]="selectedProjectId" 
+        (ngModelChange)="onProjectChange($event)" 
+        class="form-control"
+        [disabled]="loading || loadingProjects">
+        <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
+        <option *ngFor="let proj of projects" [value]="proj.id">
+          📂 {{ proj.projectName }} ({{ proj.department || 'General' }})
+        </option>
+      </select>
+      <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects">
+        No projects found. Please create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+      </small>
+    </div>
+
+    <!-- Step 2: Select Document -->
+    <div class="form-group" *ngIf="selectedProjectId">
+      <label>2. Select Document from Project <span class="required">*</span></label>
       <select 
         [ngModel]="selectedDocumentId" 
         (ngModelChange)="onDocumentSelect($event)" 
         class="form-control"
         [disabled]="loading || loadingDocs">
-        <option [ngValue]="null">-- Select an Ingested Document --</option>
+        <option [ngValue]="null">-- Select Document --</option>
         <option *ngFor="let doc of documents" [value]="doc.id">
-          📄 {{ doc.fileName }} ({{ doc.fileType }}, {{ doc.chunkCount || 0 }} chunks)
+          📄 {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} Chunks)
         </option>
       </select>
       <small class="helper-text" *ngIf="documents.length === 0 && !loadingDocs">
-        No ingested documents found. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+        No completed documents found in this project. Upload a document in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
       </small>
     </div>
 
@@ -50,13 +69,25 @@
         <span class="doc-icon">📄</span>
         <div>
           <strong>{{ selectedDocument.fileName }}</strong>
-          <div class="doc-sub">{{ selectedDocument.fileType }} • Status: {{ selectedDocument.status }}</div>
+          <div class="doc-sub">
+            Project: {{ selectedProject?.projectName }} • Version: {{ selectedDocument.version || 'v1' }} • {{ selectedDocument.chunkCount || 0 }} Chunks Indexed
+          </div>
         </div>
       </div>
       <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
     </div>
 
-    <div class="form-group" style="margin-top: 14px;">
+    <!-- Prompt / Questions on the document -->
+    <div class="form-group" style="margin-top: 16px;">
+      <label>Optional: Specific Requirement Focus or Prompt</label>
+      <textarea 
+        [(ngModel)]="customQuery" 
+        rows="3"
+        placeholder="e.g. Focus on authentication, session handling, and role-based permissions... (leave empty for full document synthesis)"
+        class="form-control"></textarea>
+    </div>
+
+    <div class="form-group">
       <label>Priority</label>
       <select [(ngModel)]="priority" class="form-control">
         <option value="Low">Low</option>
@@ -109,7 +140,7 @@
   
   <div *ngIf="loading" class="loading-indicator">
     <div class="spinner"></div>
-    <span>Retrieving relevant knowledge and synthesizing requirement with Gemini AI...</span>
+    <span>Retrieving grounded knowledge chunks and synthesizing requirement specification with Gemini AI...</span>
   </div>
   
   <div *ngIf="error" class="error-message">
@@ -134,4 +165,3 @@
   (accept)="onAccept($event)"
   (reject)="onReject()">
 </app-response-modal>
-

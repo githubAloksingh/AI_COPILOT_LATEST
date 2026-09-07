@@ -1,6 +1,6 @@
 <div class="page-header">
   <h1>Release Notes Generator</h1>
-  <p>Generate structured sprint release notes, new features, and technical updates using Knowledge Base or manual inputs.</p>
+  <p>Generate professional release notes, changelogs, and sprint summaries using Knowledge Base documents or manual sprint inputs.</p>
 </div>
 
 <!-- Toast Notification -->
@@ -15,7 +15,7 @@
       class="tab-btn" 
       [class.active]="inputMode === 'kb'" 
       (click)="setInputMode('kb')">
-      📁 Option A: Import from Knowledge Base
+      📁 Option A: Import from Knowledge Base (Project & File)
     </button>
     <button 
       class="tab-btn" 
@@ -27,54 +27,90 @@
 
   <div class="form-group">
     <label>Release Version <span class="required">*</span></label>
-    <input type="text" [(ngModel)]="version" placeholder="e.g. 2.4.0" class="form-control" style="max-width: 250px;">
+    <input 
+      type="text" 
+      [(ngModel)]="version" 
+      placeholder="e.g. 1.2.0 or 2026.3-RC1"
+      class="form-control"
+      style="max-width: 300px;">
   </div>
 
   <!-- Option A: Knowledge Base Selection -->
   <div *ngIf="inputMode === 'kb'" class="mode-panel kb-panel">
+    <!-- Step 1: Select Project -->
     <div class="form-group">
-      <label>Select Project Document from Knowledge Base</label>
+      <label>1. Select Project <span class="required">*</span></label>
+      <select 
+        [ngModel]="selectedProjectId" 
+        (ngModelChange)="onProjectChange($event)" 
+        class="form-control"
+        [disabled]="loading || loadingProjects">
+        <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
+        <option *ngFor="let proj of projects" [value]="proj.id">
+          📂 {{ proj.projectName }} ({{ proj.department || 'General' }})
+        </option>
+      </select>
+      <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects">
+        No projects found. Please create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+      </small>
+    </div>
+
+    <!-- Step 2: Select Document -->
+    <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
+      <label>2. Select Document from Project <span class="required">*</span></label>
       <select 
         [ngModel]="selectedDocumentId" 
         (ngModelChange)="onDocumentSelect($event)" 
         class="form-control"
         [disabled]="loading || loadingDocs">
-        <option [ngValue]="null">-- Select an Ingested Document --</option>
+        <option [ngValue]="null">-- Select Document --</option>
         <option *ngFor="let doc of documents" [value]="doc.id">
-          📄 {{ doc.fileName }} ({{ doc.fileType }}, {{ doc.chunkCount || 0 }} chunks)
+          📄 {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} chunks)
         </option>
       </select>
       <small class="helper-text" *ngIf="documents.length === 0 && !loadingDocs">
-        No ingested documents found. Upload documents in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+        No completed documents found in this project. Upload files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
       </small>
     </div>
 
     <!-- Selected Document Card -->
-    <div *ngIf="selectedDocument" class="selected-doc-badge">
+    <div *ngIf="selectedDocument" class="selected-doc-badge" style="margin-top: 16px;">
       <div class="doc-info">
         <span class="doc-icon">📄</span>
         <div>
           <strong>{{ selectedDocument.fileName }}</strong>
-          <div class="doc-sub">{{ selectedDocument.fileType }} • Status: {{ selectedDocument.status }}</div>
+          <div class="doc-sub">
+            Project: {{ selectedProject?.projectName }} • Version: {{ selectedDocument.version || 'v1' }} • {{ selectedDocument.chunkCount || 0 }} chunks indexed
+          </div>
         </div>
       </div>
       <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
+    </div>
+
+    <!-- Optional Specific Sprint Focus -->
+    <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
+      <label>Optional: Sprint Focus / Milestone Highlights</label>
+      <textarea 
+        [(ngModel)]="customNotes" 
+        rows="3"
+        placeholder="e.g. Highlights: Migrated database to MySQL 8.0, enabled Redis cache for cart sessions, resolved 8 high-priority checkout bugs..."
+        class="form-control"></textarea>
     </div>
   </div>
 
   <!-- Option B: Manual Input -->
   <div *ngIf="inputMode === 'manual'" class="mode-panel manual-panel">
     <div class="form-group">
-      <label>Sprint Information / Jira Tickets / Completed Work <span class="required">*</span></label>
+      <label>Sprint Information / Jira Tickets / Changelog Summary <span class="required">*</span></label>
       <textarea 
         [(ngModel)]="sprintInformation" 
-        rows="4"
-        placeholder="Paste sprint summary, completed tasks, commits, or bug fixes resolved in this sprint..."
+        rows="6"
+        placeholder="Enter completed Jira tickets, git commit logs, feature summaries, or bug fixes resolved in this sprint..."
         class="form-control"></textarea>
     </div>
   </div>
 
-  <div class="action-row">
+  <div class="action-row" style="margin-top: 20px;">
     <button 
       class="btn btn-primary" 
       (click)="generate()" 
@@ -85,7 +121,7 @@
 
   <div *ngIf="loading" class="loading-indicator">
     <div class="spinner"></div>
-    <span>Retrieving sprint context and drafting release notes with Gemini AI...</span>
+    <span>Retrieving sprint documentation and synthesizing professional release notes with Gemini AI...</span>
   </div>
 
   <div *ngIf="error" class="error-message">
@@ -97,8 +133,8 @@
 <app-response-modal
   #responseModal
   [isOpen]="isModalOpen"
-  [type]="'releasenote'"
-  [title]="'Release Notes — Version ' + (version || '1.0.0')"
+  [type]="'releasenotes'"
+  [title]="'Release Notes — v' + version"
   [data]="generatedResult"
   [sources]="sources"
   [model]="model"

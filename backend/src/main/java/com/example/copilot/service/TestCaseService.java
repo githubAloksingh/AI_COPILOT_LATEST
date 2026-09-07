@@ -7,6 +7,7 @@ import com.example.copilot.dto.accept.TestCaseAcceptRequest;
 import com.example.copilot.dto.ai.AiTestCaseResponse;
 import com.example.copilot.entity.TestCase;
 import com.example.copilot.repository.TestCaseRepository;
+import com.example.copilot.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,9 +28,50 @@ public class TestCaseService {
     private final AuditService auditService;
 
     public AiTestCaseResponse generateTestCases(TestCaseRequest request) {
+        long startTime = System.currentTimeMillis();
+        String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
         try {
-            return aiServiceClient.generateTestCases(request);
+            AiTestCaseResponse resp = aiServiceClient.generateTestCases(request);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Test Generator",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getRequirement() != null ? request.getRequirement() : "Generate test cases",
+                    resp.getSources(),
+                    resp.getModel(),
+                    resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "",
+                    "SUCCESS",
+                    duration,
+                    null,
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
+            );
+            return resp;
         } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Test Generator",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    request.getRequirement() != null ? request.getRequirement() : "Generate test cases",
+                    null,
+                    "gemini-3.7-flash",
+                    "testcase-v1",
+                    null,
+                    "FAILED",
+                    duration,
+                    e.getMessage(),
+                    request.getProjectName(),
+                    request.getDocumentName(),
+                    request.getDocumentVersion(),
+                    inputType
+            );
             log.error("Error generating test cases preview: ", e);
             throw new RuntimeException("Failed to generate test cases: " + e.getMessage(), e);
         }
@@ -68,6 +110,8 @@ public class TestCaseService {
         if (items != null) {
             for (TestCaseItemDto item : items) {
                 TestCase tc = new TestCase();
+                tc.setProjectId(request.getProjectId());
+                tc.setDocumentId(request.getDocumentId());
                 tc.setTcId(item.getScenario() != null && !item.getScenario().isEmpty() ? 
                         "TC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase() : "TC-001");
                 tc.setRequirementId(request.getRequirementId());
@@ -87,19 +131,25 @@ public class TestCaseService {
         String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "testcase-v1";
         String outputStr = items != null ? items.toString() : "";
 
-        auditService.logAudit(
-                "TEST_GENERATOR",
-                request.getRequirement() != null ? request.getRequirement() : "Generated test cases",
+        auditService.logAuditFull(
+                "Test Generator",
+                "ACCEPT",
+                UserContext.getCurrentUser(),
+                UserContext.getCurrentRole(),
+                request.getRequirement() != null ? request.getRequirement() : "Accepted test cases",
                 request.getSources(),
                 model,
                 promptVersion,
                 outputStr,
-                "SUCCESS",
+                "ACCEPTED",
                 execTime,
-                null
+                null,
+                request.getProjectName(),
+                request.getDocumentName(),
+                request.getDocumentVersion(),
+                "Test Suite"
         );
 
         return savedTestCases;
     }
 }
-

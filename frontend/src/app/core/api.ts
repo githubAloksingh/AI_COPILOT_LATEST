@@ -117,6 +117,14 @@ export class ApiService {
     return this.http.get<ApiResponse<string>>(`${this.baseUrl}/documents/${id}/content`);
   }
 
+  getDocumentChunks(id: number): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/documents/${id}/chunks`);
+  }
+
+  getUsers(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/users`);
+  }
+
   deleteDocument(id: number): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.baseUrl}/documents/${id}`);
   }

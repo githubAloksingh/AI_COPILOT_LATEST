@@ -15,15 +15,28 @@ import { ResponseModal } from '../core/components/response-modal/response-modal'
 export class DefectTriage implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
 
-  // Knowledge Base ZIP documents only
-  zipDocuments: any[] = [];
-  loadingDocs = false;
-  selectedZipId: number | null = null;
-  selectedZipDoc: any = null;
+  // Input Mode: 'kb' | 'manual'
+  inputMode: 'kb' | 'manual' = 'kb';
 
-  // Optional contextual inputs
+  // 2-Step KB Selection: Project -> Document
+  projects: any[] = [];
+  selectedProjectId: number | null = null;
+  selectedProject: any = null;
+  loadingProjects = false;
+
+  documents: any[] = [];
+  selectedDocId: number | null = null;
+  selectedDoc: any = null;
+  loadingDocs = false;
+
+  // Contextual inputs / prompt
   defectTitle = '';
   logsOrSymptoms = '';
+
+  // Manual Input fields
+  manualDefectTitle = '';
+  manualLogs = '';
+  manualEnvironment = 'Production';
 
   // State
   loading = false;
@@ -37,57 +50,97 @@ export class DefectTriage implements OnInit {
   generatedResult: any = null;
   sources: string[] = [];
   model = 'gemini-3.7-flash';
-  promptVersion = 'defect-v1';
+  promptVersion = 'defect-v2';
   executionTimeMs = 0;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
-    this.loadZipDocuments();
+    this.loadProjects();
   }
 
-  loadZipDocuments() {
-    this.loadingDocs = true;
-    this.api.getDocuments().subscribe({
+  loadProjects() {
+    this.loadingProjects = true;
+    this.cdr.markForCheck();
+    this.api.getProjects().subscribe({
       next: (res) => {
         if (res.success) {
-          // Strictly filter ONLY ZIP files uploaded to Knowledge Base
-          this.zipDocuments = (res.data || []).filter((d: any) => 
-            d.status === 'COMPLETED' && (
-              d.fileName.toLowerCase().endsWith('.zip') || 
-              (d.fileType && d.fileType.toLowerCase().includes('zip'))
-            )
-          );
+          this.projects = res.data || [];
         }
-        this.loadingDocs = false;
+        this.loadingProjects = false;
         this.cdr.markForCheck();
       },
       error: () => {
-        this.loadingDocs = false;
+        this.loadingProjects = false;
         this.cdr.markForCheck();
       }
     });
   }
 
-  onZipSelect(docId: any) {
-    this.selectedZipId = docId ? Number(docId) : null;
-    this.selectedZipDoc = this.zipDocuments.find(d => d.id === this.selectedZipId) || null;
-    if (this.selectedZipDoc && !this.defectTitle) {
-      this.defectTitle = 'Defect Triage: ' + this.selectedZipDoc.fileName;
+  onProjectChange(projectId: any) {
+    this.selectedProjectId = projectId ? Number(projectId) : null;
+    this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
+    this.selectedDocId = null;
+    this.selectedDoc = null;
+    this.documents = [];
+    this.error = '';
+
+    if (this.selectedProjectId) {
+      this.loadingDocs = true;
+      this.cdr.markForCheck();
+      this.api.getProjectDocuments(this.selectedProjectId).subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
+          }
+          this.loadingDocs = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.loadingDocs = false;
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.cdr.markForCheck();
+    }
+  }
+
+  setInputMode(mode: 'kb' | 'manual') {
+    this.inputMode = mode;
+    this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  onDocSelect(docId: any) {
+    this.selectedDocId = docId ? Number(docId) : null;
+    this.selectedDoc = this.documents.find(d => d.id === this.selectedDocId) || null;
+    if (this.selectedDoc && !this.defectTitle) {
+      this.defectTitle = 'Defect Triage for ' + this.selectedDoc.fileName;
     }
     this.error = '';
     this.cdr.markForCheck();
   }
 
-  removeSelectedZip() {
-    this.selectedZipId = null;
-    this.selectedZipDoc = null;
+  removeSelectedDoc() {
+    this.selectedDocId = null;
+    this.selectedDoc = null;
     this.cdr.markForCheck();
   }
 
+  isInputValid(): boolean {
+    if (this.inputMode === 'kb') {
+      return !!(this.selectedProjectId && this.selectedDocId);
+    }
+    return !!(this.manualDefectTitle.trim() && this.manualLogs.trim());
+  }
+
   analyze() {
-    if (!this.selectedZipId) {
-      this.error = 'Please select a ZIP file from Knowledge Base to triage.';
+    if (!this.isInputValid()) {
+      this.error = this.inputMode === 'kb'
+        ? 'Please select a Project and Document from Knowledge Base.'
+        : 'Please enter Defect Title and Error Logs / Symptoms.';
+      this.cdr.markForCheck();
       return;
     }
 
@@ -95,15 +148,26 @@ export class DefectTriage implements OnInit {
     this.error = '';
     this.cdr.markForCheck();
 
-    const title = this.defectTitle.trim() || ('Defect Triage: ' + (this.selectedZipDoc?.fileName || 'Project ZIP'));
-    const description = `Automated defect triage for Knowledge Base ZIP archive: ${this.selectedZipDoc?.fileName || ''}`;
+    const title = this.inputMode === 'kb'
+      ? (this.defectTitle.trim() || ('Defect Triage: ' + (this.selectedDoc?.fileName || 'Document')))
+      : this.manualDefectTitle.trim();
+
+    const logs = this.inputMode === 'kb'
+      ? (this.logsOrSymptoms.trim() || 'Analyze potential defects, error handlers, and failure modes in the document/codebase.')
+      : this.manualLogs.trim();
 
     const payload = {
       title: title,
-      description: description,
-      logs: this.logsOrSymptoms || '',
-      environment: 'Knowledge Base ZIP Archive',
-      document_id: String(this.selectedZipId)
+      description: `Automated defect triage for ${this.inputMode === 'kb' ? this.selectedDoc?.fileName : 'manual error report'}`,
+      logs: logs,
+      environment: this.inputMode === 'kb' ? 'Knowledge Base Artifact' : this.manualEnvironment,
+      document_id: this.inputMode === 'kb' && this.selectedDocId ? String(this.selectedDocId) : null,
+      projectId: this.selectedProjectId,
+      projectName: this.selectedProject?.projectName || null,
+      documentId: this.selectedDocId,
+      documentName: this.selectedDoc?.fileName || null,
+      documentVersion: this.selectedDoc?.version || null,
+      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL'
     };
 
     this.api.analyzeDefect(payload).subscribe({
@@ -113,7 +177,7 @@ export class DefectTriage implements OnInit {
           this.generatedResult = aiResponse.result || aiResponse;
           this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
-          this.promptVersion = aiResponse.prompt_version || 'defect-v1';
+          this.promptVersion = aiResponse.prompt_version || 'defect-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
         } else {
@@ -124,7 +188,7 @@ export class DefectTriage implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.error = err.error?.message || 'Failed to analyze defect file from Knowledge Base. Please try again.';
+        this.error = err.error?.message || 'Failed to analyze defect. Please check service connectivity.';
         this.cdr.markForCheck();
       }
     });
@@ -135,10 +199,10 @@ export class DefectTriage implements OnInit {
     this.cdr.markForCheck();
 
     const acceptPayload = {
-      title: this.defectTitle.trim() || ('Defect: ' + (this.selectedZipDoc?.fileName || 'Knowledge Base ZIP')),
-      description: 'Defect triage from Knowledge Base ZIP archive: ' + (this.selectedZipDoc?.fileName || ''),
-      logs: event.editedData.evidence || this.logsOrSymptoms || '',
-      environment: 'Knowledge Base ZIP',
+      title: (this.inputMode === 'kb' ? this.defectTitle : this.manualDefectTitle).trim() || ('Defect: ' + (this.selectedDoc?.fileName || 'Analysis')),
+      description: 'Defect triage from ' + (this.inputMode === 'kb' ? this.selectedDoc?.fileName : 'manual logs'),
+      logs: event.editedData.evidence || (this.inputMode === 'kb' ? this.logsOrSymptoms : this.manualLogs),
+      environment: this.inputMode === 'kb' ? 'Knowledge Base' : this.manualEnvironment,
       stepsToReproduce: event.editedData.suggestedInvestigation || '',
       expectedBehavior: '',
       actualBehavior: '',
@@ -152,7 +216,13 @@ export class DefectTriage implements OnInit {
       sources: this.sources,
       model: this.model,
       promptVersion: this.promptVersion,
-      executionTimeMs: this.executionTimeMs
+      executionTimeMs: this.executionTimeMs,
+      projectId: this.selectedProjectId,
+      projectName: this.selectedProject?.projectName || null,
+      documentId: this.selectedDocId,
+      documentName: this.selectedDoc?.fileName || null,
+      documentVersion: this.selectedDoc?.version || null,
+      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL'
     };
 
     this.api.acceptDefect(acceptPayload).subscribe({
@@ -162,7 +232,7 @@ export class DefectTriage implements OnInit {
           if (this.responseModal) {
             this.responseModal.notifySuccess(event.isEdited);
           }
-          this.showToast('Defect triage accepted successfully. Saved to SQL & Audit History.', 'success');
+          this.showToast('Defect triage accepted successfully. Saved to database & recorded in Audit History.', 'success');
         } else {
           this.error = res.message || 'Failed to save defect triage.';
         }
@@ -179,16 +249,8 @@ export class DefectTriage implements OnInit {
 
   onReject() {
     this.isModalOpen = false;
-    this.showToast('Data rejected successfully.', 'info');
+    this.showToast('Defect triage dismissed.', 'info');
     this.cdr.markForCheck();
-  }
-
-  formatBytes(bytes: number): string {
-    if (!bytes) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   showToast(msg: string, type: 'success' | 'info' | 'error' = 'info') {
