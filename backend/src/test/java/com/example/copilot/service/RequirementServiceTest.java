@@ -4,7 +4,6 @@ import com.example.copilot.client.AiServiceClient;
 import com.example.copilot.dto.RequirementRequest;
 import com.example.copilot.dto.RequirementResponseDto;
 import com.example.copilot.dto.ai.AiRequirementResponse;
-import com.example.copilot.entity.Requirement;
 import com.example.copilot.repository.RequirementRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +41,6 @@ public class RequirementServiceTest {
         RequirementRequest request = new RequirementRequest();
         request.setTitle("Feature X");
         request.setDescription("Feature description");
-        request.setPriority("HIGH");
 
         RequirementResponseDto resultDto = new RequirementResponseDto();
         resultDto.setSummary("Summary X");

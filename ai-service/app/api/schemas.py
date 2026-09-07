@@ -45,7 +45,6 @@ class RetrieveResponse(BaseModel):
 class RequirementGenerateRequest(BaseModel):
     title: str
     description: str
-    priority: Optional[str] = "MEDIUM"
     document_id: Optional[str] = None
 
 

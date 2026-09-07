@@ -15,7 +15,6 @@ public class RequirementAcceptRequest {
 
     private String title;
     private String description;
-    private String priority;
     private String summary;
     private String userStory;
     private List<Object> acceptanceCriteria;

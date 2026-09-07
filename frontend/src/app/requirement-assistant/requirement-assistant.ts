@@ -21,7 +21,6 @@ export class RequirementAssistant implements OnInit {
   // Manual Input fields
   title = '';
   description = '';
-  priority = 'Medium';
 
   // Knowledge Base 2-Step Selection: Project -> Document
   projects: any[] = [];
@@ -152,7 +151,6 @@ export class RequirementAssistant implements OnInit {
     const payload: any = {
       title: this.title.trim() || (this.selectedDocument ? 'Requirements from ' + this.selectedDocument.fileName : 'Requirement'),
       description: desc,
-      priority: this.priority,
       document_id: this.selectedDocumentId ? String(this.selectedDocumentId) : null,
       projectId: this.selectedProjectId,
       projectName: this.selectedProject?.projectName || null,
@@ -211,7 +209,6 @@ export class RequirementAssistant implements OnInit {
         title: req.title || '',
         summary: req.summary || '',
         userStory: req.userStory || '',
-        priority: req.priority || this.priority || 'Medium',
         acceptanceCriteria: req.acceptanceCriteria || [],
         assumptions: req.assumptions || [],
         dependencies: req.dependencies || [],

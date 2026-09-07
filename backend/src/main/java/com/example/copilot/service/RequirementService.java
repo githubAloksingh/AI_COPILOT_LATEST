@@ -130,7 +130,6 @@ public class RequirementService {
         requirement.setDocumentId(request.getDocumentId());
         requirement.setTitle(request.getTitle());
         requirement.setDescription(request.getDescription());
-        requirement.setPriority(request.getPriority() != null ? request.getPriority() : "Medium");
         requirement.setSummary(request.getSummary());
         requirement.setUserStory(request.getUserStory());
         requirement.setAcceptanceCriteria(toGroundedList(request.getAcceptanceCriteria()));
@@ -196,7 +195,6 @@ public class RequirementService {
             req.setRequirementId(item.getRequirementId());
             req.setTitle(item.getTitle());
             req.setDescription(item.getSummary());            // description = summary text
-            req.setPriority(item.getPriority() != null ? item.getPriority() : "Medium");
             req.setSummary(item.getSummary());
             req.setUserStory(item.getUserStory());
             req.setAcceptanceCriteria(toGroundedList(item.getAcceptanceCriteria()));

@@ -229,8 +229,7 @@ export class ResponseModal implements OnInit, OnChanges {
       acceptanceCriteria: toStrings(req.acceptanceCriteria),
       assumptions: toStrings(req.assumptions),
       dependencies: toStrings(req.dependencies),
-      edgeCases: toStrings(req.edgeCases),
-      priority: req.priority || 'Medium'
+      edgeCases: toStrings(req.edgeCases)
     };
   }
 

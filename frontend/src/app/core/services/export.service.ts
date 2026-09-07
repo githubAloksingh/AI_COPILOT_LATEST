@@ -94,7 +94,7 @@ export class ExportService {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text(`Generated & Accepted: ${new Date().toLocaleString()} | Priority: ${data.priority || 'Medium'}`, margin, y);
+    doc.text(`Generated & Accepted: ${new Date().toLocaleString()}`, margin, y);
     y += 20;
 
     // Horizontal divider

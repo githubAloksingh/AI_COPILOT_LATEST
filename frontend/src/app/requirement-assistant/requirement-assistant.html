@@ -77,15 +77,6 @@
       <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
     </div>
 
-    <div class="form-group">
-      <label>Priority</label>
-      <select [(ngModel)]="priority" class="form-control">
-        <option value="Low">Low</option>
-        <option value="Medium">Medium</option>
-        <option value="High">High</option>
-        <option value="Critical">Critical</option>
-      </select>
-    </div>
   </div>
 
   <!-- Option B: Manual Input -->
@@ -106,16 +97,6 @@
         rows="4"
         placeholder="Describe the problem, feature requirements, user personas, or business workflow..."
         class="form-control"></textarea>
-    </div>
-    
-    <div class="form-group">
-      <label>Priority</label>
-      <select [(ngModel)]="priority" class="form-control">
-        <option value="Low">Low</option>
-        <option value="Medium">Medium</option>
-        <option value="High">High</option>
-        <option value="Critical">Critical</option>
-      </select>
     </div>
   </div>
 

@@ -33,8 +33,6 @@ public class Requirement extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    private String priority;
-
     @Column(columnDefinition = "TEXT")
     private String summary;
 

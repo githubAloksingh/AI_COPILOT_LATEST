@@ -12,7 +12,6 @@ public class RequirementItemRequest {
     private String title;
     private String summary;
     private String userStory;
-    private String priority;
 
     /** Full grounded items: [{text, grounding, source[]}] */
     private List<Object> acceptanceCriteria;
