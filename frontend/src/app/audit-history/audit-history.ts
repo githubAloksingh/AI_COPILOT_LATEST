@@ -129,4 +129,9 @@ export class AuditHistory implements OnInit {
     log.expanded = !log.expanded;
     this.cdr.markForCheck();
   }
+
+  /** Statuses that represent a completed, usable result rather than an execution error. */
+  isSuccessfulLog(log: any): boolean {
+    return ['SUCCESS', 'ACCEPTED', 'COMPLETED'].includes(log?.status);
+  }
 }

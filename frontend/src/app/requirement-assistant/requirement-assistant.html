@@ -77,16 +77,6 @@
       <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
     </div>
 
-    <!-- Prompt / Questions on the document -->
-    <div class="form-group" style="margin-top: 16px;">
-      <label>Optional: Specific Requirement Focus or Prompt</label>
-      <textarea 
-        [(ngModel)]="customQuery" 
-        rows="3"
-        placeholder="e.g. Focus on authentication, session handling, and role-based permissions... (leave empty for full document synthesis)"
-        class="form-control"></textarea>
-    </div>
-
     <div class="form-group">
       <label>Priority</label>
       <select [(ngModel)]="priority" class="form-control">
