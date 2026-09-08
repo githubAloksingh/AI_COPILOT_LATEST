@@ -15,9 +15,6 @@ import { ResponseModal } from '../core/components/response-modal/response-modal'
 export class DefectTriage implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
 
-  // Input Mode: 'kb' | 'manual'
-  inputMode: 'kb' | 'manual' = 'kb';
-
   // 2-Step KB Selection: Project -> Document
   projects: any[] = [];
   selectedProjectId: number | null = null;
@@ -31,12 +28,6 @@ export class DefectTriage implements OnInit {
 
   // Contextual inputs / prompt
   defectTitle = '';
-  logsOrSymptoms = '';
-
-  // Manual Input fields
-  manualDefectTitle = '';
-  manualLogs = '';
-  manualEnvironment = 'Production';
 
   // State
   loading = false;
@@ -106,12 +97,6 @@ export class DefectTriage implements OnInit {
     }
   }
 
-  setInputMode(mode: 'kb' | 'manual') {
-    this.inputMode = mode;
-    this.error = '';
-    this.cdr.markForCheck();
-  }
-
   onDocSelect(docId: any) {
     this.selectedDocId = docId ? Number(docId) : null;
     this.selectedDoc = this.documents.find(d => d.id === this.selectedDocId) || null;
@@ -129,17 +114,12 @@ export class DefectTriage implements OnInit {
   }
 
   isInputValid(): boolean {
-    if (this.inputMode === 'kb') {
-      return !!(this.selectedProjectId && this.selectedDocId);
-    }
-    return !!(this.manualDefectTitle.trim() && this.manualLogs.trim());
+    return !!(this.selectedProjectId && this.selectedDocId);
   }
 
   analyze() {
     if (!this.isInputValid()) {
-      this.error = this.inputMode === 'kb'
-        ? 'Please select a Project and Document from Knowledge Base.'
-        : 'Please enter Defect Title and Error Logs / Symptoms.';
+      this.error = 'Please select a Project and Document from Knowledge Base.';
       this.cdr.markForCheck();
       return;
     }
@@ -148,26 +128,20 @@ export class DefectTriage implements OnInit {
     this.error = '';
     this.cdr.markForCheck();
 
-    const title = this.inputMode === 'kb'
-      ? (this.defectTitle.trim() || ('Defect Triage: ' + (this.selectedDoc?.fileName || 'Document')))
-      : this.manualDefectTitle.trim();
-
-    const logs = this.inputMode === 'kb'
-      ? (this.logsOrSymptoms.trim() || 'Analyze potential defects, error handlers, and failure modes in the document/codebase.')
-      : this.manualLogs.trim();
+    const title = this.defectTitle.trim() || ('Defect Triage: ' + (this.selectedDoc?.fileName || 'Document'));
 
     const payload = {
-      title: title,
-      description: `Automated defect triage for ${this.inputMode === 'kb' ? this.selectedDoc?.fileName : 'manual error report'}`,
-      logs: logs,
-      environment: this.inputMode === 'kb' ? 'Knowledge Base Artifact' : this.manualEnvironment,
-      document_id: this.inputMode === 'kb' && this.selectedDocId ? String(this.selectedDocId) : null,
+      title,
+      description: `Automated defect triage for ${this.selectedDoc?.fileName || 'knowledge base artifact'}`,
+      logs: 'Analyze potential defects, error handlers, and failure modes in the document/codebase.',
+      environment: 'Knowledge Base Artifact',
+      document_id: this.selectedDocId ? String(this.selectedDocId) : null,
       projectId: this.selectedProjectId,
       projectName: this.selectedProject?.projectName || null,
       documentId: this.selectedDocId,
       documentName: this.selectedDoc?.fileName || null,
       documentVersion: this.selectedDoc?.version || null,
-      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL'
+      inputType: 'KNOWLEDGE_BASE'
     };
 
     this.api.analyzeDefect(payload).subscribe({
@@ -199,10 +173,10 @@ export class DefectTriage implements OnInit {
     this.cdr.markForCheck();
 
     const acceptPayload = {
-      title: (this.inputMode === 'kb' ? this.defectTitle : this.manualDefectTitle).trim() || ('Defect: ' + (this.selectedDoc?.fileName || 'Analysis')),
-      description: 'Defect triage from ' + (this.inputMode === 'kb' ? this.selectedDoc?.fileName : 'manual logs'),
-      logs: event.editedData.evidence || (this.inputMode === 'kb' ? this.logsOrSymptoms : this.manualLogs),
-      environment: this.inputMode === 'kb' ? 'Knowledge Base' : this.manualEnvironment,
+      title: this.defectTitle.trim() || ('Defect: ' + (this.selectedDoc?.fileName || 'Analysis')),
+      description: 'Defect triage from ' + (this.selectedDoc?.fileName || 'knowledge base artifact'),
+      logs: event.editedData.evidence || 'Analyze potential defects, error handlers, and failure modes in the document/codebase.',
+      environment: 'Knowledge Base',
       stepsToReproduce: event.editedData.suggestedInvestigation || '',
       expectedBehavior: '',
       actualBehavior: '',
@@ -222,7 +196,7 @@ export class DefectTriage implements OnInit {
       documentId: this.selectedDocId,
       documentName: this.selectedDoc?.fileName || null,
       documentVersion: this.selectedDoc?.version || null,
-      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL'
+      inputType: 'KNOWLEDGE_BASE'
     };
 
     this.api.acceptDefect(acceptPayload).subscribe({

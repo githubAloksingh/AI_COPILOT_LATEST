@@ -17,6 +17,7 @@
         type="button"
         class="tab-btn" 
         [class.active]="mainOption === 'kb'" 
+        [attr.aria-pressed]="mainOption === 'kb'"
         (click)="setMainOption('kb')">
         📁 Option A: Import from Knowledge Base (Project & File)
       </button>
@@ -24,6 +25,7 @@
         type="button"
         class="tab-btn" 
         [class.active]="mainOption === 'manual'" 
+        [attr.aria-pressed]="mainOption === 'manual'"
         (click)="setMainOption('manual')">
         ✍️ Option B: Manual Input
       </button>
@@ -140,16 +142,6 @@
         </div>
       </div>
 
-      <!-- Optional Test Prompt/Questions -->
-      <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
-        <label class="field-label">Optional: Specific Test Scenarios / Custom Instructions</label>
-        <textarea 
-          [(ngModel)]="customTestInstructions" 
-          rows="3"
-          placeholder="e.g. Focus specifically on edge cases for invalid payment tokens, concurrency race conditions, and session timeout..."
-          class="form-control"
-          [disabled]="loading"></textarea>
-      </div>
 
     </div>
 

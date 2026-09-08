@@ -87,15 +87,6 @@
       <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
     </div>
 
-    <!-- Optional Specific Sprint Focus -->
-    <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
-      <label>Optional: Sprint Focus / Milestone Highlights</label>
-      <textarea 
-        [(ngModel)]="customNotes" 
-        rows="3"
-        placeholder="e.g. Highlights: Migrated database to MySQL 8.0, enabled Redis cache for cart sessions, resolved 8 high-priority checkout bugs..."
-        class="form-control"></textarea>
-    </div>
   </div>
 
   <!-- Option B: Manual Input -->

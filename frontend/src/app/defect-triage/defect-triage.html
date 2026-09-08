@@ -1,6 +1,6 @@
 <div class="page-header">
   <h1>Defect Triage</h1>
-  <p>Select an ingested project or document from your Knowledge Base or provide error logs for automated AI root-cause analysis and fix recommendations.</p>
+  <p>Select an ingested project and document from your Knowledge Base to run automated AI root-cause analysis and fix recommendations.</p>
 </div>
 
 <!-- Toast Notification -->
@@ -9,32 +9,12 @@
 </div>
 
 <div class="card">
-  <!-- Mode Tabs: Option A (KB) vs Option B (Manual Logs) -->
-  <div class="input-mode-tabs">
-    <button 
-      type="button"
-      class="tab-btn" 
-      [class.active]="inputMode === 'kb'" 
-      (click)="setInputMode('kb')">
-      📁 Option A: Import from Knowledge Base (Project & File)
-    </button>
-    <button 
-      type="button"
-      class="tab-btn" 
-      [class.active]="inputMode === 'manual'" 
-      (click)="setInputMode('manual')">
-      ✍️ Option B: Direct Error Log / Stack Trace Input
-    </button>
-  </div>
-
-  <!-- Option A: Knowledge Base Selection -->
-  <div *ngIf="inputMode === 'kb'" class="mode-panel kb-panel">
-    <!-- Step 1: Select Project -->
+  <div class="mode-panel kb-panel">
     <div class="form-group">
       <label class="field-label">1. Select Project <span class="required">*</span></label>
-      <select 
-        [ngModel]="selectedProjectId" 
-        (ngModelChange)="onProjectChange($event)" 
+      <select
+        [ngModel]="selectedProjectId"
+        (ngModelChange)="onProjectChange($event)"
         class="form-control"
         [disabled]="loading || loadingProjects">
         <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
@@ -47,12 +27,11 @@
       </small>
     </div>
 
-    <!-- Step 2: Select Document -->
     <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
       <label class="field-label">2. Select Document / Codebase ZIP to Triage <span class="required">*</span></label>
-      <select 
-        [ngModel]="selectedDocId" 
-        (ngModelChange)="onDocSelect($event)" 
+      <select
+        [ngModel]="selectedDocId"
+        (ngModelChange)="onDocSelect($event)"
         class="form-control"
         [disabled]="loading || loadingDocs">
         <option [ngValue]="null">-- Select Document or Codebase --</option>
@@ -65,7 +44,6 @@
       </small>
     </div>
 
-    <!-- Selected Document Card -->
     <div *ngIf="selectedDoc" class="selected-doc-badge" style="margin-top: 16px;">
       <div class="doc-info">
         <span class="doc-icon">{{ selectedDoc.fileName.toLowerCase().endsWith('.zip') ? '📦' : '📄' }}</span>
@@ -79,79 +57,32 @@
       <button type="button" class="btn-remove-doc" (click)="removeSelectedDoc()" [disabled]="loading">Remove</button>
     </div>
 
-    <!-- Optional Specific Symptoms / Stack Trace -->
-    <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
-      <label class="field-label">Optional: Observed Error Logs / Stack Traces / Symptoms</label>
-      <textarea 
-        [(ngModel)]="logsOrSymptoms" 
-        rows="3"
-        placeholder="Paste any specific runtime exceptions, stack traces, or customer symptoms here (e.g. NullPointerException at PaymentService.java:142)..."
-        class="form-control"
-        [disabled]="loading"></textarea>
-    </div>
-  </div>
-
-  <!-- Option B: Manual Input -->
-  <div *ngIf="inputMode === 'manual'" class="mode-panel manual-panel">
-    <div class="form-group">
-      <label class="field-label">Defect / Incident Title <span class="required">*</span></label>
-      <input 
-        type="text" 
-        [(ngModel)]="manualDefectTitle" 
-        placeholder="e.g. 500 Internal Server Error during Checkout"
-        class="form-control"
-        [disabled]="loading">
-    </div>
-
-    <div class="form-group" style="margin-top: 14px;">
-      <label class="field-label">Error Logs, Stack Trace, or Symptoms <span class="required">*</span></label>
-      <textarea 
-        [(ngModel)]="manualLogs" 
-        rows="5"
-        placeholder="Paste full stack trace, system error logs, or user reproduction steps..."
-        class="form-control"
-        [disabled]="loading"></textarea>
-    </div>
-
-    <div class="form-group" style="margin-top: 14px;">
-      <label class="field-label">Environment</label>
-      <select [(ngModel)]="manualEnvironment" class="form-control" [disabled]="loading">
-        <option value="Production">Production</option>
-        <option value="Staging">Staging</option>
-        <option value="QA">QA</option>
-        <option value="Development">Development</option>
-      </select>
-    </div>
   </div>
 
   <div class="action-row" style="margin-top: 20px;">
-    <button 
-      class="btn btn-primary" 
-      (click)="analyze()" 
+    <button
+      class="btn btn-primary"
+      (click)="analyze()"
       [disabled]="loading || !isInputValid()">
       {{ loading ? 'Triaging Defect with Gemini AI...' : 'Analyze & Triage Defect' }}
     </button>
   </div>
 
-  <!-- Loading State -->
   <div *ngIf="loading" class="loading-indicator">
     <div class="spinner"></div>
     <span>Retrieving knowledge context, performing root-cause analysis, and generating code fix diff with Gemini AI...</span>
   </div>
 
-  <!-- Error State -->
   <div *ngIf="error" class="error-message">
     {{ error }}
   </div>
-
 </div>
 
-<!-- Reusable Generated Response Modal -->
 <app-response-modal
   #responseModal
   [isOpen]="isModalOpen"
   [type]="'defect'"
-  [title]="'Defect Triage — ' + (selectedDoc?.fileName || defectTitle || manualDefectTitle || 'Analysis Result')"
+  [title]="'Defect Triage — ' + (selectedDoc?.fileName || defectTitle || 'Analysis Result')"
   [data]="generatedResult"
   [sources]="sources"
   [model]="model"

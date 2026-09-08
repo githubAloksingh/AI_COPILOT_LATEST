@@ -34,6 +34,116 @@
   animation: fadeIn 0.2s ease-in;
 }
 
+.form-group {
+  margin-bottom: 16px;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+
+  .required {
+    color: #ef4444;
+  }
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.925rem;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  font-family: inherit;
+
+  &:focus {
+    border-color: #F36F21;
+    box-shadow: 0 0 0 3px rgba(243, 111, 33, 0.12);
+  }
+
+  &:disabled {
+    background: #f1f5f9;
+    cursor: not-allowed;
+  }
+}
+
+.required {
+  color: #ef4444;
+}
+
+.selected-doc-badge {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+
+  .doc-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .doc-icon {
+      font-size: 1.5rem;
+    }
+
+    strong {
+      color: #C2410C;
+      font-size: 0.95rem;
+      display: block;
+    }
+
+    .doc-sub {
+      color: #3b82f6;
+      font-size: 0.8rem;
+    }
+  }
+
+  .btn-remove-doc {
+    background: transparent;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #fee2e2;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.helper-text {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 0.825rem;
+
+  a {
+    color: #F36F21;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }

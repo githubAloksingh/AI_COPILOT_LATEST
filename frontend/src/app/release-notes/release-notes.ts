@@ -33,8 +33,6 @@ export class ReleaseNotes implements OnInit {
   selectedDocument: any = null;
   loadingDocs = false;
 
-  customNotes = '';
-
   // State
   loading = false;
   saving = false;
@@ -146,7 +144,7 @@ export class ReleaseNotes implements OnInit {
     this.cdr.markForCheck();
 
     const sprintDetails = this.inputMode === 'kb'
-      ? (this.customNotes.trim() || `Release Notes for version ${this.version} based on ${this.selectedDocument?.fileName || 'BRD'}`)
+      ? `Release Notes for version ${this.version} based on ${this.selectedDocument?.fileName || 'BRD'}`
       : this.sprintInformation.trim();
 
     const payload: any = {

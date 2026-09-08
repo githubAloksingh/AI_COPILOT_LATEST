@@ -39,9 +39,6 @@ export class TestGenerator implements OnInit {
   selectedCodebaseId: number | null = null;
   selectedCodebaseDoc: any = null;
 
-  // Optional custom instructions/questions
-  customTestInstructions = '';
-
   // Option B: Manual Input fields
   manualTitle = '';
   manualDescription = '';
@@ -311,9 +308,6 @@ export class TestGenerator implements OnInit {
         };
       }
 
-      if (this.customTestInstructions.trim()) {
-        acceptanceCriteria = this.customTestInstructions.trim();
-      }
     } else {
       title = `${this.manualTitle}\n${this.manualDescription}`.trim();
       acceptanceCriteria = this.manualAcceptanceCriteria.trim();
