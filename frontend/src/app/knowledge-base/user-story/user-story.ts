@@ -24,6 +24,7 @@ export class UserStoryComponent implements OnInit {
   loadingProjects = false;
 
   documents: any[] = [];
+  availableBrds: any[] = [];
   selectedDocumentId: number | null = null;
   selectedDocument: any = null;
   loadingDocs = false;
@@ -44,7 +45,7 @@ export class UserStoryComponent implements OnInit {
   // Generated Response Modal State
   isModalOpen = false;
   generatedResult: any = null;
-  sources: string[] = [];
+  sources: any[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'requirement-v2';
   executionTimeMs = 0;
@@ -81,6 +82,7 @@ export class UserStoryComponent implements OnInit {
     this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
     this.selectedDocumentId = null;
     this.selectedDocument = null;
+    this.availableBrds = [];
     this.documents = [];
     this.error = '';
 
@@ -90,7 +92,22 @@ export class UserStoryComponent implements OnInit {
       this.api.getProjectDocuments(this.selectedProjectId).subscribe({
         next: (res) => {
           if (res.success) {
-            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
+            const allDocs = res.data || [];
+            this.documents = allDocs;
+            // Filter completed BRD/PDF documents
+            this.availableBrds = allDocs.filter((d: any) =>
+              d.status === 'COMPLETED' && (
+                d.fileType === 'BRD' ||
+                (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
+              )
+            );
+            if (this.availableBrds.length > 0) {
+              this.selectedDocument = this.availableBrds[0];
+              this.selectedDocumentId = this.availableBrds[0].id;
+            } else {
+              this.selectedDocument = null;
+              this.selectedDocumentId = null;
+            }
           }
           this.loadingDocs = false;
           this.cdr.markForCheck();
@@ -100,14 +117,18 @@ export class UserStoryComponent implements OnInit {
           this.cdr.markForCheck();
         }
       });
-    } else {
-      this.cdr.markForCheck();
     }
   }
 
   setInputMode(mode: 'kb' | 'manual') {
     this.inputMode = mode;
     this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  onBrdSelect(docId: any) {
+    this.selectedDocumentId = docId ? Number(docId) : null;
+    this.selectedDocument = this.availableBrds.find(d => d.id === this.selectedDocumentId) || null;
     this.cdr.markForCheck();
   }
 

@@ -45,134 +45,187 @@
         <!-- VIEW MODE -->
         <div *ngIf="mode === 'VIEW'" class="view-content">
           
-          <!-- Requirement / User Story Title Banner -->
-          <div class="req-title-banner">
-            <span class="req-id-badge">{{ currentRequirement.userStoryId || currentRequirement.requirementId || 'REQ' }}</span>
-            <h3>{{ currentRequirement.title }}</h3>
-          </div>
+          <!-- Per-Requirement Inline Edit or Read-Only view -->
+          <ng-container *ngFor="let req of requirementList; let i = index">
+            <ng-container *ngIf="selectedReqIndex === i">
 
-          <!-- User Story Card -->
-          <div class="section-card user-story-card" *ngIf="currentRequirement.userStory">
-            <h3>User Story</h3>
-            <div class="user-story-callout">
-              <strong>📖 </strong>{{ currentRequirement.userStory }}
-            </div>
-          </div>
-
-          <!-- Description or Summary -->
-          <div class="section-card" *ngIf="currentRequirement.description || currentRequirement.summary">
-            <h3>{{ type === 'userstory' ? 'Description' : 'Summary' }}</h3>
-            <p>{{ currentRequirement.description || currentRequirement.summary }}</p>
-          </div>
-
-          <!-- Acceptance Criteria with Grounding & Source Traceability -->
-          <div class="section-card" *ngIf="currentRequirement.acceptanceCriteria?.length">
-            <h3>Acceptance Criteria</h3>
-            <ul class="styled-list">
-              <li *ngFor="let item of currentRequirement.acceptanceCriteria">
-                <span class="bullet-check">✓</span>
-                <div class="item-content-wrap">
-                  <span class="item-text">{{ getItemText(item) }}</span>
-                  <div class="grounding-tags-row">
-                    <span 
-                      class="grounding-badge" 
-                      [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
-                      {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ REQUIRES CONFIRMATION' : getItemGrounding(item) }}
-                    </span>
-                    <span class="source-pill" *ngFor="let src of getItemSource(item)">
-                      📌 {{ src }}
-                    </span>
+              <!-- Edit mode for this requirement -->
+              <div *ngIf="editingIndex === i && perReqEditable" class="inline-edit-panel">
+                <div class="inline-edit-header">
+                  <span class="req-id-badge">{{ req.userStoryId || req.requirementId || 'REQ' }}</span>
+                  <span class="inline-edit-label">✏️ Editing</span>
+                  <div class="inline-edit-actions">
+                    <button class="btn-icon-save" (click)="saveReq(i)" title="Save">💾 Save</button>
+                    <button class="btn-icon-cancel" (click)="cancelReq()" title="Cancel">✕ Cancel</button>
                   </div>
                 </div>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Business Rules -->
-          <div class="section-card" *ngIf="currentRequirement.businessRules?.length">
-            <h3>Business Rules</h3>
-            <ul class="styled-list">
-              <li *ngFor="let item of currentRequirement.businessRules">
-                <span class="bullet-check" style="color: #F36F21;">⚖️</span>
-                <div class="item-content-wrap">
-                  <span class="item-text">{{ getItemText(item) }}</span>
-                  <div class="grounding-tags-row">
-                    <span 
-                      class="grounding-badge" 
-                      [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
-                      {{ getItemGrounding(item) }}
-                    </span>
-                    <span class="source-pill" *ngFor="let src of getItemSource(item)">
-                      📌 {{ src }}
-                    </span>
+                <div class="form-group">
+                  <label>Title</label>
+                  <input type="text" [(ngModel)]="perReqEditable.title" class="inline-input">
+                </div>
+                <div class="form-group" *ngIf="perReqEditable.userStory !== undefined">
+                  <label>User Story</label>
+                  <input type="text" [(ngModel)]="perReqEditable.userStory" class="inline-input" placeholder="As a [role], I want [capability] so that [benefit]">
+                </div>
+                <div class="form-group">
+                  <label>Description / Summary</label>
+                  <textarea [(ngModel)]="perReqEditable.summary" rows="3" class="inline-textarea"></textarea>
+                </div>
+                <div class="form-group" *ngIf="perReqEditable.acceptanceCriteria?.length">
+                  <label>Acceptance Criteria</label>
+                  <div class="array-item" *ngFor="let ac of perReqEditable.acceptanceCriteria; let j = index; trackBy: trackByIndex">
+                    <input type="text"
+                      [ngModel]="getItemText(perReqEditable.acceptanceCriteria[j])"
+                      (ngModelChange)="perReqEditable.acceptanceCriteria[j] = { text: $event, grounding: 'DERIVED', source: [] }"
+                      class="inline-input">
                   </div>
                 </div>
-              </li>
-            </ul>
-          </div>
+              </div>
 
-          <div class="grid-2-col">
-            <!-- Assumptions -->
-            <div class="section-card" *ngIf="currentRequirement.assumptions?.length">
-              <h3>Assumptions</h3>
-              <ul class="dot-list">
-                <li *ngFor="let item of currentRequirement.assumptions">
-                  <div class="item-content-wrap">
-                    <span>{{ getItemText(item) }}</span>
-                    <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
-                      <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
-                        {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Confirmation Needed' : getItemGrounding(item) }}
-                      </span>
-                      <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
-                    </div>
+              <!-- Read-only view mode for this requirement -->
+              <div *ngIf="editingIndex !== i" class="view-content">
+                <!-- Title Banner with Edit button -->
+                <div class="req-title-banner">
+                  <div class="req-title-left">
+                    <span class="req-id-badge">{{ req.userStoryId || req.requirementId || 'REQ' }}</span>
+                    <h3>{{ req.title }}</h3>
                   </div>
-                </li>
-              </ul>
-            </div>
+                  <button class="btn-icon-edit" (click)="editReq(i)" title="Edit">✏️ Edit</button>
+                </div>
 
-            <!-- Dependencies -->
-            <div class="section-card" *ngIf="currentRequirement.dependencies?.length">
-              <h3>Dependencies</h3>
-              <ul class="dot-list">
-                <li *ngFor="let item of currentRequirement.dependencies">
-                  <div class="item-content-wrap">
-                    <span>{{ getItemText(item) }}</span>
-                    <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
-                      <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
-                        {{ getItemGrounding(item) }}
-                      </span>
-                      <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Edge Cases -->
-          <div class="section-card" *ngIf="currentRequirement.edgeCases?.length">
-            <h3>Edge Cases</h3>
-            <ul class="dot-list">
-              <li *ngFor="let item of currentRequirement.edgeCases">
-                <div class="item-content-wrap">
-                  <span>{{ getItemText(item) }}</span>
-                  <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
-                    <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
-                      {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Requires Confirmation' : getItemGrounding(item) }}
-                    </span>
-                    <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                <!-- User Story Card -->
+                <div class="section-card user-story-card" *ngIf="req.userStory">
+                  <h3>User Story</h3>
+                  <div class="user-story-callout">
+                    <strong>📖 </strong>{{ req.userStory }}
                   </div>
                 </div>
-              </li>
-            </ul>
-          </div>
 
-          <div class="section-card sources-card" *ngIf="sources?.length">
-            <h3>Retrieved Knowledge Sources</h3>
-            <div class="sources-tags">
-              <span class="source-tag" *ngFor="let s of sources">{{ s | slice:0:80 }}...</span>
-            </div>
-          </div>
+                <!-- Description or Summary -->
+                <div class="section-card" *ngIf="req.description || req.summary">
+                  <h3>{{ type === 'userstory' ? 'Description' : 'Summary' }}</h3>
+                  <p>{{ req.description || req.summary }}</p>
+                </div>
+
+                <!-- Acceptance Criteria -->
+                <div class="section-card" *ngIf="req.acceptanceCriteria?.length">
+                  <h3>Acceptance Criteria</h3>
+                  <ul class="styled-list">
+                    <li *ngFor="let item of req.acceptanceCriteria">
+                      <span class="bullet-check">✓</span>
+                      <div class="item-content-wrap">
+                        <span class="item-text">{{ getItemText(item) }}</span>
+                        <div class="grounding-tags-row">
+                          <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                            {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ REQUIRES CONFIRMATION' : getItemGrounding(item) }}
+                          </span>
+                          <span class="source-pill" *ngFor="let src of getItemSource(item)">📌 {{ src }}</span>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+
+                <!-- Business Rules -->
+                <div class="section-card" *ngIf="req.businessRules?.length">
+                  <h3>Business Rules</h3>
+                  <ul class="styled-list">
+                    <li *ngFor="let item of req.businessRules">
+                      <span class="bullet-check" style="color: #F36F21;">⚖️</span>
+                      <div class="item-content-wrap">
+                        <span class="item-text">{{ getItemText(item) }}</span>
+                        <div class="grounding-tags-row">
+                          <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">{{ getItemGrounding(item) }}</span>
+                          <span class="source-pill" *ngFor="let src of getItemSource(item)">📌 {{ src }}</span>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="grid-2-col">
+                  <div class="section-card" *ngIf="req.assumptions?.length">
+                    <h3>Assumptions</h3>
+                    <ul class="dot-list">
+                      <li *ngFor="let item of req.assumptions">
+                        <div class="item-content-wrap">
+                          <span>{{ getItemText(item) }}</span>
+                          <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                            <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                              {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Confirmation Needed' : getItemGrounding(item) }}
+                            </span>
+                            <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                          </div>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="section-card" *ngIf="req.dependencies?.length">
+                    <h3>Dependencies</h3>
+                    <ul class="dot-list">
+                      <li *ngFor="let item of req.dependencies">
+                        <div class="item-content-wrap">
+                          <span>{{ getItemText(item) }}</span>
+                          <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                            <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">{{ getItemGrounding(item) }}</span>
+                            <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                          </div>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- Edge Cases -->
+                <div class="section-card" *ngIf="req.edgeCases?.length">
+                  <h3>Edge Cases</h3>
+                  <ul class="dot-list">
+                    <li *ngFor="let item of req.edgeCases">
+                      <div class="item-content-wrap">
+                        <span>{{ getItemText(item) }}</span>
+                        <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                          <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
+                            {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Requires Confirmation' : getItemGrounding(item) }}
+                          </span>
+                          <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+
+                <!-- Retrieved Knowledge Sources Table -->
+                <div class="section-card sources-card" *ngIf="sources?.length">
+                  <h3>Retrieved Knowledge Sources</h3>
+                  <div class="sources-table-wrap">
+                    <table class="sources-table">
+                      <thead>
+                        <tr>
+                          <th style="width:44px;">S.No</th>
+                          <th style="min-width:200px;">Source</th>
+                          <th style="min-width:160px;">Document</th>
+                          <th style="min-width:120px;">Project</th>
+                          <th style="width:80px;">Version</th>
+                          <th style="width:100px;">Relevance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let s of sources; let si = index">
+                          <td>{{ si + 1 }}</td>
+                          <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
+                          <td>{{ getSourceDoc(s) }}</td>
+                          <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
+                          <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
+                          <td>{{ getSourceRelevance(s) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+            </ng-container>
+          </ng-container>
         </div>
 
         <!-- EDIT ALL MODE -->
@@ -733,18 +786,18 @@
               <thead>
                 <tr>
                   <th style="width: 80px;">TC ID</th>
-                  <th>Scenario</th>
+                  <th style="min-width: 240px;">Scenario</th>
                   <th style="width: 100px;">Type</th>
                   <th style="width: 90px;">Priority</th>
-                  <th>Preconditions</th>
-                  <th>Steps</th>
-                  <th>Expected Result</th>
+                  <th style="min-width: 140px;">Preconditions</th>
+                  <th style="min-width: 160px;">Steps</th>
+                  <th style="min-width: 160px;">Expected Result</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let tc of (data.items || data); let i = index">
                   <td><strong>{{ tc.tcId || ('TC-' + (i + 1)) }}</strong></td>
-                  <td>{{ tc.scenario }}</td>
+                  <td class="scenario-cell">{{ tc.scenario }}</td>
                   <td><span class="pill pill-type">{{ tc.type }}</span></td>
                   <td><span class="pill pill-priority">{{ tc.priority }}</span></td>
                   <td style="font-size: 0.85rem;">
@@ -761,10 +814,32 @@
             </table>
           </div>
 
+          <!-- Retrieved Knowledge Sources Table -->
           <div class="section-card sources-card" *ngIf="sources?.length" style="margin-top: 20px;">
             <h3>Retrieved Knowledge Sources</h3>
-            <div class="sources-tags">
-              <span class="source-tag" *ngFor="let s of sources">{{ s | slice:0:80 }}...</span>
+            <div class="sources-table-wrap">
+              <table class="sources-table">
+                <thead>
+                  <tr>
+                    <th style="width:44px;">S.No</th>
+                    <th style="min-width:200px;">Source</th>
+                    <th style="min-width:160px;">Document</th>
+                    <th style="min-width:120px;">Project</th>
+                    <th style="width:80px;">Version</th>
+                    <th style="width:100px;">Relevance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let s of sources; let si = index">
+                    <td>{{ si + 1 }}</td>
+                    <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
+                    <td>{{ getSourceDoc(s) }}</td>
+                    <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
+                    <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
+                    <td>{{ getSourceRelevance(s) }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -835,10 +910,32 @@
             <p>{{ data.suggestedInvestigation }}</p>
           </div>
 
+          <!-- Retrieved Knowledge Sources Table -->
           <div class="section-card sources-card" *ngIf="sources?.length">
             <h3>Retrieved Knowledge Sources</h3>
-            <div class="sources-tags">
-              <span class="source-tag" *ngFor="let s of sources">{{ s | slice:0:80 }}...</span>
+            <div class="sources-table-wrap">
+              <table class="sources-table">
+                <thead>
+                  <tr>
+                    <th style="width:44px;">S.No</th>
+                    <th style="min-width:200px;">Source</th>
+                    <th style="min-width:160px;">Document</th>
+                    <th style="min-width:120px;">Project</th>
+                    <th style="width:80px;">Version</th>
+                    <th style="width:100px;">Relevance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let s of sources; let si = index">
+                    <td>{{ si + 1 }}</td>
+                    <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
+                    <td>{{ getSourceDoc(s) }}</td>
+                    <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
+                    <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
+                    <td>{{ getSourceRelevance(s) }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -988,9 +1085,6 @@
         <button class="btn btn-primary btn-download" (click)="download()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;">
           {{ type === 'testcase' ? '📥 Download CSV' : '📥 Download PDF' }}
         </button>
-        <button class="btn btn-danger-outline" (click)="onRejectClick()" [disabled]="saving">
-          Reject
-        </button>
       </div>
       <div class="footer-right">
         <button class="btn btn-secondary" (click)="closeModal()" [disabled]="saving">
@@ -998,6 +1092,10 @@
         </button>
         <button class="btn btn-secondary" (click)="toggleEditMode()" [disabled]="saving">
           {{ mode === 'EDIT_ALL' ? '✕ Cancel Edit' : '✏️ Edit All' }}
+        </button>
+        <!-- Reject placed beside Accept -->
+        <button class="btn btn-danger-outline" (click)="onRejectClick()" [disabled]="saving">
+          Reject
         </button>
         <!-- For requirement, userstory, functionaldesign, technicaldesign -->
         <button 

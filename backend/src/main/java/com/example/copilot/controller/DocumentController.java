@@ -47,11 +47,26 @@ public class DocumentController {
         Document doc = ingestionService.uploadDocument(projectId, file, title, customType, uploadedBy, version);
         try {
             byte[] fileBytes = file.getBytes();
+            documentService.saveOriginalFile(doc.getId(), file.getOriginalFilename(), fileBytes);
             ingestionService.processDocumentAsync(doc.getId(), fileBytes, file.getOriginalFilename(), file.getContentType());
         } catch (Exception e) {
             throw new RuntimeException("Failed to start document processing: " + e.getMessage(), e);
         }
         return ApiResponse.success(doc, "Document uploaded successfully. Ingestion in progress.");
+    }
+
+    @GetMapping("/api/documents/{id}/download")
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> downloadDocument(@PathVariable Long id) {
+        Document doc = documentService.getDocumentById(id);
+        org.springframework.core.io.Resource resource = documentService.loadOriginalFileAsResource(id);
+        String contentType = doc.getFileType();
+        if (contentType == null || contentType.isEmpty() || "unknown".equalsIgnoreCase(contentType)) {
+            contentType = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getFileName() + "\"")
+                .body(resource);
     }
 
     @GetMapping("/api/documents/{id}/content")

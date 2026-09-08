@@ -11,23 +11,23 @@
   </div>
 
   <div class="card">
-    <!-- Two Main Options at Top: Option A & Option B -->
-    <div class="input-mode-tabs">
+    <!-- Tabs: Import from Knowledge Base | Enter Text -->
+    <div class="simple-tabs-nav">
       <button 
         type="button"
-        class="tab-btn" 
+        class="simple-tab" 
         [class.active]="mainOption === 'kb'" 
         [attr.aria-pressed]="mainOption === 'kb'"
         (click)="setMainOption('kb')">
-        📁 Option A: Import from Knowledge Base (Project & File)
+        Import from Knowledge Base
       </button>
       <button 
         type="button"
-        class="tab-btn" 
+        class="simple-tab" 
         [class.active]="mainOption === 'manual'" 
         [attr.aria-pressed]="mainOption === 'manual'"
         (click)="setMainOption('manual')">
-        ✍️ Option B: Manual Input
+        Enter Text
       </button>
     </div>
 
@@ -46,7 +46,7 @@
           [disabled]="loading || loadingProjects">
           <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
           <option *ngFor="let p of projects" [value]="p.id">
-            📂 {{ p.projectName }} ({{ p.department || 'General' }})
+            {{ p.projectName }} ({{ p.department || 'General' }})
           </option>
         </select>
         <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects">

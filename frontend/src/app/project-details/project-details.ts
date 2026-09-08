@@ -199,7 +199,7 @@ export class ProjectDetails implements OnInit, OnDestroy {
       this.uploadForm.file,
       this.uploadForm.title.trim(),
       this.uploadForm.type.trim(),
-      'System',
+      this.api.getCurrentUser(),
       this.uploadForm.version.trim()
     ).subscribe({
       next: (res) => {
@@ -216,6 +216,25 @@ export class ProjectDetails implements OnInit, OnDestroy {
         this.uploadFormError = err.error?.message || 'Failed to upload document. Please check file size and format.';
         this.submittingUpload = false;
         this.cdr.markForCheck();
+      }
+    });
+  }
+
+  downloadDocument(doc: any) {
+    if (!doc || !doc.id) return;
+    this.api.downloadDocument(doc.id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.fileName || 'document';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        alert(err.error?.message || 'Failed to download original document. The file may not be available on server.');
       }
     });
   }

@@ -129,6 +129,12 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.baseUrl}/documents/${id}`);
   }
 
+  downloadDocument(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/download`, {
+      responseType: 'blob'
+    });
+  }
+
   // AI Copilot features - Preview Generation
   generateRequirement(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/requirements`, data);

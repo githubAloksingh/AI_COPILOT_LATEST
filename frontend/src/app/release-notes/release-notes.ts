@@ -29,6 +29,7 @@ export class ReleaseNotes implements OnInit {
   loadingProjects = false;
 
   documents: any[] = [];
+  availableBrds: any[] = [];
   selectedDocumentId: number | null = null;
   selectedDocument: any = null;
   loadingDocs = false;
@@ -43,7 +44,7 @@ export class ReleaseNotes implements OnInit {
   // Generated Result for Modal
   isModalOpen = false;
   generatedResult: any = null;
-  sources: string[] = [];
+  sources: any[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'release-v2';
   executionTimeMs = 0;
@@ -77,6 +78,7 @@ export class ReleaseNotes implements OnInit {
     this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
     this.selectedDocumentId = null;
     this.selectedDocument = null;
+    this.availableBrds = [];
     this.documents = [];
     this.error = '';
 
@@ -86,7 +88,24 @@ export class ReleaseNotes implements OnInit {
       this.api.getProjectDocuments(this.selectedProjectId).subscribe({
         next: (res) => {
           if (res.success) {
-            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
+            const allDocs = res.data || [];
+            this.documents = allDocs;
+            this.availableBrds = allDocs.filter((d: any) =>
+              d.status === 'COMPLETED' && (
+                d.fileType === 'BRD' ||
+                (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
+              )
+            );
+            if (this.availableBrds.length > 0) {
+              this.selectedDocument = this.availableBrds[0];
+              this.selectedDocumentId = this.availableBrds[0].id;
+              if (!this.sprintInformation) {
+                this.sprintInformation = 'Release notes for ' + this.selectedDocument.fileName;
+              }
+            } else {
+              this.selectedDocument = null;
+              this.selectedDocumentId = null;
+            }
           }
           this.loadingDocs = false;
           this.cdr.markForCheck();
@@ -101,18 +120,17 @@ export class ReleaseNotes implements OnInit {
     }
   }
 
-  setInputMode(mode: 'manual' | 'kb') {
-    this.inputMode = mode;
-    this.error = '';
-    this.cdr.markForCheck();
-  }
-
-  onDocumentSelect(docId: any) {
+  onBrdSelect(docId: any) {
     this.selectedDocumentId = docId ? Number(docId) : null;
-    this.selectedDocument = this.documents.find(d => d.id === this.selectedDocumentId) || null;
+    this.selectedDocument = this.availableBrds.find(d => d.id === this.selectedDocumentId) || null;
     if (this.selectedDocument && !this.sprintInformation) {
       this.sprintInformation = 'Release notes for ' + this.selectedDocument.fileName;
     }
+    this.cdr.markForCheck();
+  }
+
+  setInputMode(mode: 'manual' | 'kb') {
+    this.inputMode = mode;
     this.error = '';
     this.cdr.markForCheck();
   }
@@ -128,6 +146,16 @@ export class ReleaseNotes implements OnInit {
       return !!(this.selectedProjectId && this.selectedDocumentId && this.version.trim());
     }
     return !!(this.version.trim() && this.sprintInformation.trim());
+  }
+
+  getModalMeta() {
+    return {
+      project: this.selectedProject?.projectName || undefined,
+      documentName: this.selectedDocument ? this.selectedDocument.fileName : ('Release Notes v' + this.version),
+      brd: this.selectedDocument ? this.selectedDocument.fileName : undefined,
+      version: this.selectedDocument?.version || this.version || undefined,
+      inputType: this.inputMode === 'kb' ? 'Knowledge Base Document' : 'Manual Input'
+    };
   }
 
   generate() {
@@ -167,7 +195,7 @@ export class ReleaseNotes implements OnInit {
           if (this.generatedResult && !this.generatedResult.version) {
             this.generatedResult.version = this.version;
           }
-          this.sources = aiResponse.sources || [];
+          this.sources = aiResponse.source_details || aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'release-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;

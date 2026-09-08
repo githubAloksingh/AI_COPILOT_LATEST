@@ -11,35 +11,37 @@
   </div>
 
   <div class="card main-card">
-    <!-- Option Tabs -->
-    <div class="mode-tabs">
-      <button class="mode-tab" 
+    <!-- Tabs: Import from Knowledge Base | Enter Text -->
+    <div class="simple-tabs-nav">
+      <button type="button"
+              class="simple-tab" 
               [class.active]="inputMode === 'kb'" 
               (click)="setInputMode('kb')">
-        📁 Option A: Import from Knowledge Base (Project & File)
+        Import from Knowledge Base
       </button>
-      <button class="mode-tab" 
+      <button type="button"
+              class="simple-tab" 
               [class.active]="inputMode === 'manual'" 
               (click)="setInputMode('manual')">
-        ✍️ Option B: Enter Text
+        Enter Text
       </button>
     </div>
 
-    <!-- OPTION A: Import from Knowledge Base -->
+    <!-- Import from Knowledge Base Panel -->
     <div class="mode-panel" *ngIf="inputMode === 'kb'">
       <!-- Step 1: Select Project -->
       <div class="form-group">
         <label class="field-label">
-          1. Select Project <span class="required">*</span>
+          Select Project <span class="required">*</span>
         </label>
         <div class="kb-select-wrap">
           <select class="form-control" 
                   [ngModel]="selectedProjectId" 
                   (ngModelChange)="onProjectChange($event)"
                   [disabled]="loading || loadingProjects">
-            <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
+            <option [ngValue]="null">Select Project</option>
             <option *ngFor="let proj of projects" [value]="proj.id">
-              📂 {{ proj.projectName }} ({{ proj.department || 'General' }})
+              {{ proj.projectName }} ({{ proj.department || 'General' }})
             </option>
           </select>
         </div>
@@ -48,39 +50,53 @@
         </small>
       </div>
 
-      <!-- Step 2: Select Document -->
-      <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
-        <label class="field-label">
-          2. Select Document from Project <span class="required">*</span>
-        </label>
-        <div class="kb-select-wrap">
-          <select class="form-control" 
-                  [ngModel]="selectedDocumentId" 
-                  (ngModelChange)="onDocumentSelect($event)"
-                  [disabled]="loading || loadingDocs">
-            <option [ngValue]="null">-- Select Document --</option>
-            <option *ngFor="let doc of documents" [value]="doc.id">
-              📄 {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} Chunks)
-            </option>
-          </select>
-        </div>
-        <small class="helper-text" *ngIf="documents.length === 0 && !loadingDocs" style="color: #64748b; margin-top: 4px; display: block;">
-          No documents found in this project. Upload files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
-        </small>
-      </div>
-
-      <!-- Selected Document Badge -->
-      <div *ngIf="selectedDocument" class="selected-doc-badge" style="margin-top: 16px;">
-        <div class="doc-info">
-          <span class="doc-icon">📄</span>
-          <div>
-            <strong>{{ selectedDocument.fileName }}</strong>
-            <span class="doc-sub">
-              Project: {{ selectedProject?.projectName }} • Version: {{ selectedDocument.version || 'v1' }} • {{ selectedDocument.chunkCount || 0 }} Chunks
-            </span>
+      <!-- When Project is Selected: Step 2 & Step 3 -->
+      <div *ngIf="selectedProjectId" style="margin-top: 16px;">
+        <!-- Step 2: Selected BRD Box (READ ONLY) -->
+        <div class="form-group">
+          <label class="field-label">Selected BRD</label>
+          <div class="selected-brd-readonly-box" [class.no-brd]="!selectedDocument && !loadingDocs">
+            <div *ngIf="selectedDocument" class="brd-display-content">
+              <div class="brd-title">
+                <span class="file-icon">📄</span>
+                <strong>{{ selectedDocument.fileName }}</strong>
+              </div>
+              <div class="brd-subtitle" *ngIf="selectedProject">
+                {{ selectedProject.projectName }} BRD
+              </div>
+            </div>
+            <div *ngIf="!selectedDocument && !loadingDocs" class="no-brd-message">
+              <div style="font-weight: 500; color: #64748b;">No BRD available</div>
+              <div style="font-size: 0.85rem; color: #ef4444; margin-top: 4px;">
+                No BRD documents are available for this project.
+              </div>
+            </div>
+            <div *ngIf="loadingDocs" class="loading-brd-message" style="color: #64748b; font-size: 0.875rem;">
+              Loading BRD documents...
+            </div>
           </div>
         </div>
-        <button class="btn-remove-doc" (click)="removeSelectedDocument()">Remove</button>
+
+        <!-- Step 3: BRD Dropdown -->
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="field-label">
+            Select BRD <span class="required">*</span>
+          </label>
+          <div class="kb-select-wrap">
+            <select class="form-control" 
+                    [ngModel]="selectedDocumentId" 
+                    (ngModelChange)="onBrdSelect($event)"
+                    [disabled]="loading || loadingDocs || availableBrds.length === 0">
+              <option [ngValue]="null">Select BRD</option>
+              <option *ngFor="let doc of availableBrds" [value]="doc.id">
+                {{ doc.fileName }}
+              </option>
+            </select>
+          </div>
+          <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingDocs" style="color: #ef4444; margin-top: 4px; display: block;">
+            No BRD documents are available for this project. Upload BRD files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
+          </small>
+        </div>
       </div>
 
     </div>
