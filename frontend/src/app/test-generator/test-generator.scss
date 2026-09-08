@@ -655,3 +655,24 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* BRD + Codebase side-by-side layout */
+.brd-codebase-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.brd-codebase-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* History section below the main card */
+.page-history-wrap {
+  margin-top: 24px;
+}

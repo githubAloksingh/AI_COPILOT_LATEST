@@ -77,7 +77,9 @@ public class DefectService {
                     request.getProjectName(),
                     request.getDocumentName(),
                     request.getDocumentVersion(),
-                    inputType
+                    inputType,
+                    request.getProjectId(),
+                    parseDocId(request.getDocumentId())
             );
             return resp;
         } catch (Exception e) {
@@ -98,7 +100,9 @@ public class DefectService {
                     request.getProjectName(),
                     request.getDocumentName(),
                     request.getDocumentVersion(),
-                    inputType
+                    inputType,
+                    request.getProjectId(),
+                    parseDocId(request.getDocumentId())
             );
             log.error("Error generating defect triage preview: ", e);
             throw new RuntimeException("Failed to analyze defect: " + e.getMessage(), e);
@@ -150,9 +154,20 @@ public class DefectService {
                 request.getProjectName(),
                 request.getDocumentName(),
                 request.getDocumentVersion(),
-                "Defect Triage Report"
+                "Defect Triage Report",
+                request.getProjectId(),
+                request.getDocumentId()
         );
 
         return saved;
+    }
+
+    private Long parseDocId(String docIdStr) {
+        if (docIdStr == null || docIdStr.trim().isEmpty()) return null;
+        try {
+            return Long.parseLong(docIdStr.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

@@ -49,7 +49,9 @@ public class TestCaseService {
                     request.getProjectName(),
                     request.getDocumentName(),
                     request.getDocumentVersion(),
-                    inputType
+                    inputType,
+                    request.getProjectId(),
+                    parseDocId(request.getDocumentId())
             );
             return resp;
         } catch (Exception e) {
@@ -70,7 +72,9 @@ public class TestCaseService {
                     request.getProjectName(),
                     request.getDocumentName(),
                     request.getDocumentVersion(),
-                    inputType
+                    inputType,
+                    request.getProjectId(),
+                    parseDocId(request.getDocumentId())
             );
             log.error("Error generating test cases preview: ", e);
             throw new RuntimeException("Failed to generate test cases: " + e.getMessage(), e);
@@ -94,11 +98,51 @@ public class TestCaseService {
             }
         }
 
+        long startTime = System.currentTimeMillis();
         try {
-            return aiServiceClient.generateTestCasesUpload(brdFile, zipFile, testTypes, mode);
+            AiTestCaseResponse resp = aiServiceClient.generateTestCasesUpload(brdFile, zipFile, testTypes, inputMode);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Test Generator",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    "Direct file upload test cases generation",
+                    resp.getSources(),
+                    resp.getModel(),
+                    resp.getPrompt_version(),
+                    resp.getResult() != null ? resp.getResult().toString() : "",
+                    "SUCCESS",
+                    duration,
+                    null,
+                    null,
+                    brdFile != null ? brdFile.getOriginalFilename() : (zipFile != null ? zipFile.getOriginalFilename() : null),
+                    "v1",
+                    inputMode != null ? inputMode : "Direct File Upload"
+            );
+            return resp;
         } catch (Exception e) {
-            log.error("Error generating test cases preview from upload: ", e);
-            throw new RuntimeException("Failed to generate test cases: " + e.getMessage(), e);
+            long duration = System.currentTimeMillis() - startTime;
+            auditService.logAuditFull(
+                    "Test Generator",
+                    "GENERATE",
+                    UserContext.getCurrentUser(),
+                    UserContext.getCurrentRole(),
+                    "Direct file upload test cases generation",
+                    null,
+                    "gemini-3.7-flash",
+                    "testcase-v1",
+                    null,
+                    "FAILED",
+                    duration,
+                    e.getMessage(),
+                    null,
+                    brdFile != null ? brdFile.getOriginalFilename() : (zipFile != null ? zipFile.getOriginalFilename() : null),
+                    "v1",
+                    inputMode != null ? inputMode : "Direct File Upload"
+            );
+            log.error("Error generating test cases upload preview: ", e);
+            throw new RuntimeException("Failed to generate test cases from files: " + e.getMessage(), e);
         }
     }
 
@@ -147,9 +191,20 @@ public class TestCaseService {
                 request.getProjectName(),
                 request.getDocumentName(),
                 request.getDocumentVersion(),
-                "Test Suite"
+                "Test Suite",
+                request.getProjectId(),
+                request.getDocumentId()
         );
 
         return savedTestCases;
+    }
+
+    private Long parseDocId(String docIdStr) {
+        if (docIdStr == null || docIdStr.trim().isEmpty()) return null;
+        try {
+            return Long.parseLong(docIdStr.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

@@ -156,3 +156,11 @@
   (accept)="onAccept($event)"
   (reject)="onReject()">
 </app-response-modal>
+
+<!-- Feature History (shown when project is selected in KB mode) -->
+<div style="margin-top: 24px;">
+  <app-feature-history
+    [projectId]="inputMode === 'kb' ? selectedProjectId : null"
+    feature="user_story">
+  </app-feature-history>
+</div>

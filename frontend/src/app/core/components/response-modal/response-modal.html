@@ -786,7 +786,7 @@
               <thead>
                 <tr>
                   <th style="width: 80px;">TC ID</th>
-                  <th style="min-width: 240px;">Scenario</th>
+                  <th class="scenario-th" style="min-width: 320px; max-width: 480px;">Scenario</th>
                   <th style="width: 100px;">Type</th>
                   <th style="width: 90px;">Priority</th>
                   <th style="min-width: 140px;">Preconditions</th>
@@ -997,9 +997,32 @@
             <p>{{ data.summary }}</p>
           </div>
 
-          <div class="section-card" *ngIf="data.newFeatures?.length">
-            <h3 style="color: #10b981;">New Features</h3>
-            <ul class="styled-list">
+          <div class="section-card" *ngIf="data.newFeatures !== undefined">
+            <div class="card-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h3 style="color: #10b981; margin: 0;">New Features</h3>
+              <button type="button" class="btn-sm btn-outline-success" (click)="showAddFeatureInput = !showAddFeatureInput">
+                {{ showAddFeatureInput ? '✕ Cancel' : '+ Add Feature' }}
+              </button>
+            </div>
+
+            <!-- Inline Add Feature with Loader -->
+            <div *ngIf="showAddFeatureInput" class="add-feature-inline-box" style="margin: 12px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" [(ngModel)]="newFeatureText" placeholder="Enter new feature description..." class="inline-input" style="flex: 1;" [disabled]="addingFeature">
+                <button type="button" class="btn btn-success btn-sm" (click)="submitNewFeature()" [disabled]="addingFeature || !newFeatureText.trim()" style="display: inline-flex; align-items: center; gap: 6px;">
+                  <span *ngIf="addingFeature" class="spinner-sm" style="width: 14px; height: 14px;"></span>
+                  <span>{{ addingFeature ? 'Adding Feature...' : 'Save Feature' }}</span>
+                </button>
+              </div>
+              <div *ngIf="addFeatureStatus === 'SUCCESS'" style="color: #059669; font-size: 0.85rem; font-weight: 600; margin-top: 6px;">
+                ✓ Feature Added Successfully
+              </div>
+              <div *ngIf="addFeatureStatus === 'ERROR'" style="color: #dc2626; font-size: 0.85rem; font-weight: 600; margin-top: 6px;">
+                ⚠️ Unable to Add Feature
+              </div>
+            </div>
+
+            <ul class="styled-list" *ngIf="data.newFeatures?.length">
               <li *ngFor="let f of data.newFeatures">
                 <span class="bullet-check" style="background: #10b981;">+</span> {{ f }}
               </li>
@@ -1055,7 +1078,16 @@
           <div class="form-group">
             <div class="label-with-action">
               <label>New Features</label>
-              <button class="btn-text-action" (click)="addArrayItem(editableData.newFeatures)">+ Add Feature</button>
+              <button type="button" class="btn-text-action" (click)="triggerAddFeatureInEdit()" [disabled]="addingFeature" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span *ngIf="addingFeature" class="spinner-sm" style="width: 12px; height: 12px;"></span>
+                <span>{{ addingFeature ? 'Adding Feature...' : '+ Add Feature' }}</span>
+              </button>
+            </div>
+            <div *ngIf="addFeatureStatus === 'SUCCESS'" style="color: #059669; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">
+              ✓ Feature Added Successfully
+            </div>
+            <div *ngIf="addFeatureStatus === 'ERROR'" style="color: #dc2626; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">
+              ⚠️ Unable to Add Feature
             </div>
             <div class="array-item" *ngFor="let f of editableData.newFeatures; let i = index; trackBy: trackByIndex">
               <input type="text" [(ngModel)]="editableData.newFeatures[i]">
@@ -1082,15 +1114,28 @@
     <!-- Modal Footer Actions -->
     <div class="modal-footer">
       <div class="footer-left" style="display: flex; gap: 10px; align-items: center;">
-        <button class="btn btn-primary btn-download" (click)="download()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;">
-          {{ type === 'testcase' ? '📥 Download CSV' : '📥 Download PDF' }}
-        </button>
+        <ng-container *ngIf="type === 'testcase'">
+          <button type="button" class="btn btn-primary btn-download" (click)="downloadExcel()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;" title="Download Excel (.xlsx)">
+            📥 Download Excel
+          </button>
+          <button type="button" class="btn btn-secondary btn-download" (click)="downloadCsv()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;" title="Download CSV (.csv)">
+            📥 Download CSV
+          </button>
+        </ng-container>
+        <ng-container *ngIf="type !== 'testcase'">
+          <button type="button" class="btn btn-primary btn-download" (click)="download()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;">
+            📥 Download PDF
+          </button>
+        </ng-container>
       </div>
       <div class="footer-right">
         <button class="btn btn-secondary" (click)="closeModal()" [disabled]="saving">
           Close
         </button>
-        <button class="btn btn-secondary" (click)="toggleEditMode()" [disabled]="saving">
+        <button *ngIf="mode === 'EDIT_ALL'" class="btn btn-success" (click)="saveAllEdits()" [disabled]="saving" title="Save">
+          💾 Save
+        </button>
+        <button class="btn btn-secondary" (click)="toggleEditMode()" [disabled]="saving" [title]="mode === 'EDIT_ALL' ? 'Cancel' : 'Edit'">
           {{ mode === 'EDIT_ALL' ? '✕ Cancel Edit' : '✏️ Edit All' }}
         </button>
         <!-- Reject placed beside Accept -->
@@ -1147,9 +1192,19 @@
     <h3>Data Saved Successfully</h3>
     <p class="popup-success-text">{{ successMessage }}</p>
     <div class="popup-actions success-actions">
-      <button class="btn btn-primary btn-download" (click)="download()">
-        {{ type === 'testcase' ? '📥 Download CSV' : '📥 Download PDF' }}
-      </button>
+      <ng-container *ngIf="type === 'testcase'">
+        <button type="button" class="btn btn-primary btn-download" (click)="downloadExcel()">
+          📥 Download Excel
+        </button>
+        <button type="button" class="btn btn-secondary btn-download" (click)="downloadCsv()">
+          📥 Download CSV
+        </button>
+      </ng-container>
+      <ng-container *ngIf="type !== 'testcase'">
+        <button type="button" class="btn btn-primary btn-download" (click)="download()">
+          📥 Download PDF
+        </button>
+      </ng-container>
       <button class="btn btn-secondary" (click)="closeModal()">Close</button>
     </div>
   </div>

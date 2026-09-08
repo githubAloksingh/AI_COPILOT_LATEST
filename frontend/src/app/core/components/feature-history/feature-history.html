@@ -1,0 +1,85 @@
+<div class="feature-history-section" *ngIf="projectId">
+  <div class="history-card">
+    <div class="history-card-header">
+      <div class="header-title-wrap">
+        <span class="history-icon">📜</span>
+        <h3 class="history-title">HISTORY</h3>
+      </div>
+      <button type="button" class="btn-history-refresh" (click)="refresh()" [disabled]="loading" title="Refresh History">
+        🔄 Refresh
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="history-loading">
+      <div class="spinner-sm"></div>
+      <span>Loading history for selected project...</span>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="errorMessage && !loading" class="history-error">
+      ⚠️ {{ errorMessage }}
+    </div>
+
+    <!-- No History Found -->
+    <div *ngIf="!loading && !errorMessage && historyItems.length === 0" class="history-empty">
+      <div class="empty-icon">📂</div>
+      <p class="empty-text">No history found.</p>
+    </div>
+
+    <!-- History Table -->
+    <div *ngIf="!loading && !errorMessage && historyItems.length > 0" class="history-table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th class="col-sno">S.No</th>
+            <th class="col-project">Project Name</th>
+            <th class="col-doc">BRD / Codebase Name</th>
+            <th class="col-version">Version</th>
+            <th class="col-view">View</th>
+            <th class="col-download">Download</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of historyItems; let i = index">
+            <td class="col-sno">{{ i + 1 }}</td>
+            <td class="col-project">
+              <strong>{{ item.projectName }}</strong>
+            </td>
+            <td class="col-doc">
+              <span class="doc-badge" [ngClass]="item.fileType === 'ZIP' ? 'badge-zip' : 'badge-brd'">
+                {{ item.fileType === 'ZIP' ? '📦' : '📄' }}
+              </span>
+              <span class="doc-name">{{ item.documentName }}</span>
+            </td>
+            <td class="col-version">
+              <span class="version-tag">{{ item.version || '1.0' }}</span>
+            </td>
+            <td class="col-view">
+              <button 
+                *ngIf="item.canView" 
+                type="button" 
+                class="btn-action-icon btn-view" 
+                (click)="viewDocument(item)" 
+                title="View Original PDF">
+                👁
+              </button>
+              <span *ngIf="!item.canView" class="view-disabled">—</span>
+            </td>
+            <td class="col-download">
+              <button 
+                *ngIf="item.downloadUrl" 
+                type="button" 
+                class="btn-action-icon btn-download" 
+                (click)="downloadDocument(item)" 
+                title="Download">
+                ⬇
+              </button>
+              <span *ngIf="!item.downloadUrl" class="download-disabled">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

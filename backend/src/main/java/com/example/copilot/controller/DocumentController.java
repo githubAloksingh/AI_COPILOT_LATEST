@@ -60,12 +60,30 @@ public class DocumentController {
         Document doc = documentService.getDocumentById(id);
         org.springframework.core.io.Resource resource = documentService.loadOriginalFileAsResource(id);
         String contentType = doc.getFileType();
-        if (contentType == null || contentType.isEmpty() || "unknown".equalsIgnoreCase(contentType)) {
+        if (doc.getFileName() != null && doc.getFileName().toLowerCase().endsWith(".pdf")) {
+            contentType = "application/pdf";
+        } else if (contentType == null || contentType.isEmpty() || "unknown".equalsIgnoreCase(contentType)) {
             contentType = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
         }
         return org.springframework.http.ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getFileName() + "\"")
+                .body(resource);
+    }
+
+    @GetMapping("/api/documents/{id}/view")
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> viewDocument(@PathVariable Long id) {
+        Document doc = documentService.getDocumentById(id);
+        org.springframework.core.io.Resource resource = documentService.loadOriginalFileAsResource(id);
+        String contentType = doc.getFileType();
+        if (doc.getFileName() != null && doc.getFileName().toLowerCase().endsWith(".pdf")) {
+            contentType = "application/pdf";
+        } else if (contentType == null || contentType.isEmpty() || "unknown".equalsIgnoreCase(contentType)) {
+            contentType = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getFileName() + "\"")
                 .body(resource);
     }
 

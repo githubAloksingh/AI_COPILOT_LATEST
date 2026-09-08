@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ApiService } from '../../core/api';
 import { ResponseModal } from '../../core/components/response-modal/response-modal';
+import { FeatureHistoryComponent } from '../../core/components/feature-history/feature-history';
 
 @Component({
   selector: 'app-functional-design',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ResponseModal],
+  imports: [CommonModule, FormsModule, RouterModule, ResponseModal, FeatureHistoryComponent],
   templateUrl: './functional-design.html',
   styleUrls: ['./functional-design.scss']
 })

@@ -39,6 +39,10 @@ public class AuditService {
     }
 
     public void logAuditFull(String feature, String action, String userName, String userRole, String input, List<String> retrievedSources, String model, String promptVersion, String output, String status, long executionTimeMs, String errorMessage, String projectName, String documentName, String documentVersion, String inputType) {
+        logAuditFull(feature, action, userName, userRole, input, retrievedSources, model, promptVersion, output, status, executionTimeMs, errorMessage, projectName, documentName, documentVersion, inputType, null, null);
+    }
+
+    public void logAuditFull(String feature, String action, String userName, String userRole, String input, List<String> retrievedSources, String model, String promptVersion, String output, String status, long executionTimeMs, String errorMessage, String projectName, String documentName, String documentVersion, String inputType, Long projectId, Long documentId) {
         try {
             AuditLog audit = new AuditLog();
             audit.setRequestId(UUID.randomUUID().toString());
@@ -58,6 +62,8 @@ public class AuditService {
             audit.setDocumentName(documentName);
             audit.setDocumentVersion(documentVersion);
             audit.setInputType(inputType);
+            audit.setProjectId(projectId);
+            audit.setDocumentId(documentId);
             auditLogRepository.save(audit);
         } catch (Exception e) {
             log.error("Failed to save audit log: {}", e.getMessage());

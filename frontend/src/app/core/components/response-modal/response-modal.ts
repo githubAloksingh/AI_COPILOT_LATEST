@@ -218,13 +218,113 @@ export class ResponseModal implements OnInit, OnChanges {
     this.cdr.markForCheck();
   }
 
+  // ── Release Notes Add Feature State ─────────────────────────────────────────
+  showAddFeatureInput = false;
+  newFeatureText = '';
+  addingFeature = false;
+  addFeatureStatus: 'IDLE' | 'SUCCESS' | 'ERROR' = 'IDLE';
+
+  submitNewFeature() {
+    if (!this.newFeatureText || !this.newFeatureText.trim()) return;
+    this.addingFeature = true;
+    this.addFeatureStatus = 'IDLE';
+    this.cdr.markForCheck();
+
+    setTimeout(() => {
+      try {
+        const text = this.newFeatureText.trim();
+        if (!this.data) this.data = {};
+        if (!this.data.newFeatures) this.data.newFeatures = [];
+        this.data.newFeatures.push(text);
+
+        if (this.editableData) {
+          if (!this.editableData.newFeatures) this.editableData.newFeatures = [];
+          this.editableData.newFeatures.push(text);
+        }
+
+        this.isEdited = true;
+        this.addingFeature = false;
+        this.addFeatureStatus = 'SUCCESS';
+        this.newFeatureText = '';
+        this.cdr.markForCheck();
+
+        setTimeout(() => {
+          this.addFeatureStatus = 'IDLE';
+          this.showAddFeatureInput = false;
+          this.cdr.markForCheck();
+        }, 2500);
+      } catch (e) {
+        this.addingFeature = false;
+        this.addFeatureStatus = 'ERROR';
+        this.cdr.markForCheck();
+      }
+    }, 600);
+  }
+
+  triggerAddFeatureInEdit() {
+    this.addingFeature = true;
+    this.addFeatureStatus = 'IDLE';
+    this.cdr.markForCheck();
+
+    setTimeout(() => {
+      try {
+        if (!this.editableData) this.editableData = {};
+        if (!this.editableData.newFeatures) this.editableData.newFeatures = [];
+        this.editableData.newFeatures.push('');
+        this.isEdited = true;
+        this.addingFeature = false;
+        this.addFeatureStatus = 'SUCCESS';
+        this.cdr.markForCheck();
+
+        setTimeout(() => {
+          this.addFeatureStatus = 'IDLE';
+          this.cdr.markForCheck();
+        }, 2000);
+      } catch (e) {
+        this.addingFeature = false;
+        this.addFeatureStatus = 'ERROR';
+        this.cdr.markForCheck();
+      }
+    }, 500);
+  }
+
+  saveAllEdits() {
+    if (this.isRequirementLike && this.editableRequirements?.length) {
+      if (this.data) {
+        if (Array.isArray(this.data)) {
+          this.data = JSON.parse(JSON.stringify(this.editableRequirements));
+        } else if (this.data.userStories) {
+          this.data.userStories = JSON.parse(JSON.stringify(this.editableRequirements));
+        } else if (this.data.requirements) {
+          this.data.requirements = JSON.parse(JSON.stringify(this.editableRequirements));
+        }
+      }
+    } else if (this.editableData) {
+      this.data = JSON.parse(JSON.stringify(this.editableData));
+    }
+    this.isEdited = true;
+    this.mode = 'VIEW';
+    this.cdr.markForCheck();
+  }
+
   // ── Download ───────────────────────────────────────────────────────────────
+  downloadExcel() {
+    const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
+    const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
+    this.exportService.downloadTestCaseExcel(items, 'test-cases');
+  }
+
+  downloadCsv() {
+    const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
+    const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
+    this.exportService.downloadTestCaseCsv(items, 'test-cases');
+  }
+
   download() {
     const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
 
     if (this.type === 'testcase') {
-      const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
-      this.exportService.downloadTestCaseCsv(items, 'test-cases');
+      this.downloadCsv();
     } else if (this.type === 'userstory') {
       const allReqs = this.mode === 'EDIT_ALL' ? this.editableRequirements : this.requirementList;
       this.exportService.downloadUserStoryPdf(allReqs);

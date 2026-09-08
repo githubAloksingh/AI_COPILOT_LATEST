@@ -34,18 +34,22 @@ public class RequirementService {
         try {
             AiRequirementResponse resp = aiServiceClient.generateRequirement(request);
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
                     resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             log.error("Error generating requirement preview: ", e);
             throw new RuntimeException("Failed to generate requirement: " + e.getMessage(), e);
         }
@@ -57,18 +61,22 @@ public class RequirementService {
         try {
             AiRequirementResponse resp = aiServiceClient.generateUserStory(request);
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
                     resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             log.error("Error generating user story preview: ", e);
             throw new RuntimeException("Failed to generate user story: " + e.getMessage(), e);
         }
@@ -80,18 +88,22 @@ public class RequirementService {
         try {
             AiRequirementResponse resp = aiServiceClient.generateFunctionalDesign(request);
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
                     resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             log.error("Error generating functional design preview: ", e);
             throw new RuntimeException("Failed to generate functional design: " + e.getMessage(), e);
         }
@@ -103,20 +115,33 @@ public class RequirementService {
         try {
             AiRequirementResponse resp = aiServiceClient.generateTechnicalDesign(request);
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
                     resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
+            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType);
+                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectId(), docId);
             log.error("Error generating technical design preview: ", e);
             throw new RuntimeException("Failed to generate technical design: " + e.getMessage(), e);
+        }
+    }
+
+    private Long parseDocId(String docIdStr) {
+        if (docIdStr == null || docIdStr.trim().isEmpty()) return null;
+        try {
+            return Long.parseLong(docIdStr.trim());
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
@@ -163,7 +188,9 @@ public class RequirementService {
                 request.getProjectName(),
                 request.getDocumentName(),
                 request.getDocumentVersion(),
-                "Requirement Document"
+                "Requirement Document",
+                request.getProjectId(),
+                request.getDocumentId()
         );
 
         return saved;
@@ -225,7 +252,9 @@ public class RequirementService {
                     request.getProjectName(),
                     request.getDocumentName() != null ? request.getDocumentName() : brdName,
                     request.getDocumentVersion(),
-                    "BRD Document"
+                    "BRD Document",
+                    request.getProjectId(),
+                    request.getDocumentId()
             );
         }
 

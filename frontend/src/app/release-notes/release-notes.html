@@ -151,3 +151,11 @@
   (accept)="onAccept($event)"
   (reject)="onReject()">
 </app-response-modal>
+
+<!-- Feature History (shown when project is selected) -->
+<div style="margin-top: 24px;">
+  <app-feature-history
+    [projectId]="inputMode === 'kb' ? selectedProjectId : null"
+    feature="release_notes">
+  </app-feature-history>
+</div>

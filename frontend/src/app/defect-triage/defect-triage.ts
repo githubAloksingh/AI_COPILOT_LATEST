@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ApiService } from '../core/api';
 import { ResponseModal } from '../core/components/response-modal/response-modal';
+import { FeatureHistoryComponent } from '../core/components/feature-history/feature-history';
 
 @Component({
   selector: 'app-defect-triage',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ResponseModal],
+  imports: [CommonModule, FormsModule, RouterModule, ResponseModal, FeatureHistoryComponent],
   templateUrl: './defect-triage.html',
   styleUrl: './defect-triage.scss'
 })
@@ -117,6 +118,16 @@ export class DefectTriage implements OnInit {
     return !!(this.selectedProjectId && this.selectedDocId);
   }
 
+  getDocumentType(doc: any): string {
+    if (!doc) return '';
+    const fn = (doc.fileName || '').toLowerCase();
+    const ft = (doc.fileType || '').toUpperCase();
+    if (fn.endsWith('.zip') || ft === 'ZIP' || ft === 'CODEBASE') {
+      return 'Codebase (ZIP)';
+    }
+    return 'BRD';
+  }
+
   analyze() {
     if (!this.isInputValid()) {
       this.error = 'Please select a Project and Document from Knowledge Base.';
@@ -128,20 +139,26 @@ export class DefectTriage implements OnInit {
     this.error = '';
     this.cdr.markForCheck();
 
+    const isZip = (this.selectedDoc?.fileName || '').toLowerCase().endsWith('.zip') || (this.selectedDoc?.fileType || '').toUpperCase() === 'ZIP';
+    const docTypeStr = this.getDocumentType(this.selectedDoc);
     const title = this.defectTitle.trim() || ('Defect Triage: ' + (this.selectedDoc?.fileName || 'Document'));
 
     const payload = {
       title,
-      description: `Automated defect triage for ${this.selectedDoc?.fileName || 'knowledge base artifact'}`,
-      logs: 'Analyze potential defects, error handlers, and failure modes in the document/codebase.',
-      environment: 'Knowledge Base Artifact',
+      description: isZip 
+        ? `Automated codebase defect triage for ${this.selectedDoc?.fileName || 'codebase ZIP'}`
+        : `Automated requirement/BRD defect triage for ${this.selectedDoc?.fileName || 'BRD document'}`,
+      logs: isZip
+        ? 'Analyze potential code defects, syntax/runtime bugs, error handlers, and failure modes in the codebase.'
+        : 'Analyze potential specification defects, requirement ambiguities, logical contradictions, edge case omissions, and failure modes in the BRD.',
+      environment: isZip ? 'Codebase Repository' : 'Business Requirements Specification',
       document_id: this.selectedDocId ? String(this.selectedDocId) : null,
       projectId: this.selectedProjectId,
       projectName: this.selectedProject?.projectName || null,
       documentId: this.selectedDocId,
       documentName: this.selectedDoc?.fileName || null,
       documentVersion: this.selectedDoc?.version || null,
-      inputType: 'KNOWLEDGE_BASE'
+      inputType: docTypeStr
     };
 
     this.api.analyzeDefect(payload).subscribe({

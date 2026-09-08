@@ -42,6 +42,12 @@ public class AuditLog extends BaseEntity {
     private String documentVersion;
     private String inputType;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
+    @Column(name = "document_id")
+    private Long documentId;
+
     public java.time.LocalDateTime getTimestamp() {
         return getCreatedAt();
     }

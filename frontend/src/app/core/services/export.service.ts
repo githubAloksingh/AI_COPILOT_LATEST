@@ -1,10 +1,56 @@
 import { Injectable } from '@angular/core';
 import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ExportService {
+
+  // ==========================================
+  // EXCEL EXPORT (TEST CASES - .xlsx)
+  // ==========================================
+  downloadTestCaseExcel(items: any[], baseFilename = 'test-cases'): void {
+    if (!items || items.length === 0) {
+      alert('No test case data available to export.');
+      return;
+    }
+
+    const rows = items.map((item, index) => {
+      const tcId = item.tcId || `TC-${String(index + 1).padStart(3, '0')}`;
+      const scenario = item.scenario || '';
+      const type = item.type || 'POSITIVE';
+      const priority = item.priority || 'MEDIUM';
+      const preconditions = item.preconditions ? (Array.isArray(item.preconditions) ? item.preconditions.join('\n') : item.preconditions) : '';
+      const steps = item.steps ? (Array.isArray(item.steps) ? item.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : item.steps) : '';
+      const expectedResult = item.expectedResult || '';
+
+      return {
+        'Test Case ID': tcId,
+        'Scenario / Title': scenario,
+        'Type': type,
+        'Priority': priority,
+        'Preconditions': preconditions,
+        'Test Steps': steps,
+        'Expected Result': expectedResult
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 15 },
+      { wch: 45 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 30 },
+      { wch: 45 },
+      { wch: 35 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Test Cases');
+    XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
+  }
 
   // ==========================================
   // CSV EXPORT (TEST CASES ONLY)
@@ -520,6 +566,7 @@ export class ExportService {
 
   // ==========================================
   // PDF EXPORT (RELEASE NOTES)
+  // Professional format consistent with User Story PDF
   // ==========================================
   downloadReleaseNotePdf(data: any, baseFilename = 'release-notes'): void {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -535,41 +582,49 @@ export class ExportService {
       }
     };
 
-    // Header
+    // ── Document Header ──────────────────────────────────────
+    doc.setFillColor(30, 41, 59);
+    doc.rect(margin, y, contentWidth, 36, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`Release Notes â€” Version ${data.version || '1.0.0'}`, margin, y);
-    y += 24;
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Release Notes — Version ${data.version || '1.0.0'}`, margin + 12, y + 23);
+    y += 46;
 
-    doc.setFontSize(10);
+    // Metadata Subtitle
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, margin, y);
+    doc.text(`Generated & Approved: ${new Date().toLocaleString()}  |  AI SDLC Copilot`, margin, y);
     y += 18;
 
     doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(1);
     doc.line(margin, y, margin + contentWidth, y);
-    y += 18;
+    y += 16;
 
-    // Summary
+    // Summary Section Card
     if (data.summary) {
-      checkPageBreak(50);
+      checkPageBreak(60);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      const splitSummary = doc.splitTextToSize(data.summary, contentWidth - 24);
+      const cardHeight = (splitSummary.length * 13) + 36;
+      doc.roundedRect(margin, y, contentWidth, cardHeight, 4, 4, 'FD');
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(30, 41, 59);
-      doc.text('Summary', margin, y);
-      y += 14;
+      doc.text('Executive Summary', margin + 12, y + 18);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      const splitSummary = doc.splitTextToSize(data.summary, contentWidth);
-      doc.text(splitSummary, margin, y);
-      y += (splitSummary.length * 13) + 14;
+      doc.setTextColor(71, 85, 105);
+      doc.text(splitSummary, margin + 12, y + 32);
+      y += cardHeight + 14;
     }
 
-    // New Features
+    // New Features Section
     if (data.newFeatures && data.newFeatures.length > 0) {
       checkPageBreak(50);
       doc.setFont('helvetica', 'bold');
@@ -582,16 +637,16 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       data.newFeatures.forEach((f: string) => {
-        const itemText = `â€¢  ${f}`;
+        const itemText = `•  ${f}`;
         const splitF = doc.splitTextToSize(itemText, contentWidth - 10);
         checkPageBreak(splitF.length * 13 + 4);
         doc.text(splitF, margin + 5, y);
         y += (splitF.length * 13) + 4;
       });
-      y += 10;
+      y += 12;
     }
 
-    // Improvements
+    // Improvements Section
     if (data.improvements && data.improvements.length > 0) {
       checkPageBreak(50);
       doc.setFont('helvetica', 'bold');
@@ -604,16 +659,16 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       data.improvements.forEach((imp: string) => {
-        const itemText = `â€¢  ${imp}`;
+        const itemText = `•  ${imp}`;
         const splitImp = doc.splitTextToSize(itemText, contentWidth - 10);
         checkPageBreak(splitImp.length * 13 + 4);
         doc.text(splitImp, margin + 5, y);
         y += (splitImp.length * 13) + 4;
       });
-      y += 10;
+      y += 12;
     }
 
-    // Bug Fixes
+    // Bug Fixes Section
     if (data.bugFixes && data.bugFixes.length > 0) {
       checkPageBreak(50);
       doc.setFont('helvetica', 'bold');
@@ -626,16 +681,16 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       data.bugFixes.forEach((bf: string) => {
-        const itemText = `â€¢  ${bf}`;
+        const itemText = `•  ${bf}`;
         const splitBf = doc.splitTextToSize(itemText, contentWidth - 10);
         checkPageBreak(splitBf.length * 13 + 4);
         doc.text(splitBf, margin + 5, y);
         y += (splitBf.length * 13) + 4;
       });
-      y += 10;
+      y += 12;
     }
 
-    // Breaking Changes
+    // Breaking Changes Section
     if (data.breakingChanges && data.breakingChanges.length > 0) {
       checkPageBreak(50);
       doc.setFont('helvetica', 'bold');
@@ -648,16 +703,16 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       data.breakingChanges.forEach((bc: string) => {
-        const itemText = `â€¢  ${bc}`;
+        const itemText = `•  ${bc}`;
         const splitBc = doc.splitTextToSize(itemText, contentWidth - 10);
         checkPageBreak(splitBc.length * 13 + 4);
         doc.text(splitBc, margin + 5, y);
         y += (splitBc.length * 13) + 4;
       });
-      y += 10;
+      y += 12;
     }
 
-    // Technical Notes
+    // Technical Notes Section
     if (data.technicalNotes) {
       checkPageBreak(50);
       doc.setFont('helvetica', 'bold');
