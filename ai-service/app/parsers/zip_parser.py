@@ -30,8 +30,8 @@ IGNORED_EXTENSIONS = {
     ".ttf", ".eot", ".map"
 }
 
-MAX_TOTAL_CHARS = 70000
-MAX_PER_FILE_CHARS = 10000
+MAX_TOTAL_CHARS = 1024 * 1024 * 1024
+MAX_PER_FILE_CHARS = 1 * 1024 * 1024
 
 
 class ZipParser(DocumentParser):
@@ -47,6 +47,12 @@ class ZipParser(DocumentParser):
         return summary
 
     @staticmethod
+    def extract_zip_file(file_object) -> Tuple[List[str], str]:
+        """Extract a ZIP directly from an upload stream without creating a bytes copy."""
+        with zipfile.ZipFile(file_object) as archive:
+            return ZipParser._extract_zip(archive)
+
+    @staticmethod
     def extract_zip(zip_bytes: bytes) -> Tuple[List[str], str]:
         """
         Parses a zip archive and returns:
@@ -58,6 +64,17 @@ class ZipParser(DocumentParser):
 
         try:
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+                return ZipParser._extract_zip(z)
+        except zipfile.BadZipFile:
+            logger.error("Uploaded file is not a valid zip archive.")
+            return [], "Invalid or corrupted zip archive."
+        except Exception as e:
+            logger.error("Error reading zip archive: %s", e)
+            return [], f"Failed to extract zip contents: {str(e)}"
+
+    @staticmethod
+    def _extract_zip(z: zipfile.ZipFile) -> Tuple[List[str], str]:
+        try:
                 all_names = z.namelist()
 
                 # Filter valid source code files
@@ -141,10 +158,6 @@ class ZipParser(DocumentParser):
                         logger.warning("Could not read %s from zip: %s", file_path, e)
 
                 return extracted_sources, "".join(code_sections)
-
-        except zipfile.BadZipFile:
-            logger.error("Uploaded file is not a valid zip archive.")
-            return [], "Invalid or corrupted zip archive."
         except Exception as e:
-            logger.error("Error reading zip archive: %s", e)
+            logger.error("Error extracting zip archive: %s", e)
             return [], f"Failed to extract zip contents: {str(e)}"

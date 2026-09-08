@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Gemini
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.7-flash"
-    gemini_embedding_model: str = "text-embedding-004"
+    transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
         "gemini-3.7-flash",
         "gemini-3.6-flash",
@@ -25,12 +25,6 @@ class Settings(BaseSettings):
         "gemini-2.0-flash",
         "gemini-1.5-flash"
     ]
-    gemini_embedding_candidate_models: List[str] = [
-        "text-embedding-004",
-        "gemini-embedding-001",
-        "gemini-embedding-2"
-    ]
-
     # Chroma
     chroma_url: str = "http://localhost:8001"
     chroma_collection: str = "ai_work_copilot"
@@ -40,6 +34,7 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 150
     top_k: int = 5
+    max_upload_size_mb: int = 1024
 
     # App
     host: str = "0.0.0.0"

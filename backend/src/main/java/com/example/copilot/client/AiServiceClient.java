@@ -5,6 +5,7 @@ import com.example.copilot.dto.ai.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 @Slf4j
@@ -36,15 +39,29 @@ public class AiServiceClient {
     }
 
     public AiIngestionResponse ingestDocument(Long documentId, String fileName, String fileType, byte[] content) {
+        try {
+            Path temporaryUpload = Files.createTempFile("ai-upload-", ".bin");
+            Files.write(temporaryUpload, content);
+            try {
+                return ingestDocument(documentId, fileName, fileType, temporaryUpload);
+            } finally {
+                Files.deleteIfExists(temporaryUpload);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Could not prepare AI service upload: " + e.getMessage(), e);
+        }
+    }
+
+    public AiIngestionResponse ingestDocument(Long documentId, String fileName, String fileType, Path contentPath) {
         String url = aiServiceUrl + "/api/ai/ingest";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        ByteArrayResource fileResource = new ByteArrayResource(content) {
+        FileSystemResource fileResource = new FileSystemResource(contentPath.toFile()) {
             @Override
             public String getFilename() {
-                return fileName != null ? fileName : "document";
+                return fileName != null ? fileName : super.getFilename();
             }
         };
 

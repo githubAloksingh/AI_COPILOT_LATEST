@@ -16,6 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Slf4j
 @Service
@@ -74,7 +76,7 @@ public class IngestionService {
     }
 
     @Async("documentTaskExecutor")
-    public void processDocumentAsync(Long documentId, byte[] fileBytes, String originalFileName, String fileType) {
+    public void processDocumentAsync(Long documentId, Path filePath, String originalFileName, String fileType) {
         log.info("Starting async document ingestion for document ID: {} ({}) via AI Service", documentId, originalFileName);
 
         Document document = documentRepository.findById(documentId).orElse(null);
@@ -89,7 +91,7 @@ public class IngestionService {
                     documentId,
                     originalFileName,
                     fileType,
-                    fileBytes
+                    filePath
             );
 
             document.setStatus("COMPLETED");
@@ -142,6 +144,12 @@ public class IngestionService {
 
             auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
                     "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration, err, projectName, document.getFileName(), document.getVersion(), document.getFileType());
+        } finally {
+            try {
+                Files.deleteIfExists(filePath);
+            } catch (Exception cleanupError) {
+                log.warn("Could not delete temporary upload file {}: {}", filePath, cleanupError.getMessage());
+            }
         }
     }
 }

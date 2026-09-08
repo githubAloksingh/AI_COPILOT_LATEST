@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 @RestController
@@ -46,8 +48,9 @@ public class DocumentController {
         }
         Document doc = ingestionService.uploadDocument(projectId, file, title, customType, uploadedBy, version);
         try {
-            byte[] fileBytes = file.getBytes();
-            ingestionService.processDocumentAsync(doc.getId(), fileBytes, file.getOriginalFilename(), file.getContentType());
+            Path temporaryUpload = Files.createTempFile("ai-upload-", ".bin");
+            file.transferTo(temporaryUpload);
+            ingestionService.processDocumentAsync(doc.getId(), temporaryUpload, file.getOriginalFilename(), file.getContentType());
         } catch (Exception e) {
             throw new RuntimeException("Failed to start document processing: " + e.getMessage(), e);
         }
