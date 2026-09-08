@@ -55,36 +55,63 @@ public class DocumentController {
         return ApiResponse.success(doc, "Document uploaded successfully. Ingestion in progress.");
     }
 
-    @GetMapping("/api/documents/{id}/download")
-    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> downloadDocument(@PathVariable Long id) {
+    @GetMapping({"/api/documents/{id}/file", "/api/documents/{id}/view"})
+    public org.springframework.http.ResponseEntity<byte[]> getDocumentFile(@PathVariable Long id) {
         Document doc = documentService.getDocumentById(id);
-        org.springframework.core.io.Resource resource = documentService.loadOriginalFileAsResource(id);
-        String contentType = doc.getFileType();
-        if (doc.getFileName() != null && doc.getFileName().toLowerCase().endsWith(".pdf")) {
-            contentType = "application/pdf";
-        } else if (contentType == null || contentType.isEmpty() || "unknown".equalsIgnoreCase(contentType)) {
-            contentType = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        }
+        byte[] fileBytes = documentService.getOriginalFileBytes(id);
+
+        String fileName = (doc.getFileName() != null && !doc.getFileName().trim().isEmpty())
+                ? doc.getFileName()
+                : "document.pdf";
+        String contentType = determineContentType(fileName, doc.getFileType());
+
         return org.springframework.http.ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getFileName() + "\"")
-                .body(resource);
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + sanitizeFilename(fileName) + "\"")
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                .body(fileBytes);
     }
 
-    @GetMapping("/api/documents/{id}/view")
-    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> viewDocument(@PathVariable Long id) {
+    @GetMapping("/api/documents/{id}/download")
+    public org.springframework.http.ResponseEntity<byte[]> downloadDocument(@PathVariable Long id) {
         Document doc = documentService.getDocumentById(id);
-        org.springframework.core.io.Resource resource = documentService.loadOriginalFileAsResource(id);
-        String contentType = doc.getFileType();
-        if (doc.getFileName() != null && doc.getFileName().toLowerCase().endsWith(".pdf")) {
-            contentType = "application/pdf";
-        } else if (contentType == null || contentType.isEmpty() || "unknown".equalsIgnoreCase(contentType)) {
-            contentType = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        }
+        byte[] fileBytes = documentService.getOriginalFileBytes(id);
+
+        String fileName = (doc.getFileName() != null && !doc.getFileName().trim().isEmpty())
+                ? doc.getFileName()
+                : "document.pdf";
+        String contentType = determineContentType(fileName, doc.getFileType());
+
         return org.springframework.http.ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getFileName() + "\"")
-                .body(resource);
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + sanitizeFilename(fileName) + "\"")
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                .body(fileBytes);
+    }
+
+    private String determineContentType(String fileName, String fileType) {
+        if (fileName != null) {
+            String lower = fileName.toLowerCase();
+            if (lower.endsWith(".pdf")) return "application/pdf";
+            if (lower.endsWith(".zip")) return "application/zip";
+            if (lower.endsWith(".json")) return "application/json";
+            if (lower.endsWith(".txt")) return "text/plain";
+            if (lower.endsWith(".csv")) return "text/csv";
+            if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        }
+        if (fileType != null && !fileType.isEmpty() && !"unknown".equalsIgnoreCase(fileType)) {
+            if ("BRD".equalsIgnoreCase(fileType) || fileType.toLowerCase().contains("pdf")) return "application/pdf";
+            if ("ZIP".equalsIgnoreCase(fileType) || "CODEBASE".equalsIgnoreCase(fileType) || fileType.toLowerCase().contains("zip")) return "application/zip";
+            return fileType;
+        }
+        return org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
+    }
+
+    private String sanitizeFilename(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            return "document.pdf";
+        }
+        return fileName.replace("\"", "\\\"");
     }
 
     @GetMapping("/api/documents/{id}/content")

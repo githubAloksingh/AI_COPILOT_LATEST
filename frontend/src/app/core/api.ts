@@ -135,6 +135,22 @@ export class ApiService {
     });
   }
 
+  getDocumentFile(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/file`, {
+      responseType: 'blob'
+    });
+  }
+
+  viewDocument(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/view`, {
+      responseType: 'blob'
+    });
+  }
+
+  getDocumentFileUrl(id: number): string {
+    return `${this.baseUrl}/documents/${id}/file`;
+  }
+
   // AI Copilot features - Preview Generation
   generateRequirement(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/requirements`, data);

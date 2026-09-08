@@ -7,24 +7,14 @@ import com.example.copilot.repository.DocumentChunkRepository;
 import com.example.copilot.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Stream;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DocumentService {
-
-    private static final Path UPLOADS_DIR = Paths.get("uploads");
 
     private final DocumentRepository documentRepository;
     private final DocumentChunkRepository documentChunkRepository;
@@ -41,39 +31,48 @@ public class DocumentService {
 
     public Document getDocumentById(Long id) {
         return documentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Document not found with id " + id));
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Document not found with id " + id));
     }
 
+    /**
+     * Stores the exact original PDF/file binary directly into the MySQL document table (file_data LONGBLOB column).
+     * No filesystem or disk storage is used.
+     */
+    public void saveOriginalFile(Long documentId, byte[] bytes) {
+        Document doc = getDocumentById(documentId);
+        doc.setFileData(bytes);
+        documentRepository.save(doc);
+        log.info("Saved original file binary ({} bytes) directly into MySQL for document ID {}",
+                bytes != null ? bytes.length : 0, documentId);
+    }
+
+    /**
+     * Compatibility overload for callers passing filename.
+     */
     public void saveOriginalFile(Long documentId, String originalFilename, byte[] bytes) {
-        try {
-            if (!Files.exists(UPLOADS_DIR)) {
-                Files.createDirectories(UPLOADS_DIR);
-            }
-            String safeName = (originalFilename != null) ? originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_") : "doc";
-            Path target = UPLOADS_DIR.resolve(documentId + "_" + safeName);
-            Files.write(target, bytes);
-        } catch (IOException e) {
-            log.warn("Failed to save original file for document {}: {}", documentId, e.getMessage());
-        }
+        saveOriginalFile(documentId, bytes);
     }
 
-    public Resource loadOriginalFileAsResource(Long id) {
+    /**
+     * Retrieves the exact original uploaded PDF/file bytes directly from MySQL.
+     * Does NOT touch Render Disk, ChromaDB, or extracted text.
+     */
+    public byte[] getOriginalFileBytes(Long id) {
         Document doc = getDocumentById(id);
-        try {
-            if (Files.exists(UPLOADS_DIR)) {
-                try (Stream<Path> stream = Files.list(UPLOADS_DIR)) {
-                    Optional<Path> match = stream
-                            .filter(p -> p.getFileName().toString().startsWith(id + "_"))
-                            .findFirst();
-                    if (match.isPresent() && Files.exists(match.get())) {
-                        return new UrlResource(match.get().toUri());
-                    }
-                }
-            }
-        } catch (IOException e) {
-            log.error("Error reading file for document {}: {}", id, e.getMessage());
+        byte[] bytes = documentRepository.findFileDataById(id);
+        if (bytes == null || bytes.length == 0) {
+            bytes = doc.getFileData();
         }
-        throw new RuntimeException("Original file not found for document: " + doc.getFileName());
+
+        if (bytes == null || bytes.length == 0) {
+            log.warn("Original PDF binary not found in MySQL for document ID {}: {}", id, doc.getFileName());
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND,
+                    "Original PDF binary not found in database for document: " + doc.getFileName());
+        }
+
+        return bytes;
     }
 
     public String getDocumentContent(Long id) {
@@ -89,18 +88,7 @@ public class DocumentService {
         Document doc = documentRepository.findById(id).orElse(null);
         String name = doc != null ? doc.getFileName() : "Doc #" + id;
 
-        // Clean up physical file if exists
-        try {
-            if (Files.exists(UPLOADS_DIR)) {
-                try (Stream<Path> stream = Files.list(UPLOADS_DIR)) {
-                    stream.filter(p -> p.getFileName().toString().startsWith(id + "_"))
-                          .forEach(p -> {
-                              try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                          });
-                }
-            }
-        } catch (Exception ignored) {}
-
+        // Deleting document automatically removes its file_data LONGBLOB from MySQL
         documentRepository.deleteById(id);
         long duration = System.currentTimeMillis() - startTime;
         auditService.logAuditFull("Knowledge Base", "DELETE_DOCUMENT", "System", "SYSTEM",

@@ -63,20 +63,42 @@ export class FeatureHistoryComponent implements OnChanges {
   }
 
   viewDocument(item: any): void {
-    if (item.canView && item.viewUrl) {
-      window.open(item.viewUrl, '_blank');
+    if (!item.documentId) {
+      alert('Document ID is not available for this record.');
+      return;
     }
+    this.api.getDocumentFile(item.documentId).subscribe({
+      next: (blob: Blob) => {
+        const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+      },
+      error: () => {
+        alert('Failed to retrieve original PDF file from server.');
+      }
+    });
   }
 
   downloadDocument(item: any): void {
-    if (item.downloadUrl) {
-      const link = document.createElement('a');
-      link.href = item.downloadUrl;
-      link.setAttribute('download', item.documentName || 'download');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    if (!item.documentId) {
+      alert('Document ID is not available for this record.');
+      return;
     }
+    this.api.downloadDocument(item.documentId).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = item.documentName || 'document.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        alert('Failed to download original document from server.');
+      }
+    });
   }
 
   refresh(): void {

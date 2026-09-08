@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ApiService } from '../core/api';
 
 @Component({
@@ -33,11 +34,14 @@ export class ProjectDetails implements OnInit, OnDestroy {
   uploadFormError = '';
   submittingUpload = false;
 
-  // BRD Preview Modal State
+  // BRD PDF Viewer Modal State (Original Uploaded Binary)
   showPreviewModal = false;
   selectedDocName = '';
-  selectedDocContent = '';
+  selectedDocId: number | null = null;
+  previewPdfUrl: SafeResourceUrl | null = null;
+  previewBlobUrl: string | null = null;
   loadingPreview = false;
+  previewError = '';
 
   // Document Chunks Modal State
   showChunksModal = false;
@@ -49,7 +53,8 @@ export class ProjectDetails implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private api: ApiService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit() {
@@ -64,6 +69,7 @@ export class ProjectDetails implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.stopPolling();
+    this.cleanupPreviewBlobUrl();
   }
 
   loadProjectDetails() {
@@ -263,26 +269,30 @@ export class ProjectDetails implements OnInit, OnDestroy {
   }
 
   openPreview(doc: any) {
+    if (!doc || !doc.id) return;
     if (!this.isBrd(doc.fileName)) return;
+
     this.selectedDocName = doc.fileName;
-    this.selectedDocContent = '';
+    this.selectedDocId = doc.id;
+    this.previewError = '';
     this.loadingPreview = true;
     this.showPreviewModal = true;
+    this.cleanupPreviewBlobUrl();
+    this.previewPdfUrl = null;
     this.cdr.markForCheck();
 
-    this.api.getDocumentContent(doc.id).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.selectedDocContent = res.data || 'No readable text content available for this document.';
-        } else {
-          this.selectedDocContent = 'Failed to load preview content.';
-        }
+    this.api.getDocumentFile(doc.id).subscribe({
+      next: (blob: Blob) => {
+        // Create a blob URL of type application/pdf with original uploaded binary
+        const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+        this.previewBlobUrl = URL.createObjectURL(pdfBlob);
+        this.previewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.previewBlobUrl);
         this.loadingPreview = false;
         this.cdr.markForCheck();
       },
-      error: () => {
-        this.selectedDocContent = 'Error fetching document preview content.';
+      error: (err) => {
         this.loadingPreview = false;
+        this.previewError = 'Unable to retrieve original PDF file from server. The original uploaded binary could not be found.';
         this.cdr.markForCheck();
       }
     });
@@ -290,8 +300,32 @@ export class ProjectDetails implements OnInit, OnDestroy {
 
   closePreview() {
     this.showPreviewModal = false;
+    this.cleanupPreviewBlobUrl();
+    this.previewPdfUrl = null;
     this.selectedDocName = '';
-    this.selectedDocContent = '';
+    this.selectedDocId = null;
+    this.previewError = '';
+  }
+
+  private cleanupPreviewBlobUrl() {
+    if (this.previewBlobUrl) {
+      URL.revokeObjectURL(this.previewBlobUrl);
+      this.previewBlobUrl = null;
+    }
+  }
+
+  openPdfInNewTab() {
+    if (this.previewBlobUrl) {
+      window.open(this.previewBlobUrl, '_blank');
+    } else if (this.selectedDocId) {
+      this.api.getDocumentFile(this.selectedDocId).subscribe({
+        next: (blob: Blob) => {
+          const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+          const url = URL.createObjectURL(pdfBlob);
+          window.open(url, '_blank');
+        }
+      });
+    }
   }
 
   openChunksModal(doc: any) {
