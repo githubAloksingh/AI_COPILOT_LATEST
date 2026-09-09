@@ -188,7 +188,7 @@ export class ReleaseNotes implements OnInit {
           if (this.generatedResult && !this.generatedResult.version) {
             this.generatedResult.version = this.version;
           }
-          this.sources = aiResponse.source_details || aiResponse.sources || [];
+          this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'release-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
@@ -248,7 +248,7 @@ export class ReleaseNotes implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.error = err.error?.message || 'Failed to save release notes to database.';
+        this.error = err.error?.error?.message || err.error?.message || 'Failed to save release notes to database.';
         this.showToast('Error saving release notes: ' + this.error, 'error');
         this.cdr.markForCheck();
       }

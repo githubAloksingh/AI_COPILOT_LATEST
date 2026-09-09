@@ -35,4 +35,8 @@ public class Document extends BaseEntity {
     @Column(name = "file_data", columnDefinition = "LONGBLOB")
     @com.fasterxml.jackson.annotation.JsonIgnore
     private byte[] fileData;
+
+    @Column(name = "original_file_path", length = 1024)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String originalFilePath;
 }

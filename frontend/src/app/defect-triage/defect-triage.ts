@@ -255,7 +255,7 @@ export class DefectTriage implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.error = err.error?.message || 'Failed to analyze defect. Please check service connectivity.';
+        this.error = err.error?.error?.message || err.error?.message || 'Failed to analyze defect. Please check service connectivity.';
         this.cdr.markForCheck();
       }
     });

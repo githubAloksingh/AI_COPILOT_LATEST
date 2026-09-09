@@ -30,6 +30,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["AI & RAG"])
 
 
+def validate_upload_size(file: Optional[UploadFile]) -> None:
+    """Reject oversized uploads before parsing or copying them into memory."""
+    if file is None:
+        return
+
+    max_upload_bytes = settings.max_upload_size_mb * 1024 * 1024
+    if file.size is not None and file.size > max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Uploaded files must be {settings.max_upload_size_mb} MB or smaller"
+        )
+
+
 @router.post("/ingest", response_model=IngestionResponse)
 async def ingest_document(
     file: UploadFile = File(...),
@@ -44,12 +57,7 @@ async def ingest_document(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded file is empty"
             )
-        max_upload_bytes = settings.max_upload_size_mb * 1024 * 1024
-        if file.size is not None and file.size > max_upload_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"Uploaded files must be {settings.max_upload_size_mb} MB or smaller"
-            )
+        validate_upload_size(file)
 
         name = file_name or file.filename or "unknown"
         m_type = file_type or file.content_type or ""
@@ -243,6 +251,9 @@ async def generate_test_cases_upload(
     zip_sources = []
 
     try:
+        validate_upload_size(brd_file)
+        validate_upload_size(zip_file)
+
         if mode in ("brd", "both"):
             if not brd_file:
                 raise HTTPException(
@@ -264,13 +275,15 @@ async def generate_test_cases_upload(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Project ZIP file is required for ZIP mode."
                 )
-            zip_bytes = await zip_file.read()
-            if not zip_bytes:
+            zip_file.file.seek(0, 2)
+            zip_size = zip_file.file.tell()
+            zip_file.file.seek(0)
+            if zip_size == 0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Uploaded project ZIP file is empty."
                 )
-            zip_sources, zip_summary = ZipParser.extract_zip(zip_bytes)
+            zip_sources, zip_summary = ZipParser.extract_zip_file(zip_file.file)
 
         return rag_service.generate_test_cases_from_files(
             mode=mode,
@@ -298,6 +311,11 @@ def analyze_defect(req: DefectAnalyzeRequest):
         return rag_service.analyze_defect(req)
     except Exception as e:
         logger.error("Defect analysis failed: %s", e, exc_info=True)
+        if "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Gemini API quota is exhausted for this project. Wait for the quota reset or configure a project with available Gemini quota."
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Defect analysis failed: {str(e)}"

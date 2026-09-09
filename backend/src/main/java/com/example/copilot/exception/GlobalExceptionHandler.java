@@ -39,6 +39,14 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("FILE_PROCESSING_ERROR", "Document processing failed."));
     }
 
+    @ExceptionHandler(AiServiceQuotaExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiServiceQuotaExceeded(AiServiceQuotaExceededException ex) {
+        log.warn("AI service quota exhausted: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error("AI_QUOTA_EXCEEDED",
+                        "Gemini API quota is exhausted. Wait for the quota reset or configure a project with available Gemini quota."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
