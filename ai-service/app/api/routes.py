@@ -39,18 +39,23 @@ async def ingest_document(
 ):
     """Ingest a document: parse -> clean -> chunk -> embed -> store in Chroma."""
     try:
-        content_bytes = await file.read()
-        if not content_bytes:
+        if file.file is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded file is empty"
+            )
+        max_upload_bytes = settings.max_upload_size_mb * 1024 * 1024
+        if file.size is not None and file.size > max_upload_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Uploaded files must be {settings.max_upload_size_mb} MB or smaller"
             )
 
         name = file_name or file.filename or "unknown"
         m_type = file_type or file.content_type or ""
 
-        # 1. Parse text
-        text = document_service.extract_text(content_bytes, file_name=name, file_type=m_type)
+        # 1. Parse text directly from the spooled upload stream for ZIP files.
+        text = document_service.extract_text_from_file(file.file, file_name=name, file_type=m_type)
         if not text or not text.strip():
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

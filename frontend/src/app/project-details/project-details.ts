@@ -13,6 +13,7 @@ import { ApiService } from '../core/api';
   styleUrls: ['./project-details.scss']
 })
 export class ProjectDetails implements OnInit, OnDestroy {
+  private readonly maxUploadBytes = 1024 * 1024 * 1024;
   projectId: number = 0;
   project: any = null;
   documents: any[] = [];
@@ -189,6 +190,10 @@ export class ProjectDetails implements OnInit, OnDestroy {
     }
     if (!this.uploadForm.file) {
       this.uploadFormError = 'File is required. Please select a file.';
+      return;
+    }
+    if (this.uploadForm.file.size > this.maxUploadBytes) {
+      this.uploadFormError = 'Files must be 1 GB or smaller.';
       return;
     }
     if (!this.uploadForm.version || !this.uploadForm.version.trim()) {
