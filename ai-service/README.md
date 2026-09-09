@@ -7,7 +7,8 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 ## Features
 - **Document Ingestion**: Parsing PDF (PyMuPDF), DOCX (python-docx), CSV (pandas/csv), and TXT/MD/JSON formats.
 - **Configurable Chunking**: Sliding-window chunking with configurable `CHUNK_SIZE` and `CHUNK_OVERLAP`.
-- **Vector Embeddings**: Gemini batch embedding generation with candidate model fallbacks (`text-embedding-004`).
+- **Vector Embeddings**: Local batched `sentence-transformers/paraphrase-MiniLM-L3-v2` embeddings.
+- **Large Uploads**: Knowledge-base uploads up to 1 GB, including ZIP archives, with ZIP parsing from the upload stream.
 - **ChromaDB Vector Store**: Remote Chroma HTTP client and embedded persistent storage with document ID and chunk index tracking.
 - **RAG Generation**: Context retrieval + prompt guardrails + Google Gemini structured JSON generation.
 - **Auditable Source Tracking**: Returns retrieved source chunks and metadata alongside AI responses.
@@ -34,7 +35,8 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.7-flash
-GEMINI_EMBEDDING_MODEL=text-embedding-004
+TRANSFORMER_EMBEDDING_MODEL=sentence-transformers/paraphrase-MiniLM-L3-v2
+MAX_UPLOAD_SIZE_MB=1024
 CHROMA_URL=http://localhost:8000
 CHROMA_COLLECTION=ai_work_copilot
 CHUNK_SIZE=1000

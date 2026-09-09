@@ -23,8 +23,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: ${MAX_FILE_SIZE_MB:50}MB
-      max-request-size: ${MAX_FILE_SIZE_MB:50}MB
+      max-file-size: ${MAX_FILE_SIZE_MB:1024}MB
+      max-request-size: ${MAX_FILE_SIZE_MB:1024}MB
 
 server:
   port: 8080
