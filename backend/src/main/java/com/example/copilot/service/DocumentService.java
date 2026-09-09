@@ -8,7 +8,11 @@ import com.example.copilot.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.core.io.Resource;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 @Slf4j
@@ -66,13 +70,43 @@ public class DocumentService {
         }
 
         if (bytes == null || bytes.length == 0) {
-            log.warn("Original PDF binary not found in MySQL for document ID {}: {}", id, doc.getFileName());
+            bytes = migrateLegacyFileToDatabase(id, doc);
+        }
+
+        if (bytes == null || bytes.length == 0) {
+            log.warn("Original file binary not found in MySQL for document ID {}: {}", id, doc.getFileName());
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.NOT_FOUND,
-                    "Original PDF binary not found in database for document: " + doc.getFileName());
+                    "Original file binary not found in database for document: " + doc.getFileName());
         }
 
         return bytes;
+    }
+
+    private byte[] migrateLegacyFileToDatabase(Long id, Document doc) {
+        Path directory = Path.of("uploads").toAbsolutePath().normalize();
+        try (java.util.stream.Stream<Path> files = Files.list(directory)) {
+            Path legacyFile = files
+                    .filter(path -> path.getFileName().toString().startsWith("document-" + id + "-"))
+                    .filter(path -> Files.isRegularFile(path) && Files.isReadable(path))
+                    .findFirst()
+                    .orElse(null);
+            if (legacyFile != null) {
+                byte[] bytes = Files.readAllBytes(legacyFile);
+                doc.setFileData(bytes);
+                doc.setOriginalFilePath(null);
+                documentRepository.save(doc);
+                log.info("Migrated legacy original file to MySQL for document ID {} ({} bytes)", id, bytes.length);
+                return bytes;
+            }
+        } catch (IOException e) {
+            log.warn("Could not migrate legacy original file for document {}: {}", id, e.getMessage());
+        }
+        return null;
+    }
+
+    public Resource getOriginalFileResource(Long id) {
+        return new org.springframework.core.io.ByteArrayResource(getOriginalFileBytes(id));
     }
 
     public String getDocumentContent(Long id) {
@@ -88,7 +122,6 @@ public class DocumentService {
         Document doc = documentRepository.findById(id).orElse(null);
         String name = doc != null ? doc.getFileName() : "Doc #" + id;
 
-        // Deleting document automatically removes its file_data LONGBLOB from MySQL
         documentRepository.deleteById(id);
         long duration = System.currentTimeMillis() - startTime;
         auditService.logAuditFull("Knowledge Base", "DELETE_DOCUMENT", "System", "SYSTEM",

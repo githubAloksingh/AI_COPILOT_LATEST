@@ -4,7 +4,6 @@ import com.example.copilot.dto.*;
 import com.example.copilot.dto.ai.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -29,7 +28,7 @@ public class AiServiceClient {
     public AiServiceClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000);
-        factory.setReadTimeout(120000);
+        factory.setReadTimeout(900000);
         this.restTemplate = new RestTemplate(factory);
     }
 
@@ -90,9 +89,11 @@ public class AiServiceClient {
     public String getDocumentContent(Long documentId) {
         String url = aiServiceUrl + "/api/ai/documents/" + documentId + "/content";
         try {
-            ResponseEntity<java.util.Map> response = restTemplate.getForEntity(url, java.util.Map.class);
+            ResponseEntity<Object> response = restTemplate.getForEntity(url, Object.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Object content = response.getBody().get("content");
+                Object content = response.getBody() instanceof java.util.Map<?, ?> responseBody
+                        ? responseBody.get("content")
+                        : null;
                 return content != null ? content.toString() : "";
             }
             return "";
@@ -203,46 +204,42 @@ public class AiServiceClient {
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        Path brdPath = null;
+        Path zipPath = null;
 
-        if (brdFile != null && !brdFile.isEmpty()) {
-            try {
-                ByteArrayResource brdResource = new ByteArrayResource(brdFile.getBytes()) {
+        try {
+            if (brdFile != null && !brdFile.isEmpty()) {
+                brdPath = copyUploadToTempFile(brdFile, "ai-brd-upload-", ".bin");
+                Path finalBrdPath = brdPath;
+                FileSystemResource brdResource = new FileSystemResource(finalBrdPath.toFile()) {
                     @Override
                     public String getFilename() {
                         return brdFile.getOriginalFilename() != null ? brdFile.getOriginalFilename() : "document.pdf";
                     }
                 };
                 body.add("brd_file", brdResource);
-            } catch (Exception e) {
-                log.error("Failed to read brdFile bytes: {}", e.getMessage());
-                throw new RuntimeException("Failed to process BRD file: " + e.getMessage(), e);
             }
-        }
 
-        if (zipFile != null && !zipFile.isEmpty()) {
-            try {
-                ByteArrayResource zipResource = new ByteArrayResource(zipFile.getBytes()) {
+            if (zipFile != null && !zipFile.isEmpty()) {
+                zipPath = copyUploadToTempFile(zipFile, "ai-zip-upload-", ".zip");
+                Path finalZipPath = zipPath;
+                FileSystemResource zipResource = new FileSystemResource(finalZipPath.toFile()) {
                     @Override
                     public String getFilename() {
                         return zipFile.getOriginalFilename() != null ? zipFile.getOriginalFilename() : "project.zip";
                     }
                 };
                 body.add("zip_file", zipResource);
-            } catch (Exception e) {
-                log.error("Failed to read zipFile bytes: {}", e.getMessage());
-                throw new RuntimeException("Failed to process ZIP file: " + e.getMessage(), e);
             }
-        }
 
-        if (inputMode != null) {
-            body.add("input_mode", inputMode);
-        }
-        if (testTypes != null && !testTypes.isEmpty()) {
-            body.add("test_types", String.join(",", testTypes));
-        }
+            if (inputMode != null) {
+                body.add("input_mode", inputMode);
+            }
+            if (testTypes != null && !testTypes.isEmpty()) {
+                body.add("test_types", String.join(",", testTypes));
+            }
 
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-        try {
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
             ResponseEntity<AiTestCaseResponse> response = restTemplate.postForEntity(url, requestEntity, AiTestCaseResponse.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return response.getBody();
@@ -252,6 +249,31 @@ public class AiServiceClient {
             String detail = extractErrorDetail(e);
             log.error("Failed to generate test cases via upload from AI service: {}", detail);
             throw new RuntimeException("AI Service Test Case Upload Generation Failed: " + detail, e);
+        } finally {
+            deleteTempFile(brdPath);
+            deleteTempFile(zipPath);
+        }
+    }
+
+    private Path copyUploadToTempFile(MultipartFile upload, String prefix, String suffix) {
+        try {
+            Path path = Files.createTempFile(prefix, suffix);
+            try (java.io.InputStream input = upload.getInputStream()) {
+                Files.copy(input, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return path;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to stage uploaded file: " + e.getMessage(), e);
+        }
+    }
+
+    private void deleteTempFile(Path path) {
+        if (path != null) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (Exception e) {
+                log.warn("Could not delete temporary AI upload {}: {}", path, e.getMessage());
+            }
         }
     }
 
@@ -270,6 +292,10 @@ public class AiServiceClient {
         } catch (Exception e) {
             String detail = extractErrorDetail(e);
             log.error("Failed to analyze defect via AI service: {}", detail);
+            if (e instanceof org.springframework.web.client.HttpStatusCodeException statusEx
+                    && statusEx.getStatusCode().value() == 429) {
+                throw new com.example.copilot.exception.AiServiceQuotaExceededException(detail, e);
+            }
             throw new RuntimeException("AI Service Defect Analysis Failed: " + detail, e);
         }
     }

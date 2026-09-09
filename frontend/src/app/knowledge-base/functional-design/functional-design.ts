@@ -187,7 +187,7 @@ export class FunctionalDesignComponent implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sources = aiResponse.source_details || aiResponse.sources || [];
+          this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
@@ -251,7 +251,7 @@ export class FunctionalDesignComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.error = err.error?.message || 'Failed to save functional design to database.';
+        this.error = err.error?.error?.message || err.error?.message || 'Failed to save functional design to database.';
         this.showToast('Error saving: ' + this.error, 'error');
         this.cdr.markForCheck();
       }

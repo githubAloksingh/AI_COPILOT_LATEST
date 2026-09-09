@@ -3,6 +3,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Type, TypeVar
 import httpx
+from json_repair import repair_json
 from pydantic import BaseModel
 from app.config import settings
 
@@ -16,7 +17,7 @@ class GeminiService:
         self.api_key = settings.gemini_api_key
         self.model = settings.gemini_model
         self.candidate_models = settings.gemini_candidate_models
-        self.timeout = httpx.Timeout(45.0, connect=10.0)
+        self.timeout = httpx.Timeout(settings.gemini_timeout_seconds, connect=10.0)
 
     def generate_content(self, prompt_text: str) -> str:
         api_key = settings.gemini_api_key or self.api_key
@@ -78,7 +79,7 @@ class GeminiService:
         raw_output = self.generate_content(prompt_text)
         cleaned_json = self.clean_json(raw_output)
         try:
-            parsed = json.loads(cleaned_json)
+            parsed = self.parse_json(cleaned_json)
             if isinstance(parsed, dict):
                 return parsed
             elif isinstance(parsed, list):
@@ -92,7 +93,7 @@ class GeminiService:
         raw_output = self.generate_content(prompt_text)
         cleaned_json = self.clean_json(raw_output)
         try:
-            parsed = json.loads(cleaned_json)
+            parsed = self.parse_json(cleaned_json)
             if isinstance(parsed, list):
                 # When root is list, Pydantic type adapter or direct validation
                 raise ValueError("Expected JSON object, got list")
@@ -105,7 +106,7 @@ class GeminiService:
         raw_output = self.generate_content(prompt_text)
         cleaned_json = self.clean_json(raw_output)
         try:
-            parsed = json.loads(cleaned_json)
+            parsed = self.parse_json(cleaned_json)
             if isinstance(parsed, dict):
                 # If wrapped inside a key e.g. {"testCases": [...]}
                 for val in parsed.values():
@@ -120,6 +121,14 @@ class GeminiService:
             raise RuntimeError(f"Invalid structured JSON list response from Gemini: {e}")
 
     @staticmethod
+    def parse_json(value: str) -> Any:
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            repaired = repair_json(value)
+            return json.loads(repaired)
+
+    @staticmethod
     def clean_json(raw: Optional[str]) -> str:
         if not raw:
             return "{}"
@@ -132,7 +141,7 @@ class GeminiService:
             s = s[:-3]
         s = s.strip()
 
-        # Find outer braces / brackets
+        # Find the first complete JSON value and ignore trailing prose or JSON fragments.
         first_brace = s.find("{")
         first_bracket = s.find("[")
         start = -1
@@ -143,12 +152,17 @@ class GeminiService:
         elif first_bracket != -1:
             start = first_bracket
 
-        last_brace = s.rfind("}")
-        last_bracket = s.rfind("]")
-        end = max(last_brace, last_bracket)
-
-        if start != -1 and end != -1 and end >= start:
-            s = s[start : end + 1]
+        if start != -1:
+            candidate = s[start:]
+            try:
+                _, end = json.JSONDecoder().raw_decode(candidate)
+                return candidate[:end]
+            except json.JSONDecodeError:
+                last_brace = s.rfind("}")
+                last_bracket = s.rfind("]")
+                end = max(last_brace, last_bracket)
+                if end >= start:
+                    s = s[start : end + 1]
 
         return s
 

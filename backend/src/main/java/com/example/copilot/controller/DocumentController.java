@@ -47,20 +47,32 @@ public class DocumentController {
             throw new RuntimeException("Uploaded file cannot be empty");
         }
         Document doc = ingestionService.uploadDocument(projectId, file, title, customType, uploadedBy, version);
+        Path temporaryFile = null;
         try {
-            Path temporaryUpload = Files.createTempFile("ai-upload-", ".bin");
-            file.transferTo(temporaryUpload);
-            ingestionService.processDocumentAsync(doc.getId(), temporaryUpload, file.getOriginalFilename(), file.getContentType());
+            String originalFilename = file.getOriginalFilename();
+            String suffix = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(originalFilename.lastIndexOf('.'))
+                    : ".bin";
+            temporaryFile = Files.createTempFile("document-upload-", suffix);
+            file.transferTo(temporaryFile);
+            ingestionService.processDocumentAsync(doc.getId(), temporaryFile, originalFilename, file.getContentType());
         } catch (Exception e) {
+            if (temporaryFile != null) {
+                try {
+                    Files.deleteIfExists(temporaryFile);
+                } catch (Exception cleanupError) {
+                    e.addSuppressed(cleanupError);
+                }
+            }
             throw new RuntimeException("Failed to start document processing: " + e.getMessage(), e);
         }
         return ApiResponse.success(doc, "Document uploaded successfully. Ingestion in progress.");
     }
 
     @GetMapping({"/api/documents/{id}/file", "/api/documents/{id}/view"})
-    public org.springframework.http.ResponseEntity<byte[]> getDocumentFile(@PathVariable Long id) {
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> getDocumentFile(@PathVariable Long id) {
         Document doc = documentService.getDocumentById(id);
-        byte[] fileBytes = documentService.getOriginalFileBytes(id);
+        org.springframework.core.io.Resource fileResource = documentService.getOriginalFileResource(id);
 
         String fileName = (doc.getFileName() != null && !doc.getFileName().trim().isEmpty())
                 ? doc.getFileName()
@@ -71,13 +83,13 @@ public class DocumentController {
                 .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + sanitizeFilename(fileName) + "\"")
                 .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
-                .body(fileBytes);
+                .body(fileResource);
     }
 
     @GetMapping("/api/documents/{id}/download")
-    public org.springframework.http.ResponseEntity<byte[]> downloadDocument(@PathVariable Long id) {
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> downloadDocument(@PathVariable Long id) {
         Document doc = documentService.getDocumentById(id);
-        byte[] fileBytes = documentService.getOriginalFileBytes(id);
+        org.springframework.core.io.Resource fileResource = documentService.getOriginalFileResource(id);
 
         String fileName = (doc.getFileName() != null && !doc.getFileName().trim().isEmpty())
                 ? doc.getFileName()
@@ -88,7 +100,7 @@ public class DocumentController {
                 .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + sanitizeFilename(fileName) + "\"")
                 .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
-                .body(fileBytes);
+                .body(fileResource);
     }
 
     private String determineContentType(String fileName, String fileType) {

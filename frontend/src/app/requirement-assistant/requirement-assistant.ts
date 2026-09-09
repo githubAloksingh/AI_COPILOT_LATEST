@@ -186,7 +186,7 @@ export class RequirementAssistant implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sources = aiResponse.source_details || aiResponse.sources || [];
+          this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'requirement-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
@@ -253,7 +253,7 @@ export class RequirementAssistant implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.error = err.error?.message || 'Failed to save requirements to database.';
+        this.error = err.error?.error?.message || err.error?.message || 'Failed to save requirements to database.';
         this.showToast('Error saving requirements: ' + this.error, 'error');
         this.cdr.markForCheck();
       }
