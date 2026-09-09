@@ -98,8 +98,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate requirement via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Requirement Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate requirement via AI service: {}", detail);
+            throw new RuntimeException("AI Service Requirement Generation Failed: " + detail, e);
         }
     }
 
@@ -116,8 +117,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate user story via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service User Story Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate user story via AI service: {}", detail);
+            throw new RuntimeException("AI Service User Story Generation Failed: " + detail, e);
         }
     }
 
@@ -134,8 +136,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate functional design via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Functional Design Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate functional design via AI service: {}", detail);
+            throw new RuntimeException("AI Service Functional Design Generation Failed: " + detail, e);
         }
     }
 
@@ -152,8 +155,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate technical design via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Technical Design Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate technical design via AI service: {}", detail);
+            throw new RuntimeException("AI Service Technical Design Generation Failed: " + detail, e);
         }
     }
 
@@ -170,8 +174,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate test cases via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Test Case Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate test cases via AI service: {}", detail);
+            throw new RuntimeException("AI Service Test Case Generation Failed: " + detail, e);
         }
     }
 
@@ -227,8 +232,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate test cases via upload from AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Test Case Upload Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate test cases via upload from AI service: {}", detail);
+            throw new RuntimeException("AI Service Test Case Upload Generation Failed: " + detail, e);
         }
     }
 
@@ -245,8 +251,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to analyze defect via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Defect Analysis Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to analyze defect via AI service: {}", detail);
+            throw new RuntimeException("AI Service Defect Analysis Failed: " + detail, e);
         }
     }
 
@@ -263,8 +270,9 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate release notes via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Release Notes Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate release notes via AI service: {}", detail);
+            throw new RuntimeException("AI Service Release Notes Generation Failed: " + detail, e);
         }
     }
 
@@ -281,8 +289,26 @@ public class AiServiceClient {
             }
             throw new RuntimeException("AI service returned status: " + response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to generate daily status via AI service: {}", e.getMessage());
-            throw new RuntimeException("AI Service Daily Status Generation Failed: " + e.getMessage(), e);
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate daily status via AI service: {}", detail);
+            throw new RuntimeException("AI Service Daily Status Generation Failed: " + detail, e);
         }
+    }
+
+    private String extractErrorDetail(Exception e) {
+        if (e instanceof org.springframework.web.client.HttpStatusCodeException statusEx) {
+            String body = statusEx.getResponseBodyAsString();
+            if (body != null && !body.isBlank()) {
+                try {
+                    com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+                    if (node.has("detail")) {
+                        return node.get("detail").asText();
+                    }
+                } catch (Exception ignored) {
+                }
+                return body;
+            }
+        }
+        return e.getMessage() != null ? e.getMessage() : "Unknown error";
     }
 }

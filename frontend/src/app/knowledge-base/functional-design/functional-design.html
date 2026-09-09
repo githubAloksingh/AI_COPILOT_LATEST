@@ -32,7 +32,7 @@
       <!-- Step 1: Select Project -->
       <div class="form-group">
         <label class="field-label">
-          Select Project <span class="required">*</span>
+          1. Select Project <span class="required">*</span>
         </label>
         <div class="kb-select-wrap">
           <select class="form-control" 
@@ -52,35 +52,25 @@
 
       <!-- When Project is Selected: Step 2 & Step 3 -->
       <div *ngIf="selectedProjectId" style="margin-top: 16px;">
-        <!-- Step 2: Selected BRD Box (READ ONLY) -->
+        <!-- Step 2: Select Artifact Type (READ ONLY) -->
         <div class="form-group">
-          <label class="field-label">Selected BRD</label>
-          <div class="selected-brd-readonly-box" [class.no-brd]="!selectedDocument && !loadingDocs">
-            <div *ngIf="selectedDocument" class="brd-display-content">
-              <div class="brd-title">
-                <span class="file-icon">📄</span>
-                <strong>{{ selectedDocument.fileName }}</strong>
-              </div>
-              <div class="brd-subtitle" *ngIf="selectedProject">
-                {{ selectedProject.projectName }} BRD
-              </div>
-            </div>
-            <div *ngIf="!selectedDocument && !loadingDocs" class="no-brd-message">
-              <div style="font-weight: 500; color: #64748b;">No BRD available</div>
-              <div style="font-size: 0.85rem; color: #ef4444; margin-top: 4px;">
-                No BRD documents are available for this project.
-              </div>
-            </div>
-            <div *ngIf="loadingDocs" class="loading-brd-message" style="color: #64748b; font-size: 0.875rem;">
-              Loading BRD documents...
-            </div>
+          <label class="field-label">
+            2. Select Artifact Type <span class="required">*</span>
+          </label>
+          <div class="kb-select-wrap">
+            <input type="text" 
+                   class="form-control" 
+                   value="BRD" 
+                   readonly 
+                   tabindex="-1"
+                   style="background-color: #f8fafc; color: #1e293b; font-weight: 500; cursor: not-allowed; border: 1px solid #cbd5e1;" />
           </div>
         </div>
 
-        <!-- Step 3: BRD Dropdown -->
+        <!-- Step 3: Select BRD -->
         <div class="form-group" style="margin-top: 16px;">
           <label class="field-label">
-            Select BRD <span class="required">*</span>
+            3. Select BRD <span class="required">*</span>
           </label>
           <div class="kb-select-wrap">
             <select class="form-control" 
@@ -94,7 +84,10 @@
             </select>
           </div>
           <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingDocs" style="color: #ef4444; margin-top: 4px; display: block;">
-            No BRD documents are available for this project. Upload BRD files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
+            No BRD documents are available for this project.
+          </small>
+          <small class="helper-text" *ngIf="loadingDocs" style="color: #64748b; margin-top: 4px; display: block;">
+            Loading BRD documents...
           </small>
         </div>
       </div>

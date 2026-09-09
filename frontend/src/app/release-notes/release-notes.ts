@@ -97,16 +97,8 @@ export class ReleaseNotes implements OnInit {
                 (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
               )
             );
-            if (this.availableBrds.length > 0) {
-              this.selectedDocument = this.availableBrds[0];
-              this.selectedDocumentId = this.availableBrds[0].id;
-              if (!this.sprintInformation) {
-                this.sprintInformation = 'Release notes for ' + this.selectedDocument.fileName;
-              }
-            } else {
-              this.selectedDocument = null;
-              this.selectedDocumentId = null;
-            }
+            this.selectedDocument = null;
+            this.selectedDocumentId = null;
           }
           this.loadingDocs = false;
           this.cdr.markForCheck();
