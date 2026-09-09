@@ -16,6 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Slf4j
 @Service
@@ -27,6 +29,7 @@ public class IngestionService {
     private final ProjectRepository projectRepository;
     private final AiServiceClient aiServiceClient;
     private final AuditService auditService;
+    private final DocumentService documentService;
 
     public Document uploadDocument(MultipartFile file) {
         return uploadDocument(null, file, null, null, "System", "v1");
@@ -70,11 +73,16 @@ public class IngestionService {
         doc.setUploadedBy(uploadedBy != null && !uploadedBy.trim().isEmpty() ? uploadedBy.trim() : "System");
         doc.setVersion(calculatedVersion != null && !calculatedVersion.trim().isEmpty() ? calculatedVersion.trim() : "v1");
         doc.setStatus("PROCESSING");
+        try {
+            doc.setFileData(file.getBytes());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not read uploaded file", e);
+        }
         return documentRepository.save(doc);
     }
 
     @Async("documentTaskExecutor")
-    public void processDocumentAsync(Long documentId, byte[] fileBytes, String originalFileName, String fileType) {
+    public void processDocumentAsync(Long documentId, Path filePath, String originalFileName, String fileType) {
         log.info("Starting async document ingestion for document ID: {} ({}) via AI Service", documentId, originalFileName);
 
         Document document = documentRepository.findById(documentId).orElse(null);
@@ -85,11 +93,13 @@ public class IngestionService {
 
         long startTime = System.currentTimeMillis();
         try {
+            documentService.saveOriginalFile(documentId, Files.readAllBytes(filePath));
+
             AiIngestionResponse response = aiServiceClient.ingestDocument(
                     documentId,
                     originalFileName,
                     fileType,
-                    fileBytes
+                    filePath
             );
 
             document.setStatus("COMPLETED");
@@ -142,6 +152,12 @@ public class IngestionService {
 
             auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
                     "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration, err, projectName, document.getFileName(), document.getVersion(), document.getFileType());
+        } finally {
+            try {
+                Files.deleteIfExists(filePath);
+            } catch (Exception cleanupError) {
+                log.warn("Could not delete temporary upload file {}: {}", filePath, cleanupError.getMessage());
+            }
         }
     }
 }

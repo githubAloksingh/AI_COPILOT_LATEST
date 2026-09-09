@@ -9,17 +9,19 @@
 </div>
 
 <div class="card">
+  <!-- Select Existing Codebase -->
   <div class="mode-panel kb-panel">
+    <!-- 1. Select Folder / Codebase -->
     <div class="form-group">
-      <label class="field-label">1. Select Project <span class="required">*</span></label>
+      <label class="field-label">1. Select Folder / Codebase <span class="required">*</span></label>
       <select
         [ngModel]="selectedProjectId"
         (ngModelChange)="onProjectChange($event)"
         class="form-control"
         [disabled]="loading || loadingProjects">
-        <option [ngValue]="null">-- Select Project from Knowledge Base --</option>
+        <option [ngValue]="null">-- Select Folder / Codebase --</option>
         <option *ngFor="let proj of projects" [value]="proj.id">
-          📂 {{ proj.projectName }} ({{ proj.department || 'General' }})
+          📁 {{ proj.projectName }} ({{ proj.department || 'General' }})
         </option>
       </select>
       <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects">
@@ -27,36 +29,51 @@
       </small>
     </div>
 
-    <div class="form-group" *ngIf="selectedProjectId" style="margin-top: 16px;">
-      <label class="field-label">2. Select Document / Codebase ZIP to Triage <span class="required">*</span></label>
-      <select
-        [ngModel]="selectedDocId"
-        (ngModelChange)="onDocSelect($event)"
-        class="form-control"
-        [disabled]="loading || loadingDocs">
-        <option [ngValue]="null">-- Select Document or Codebase --</option>
-        <option *ngFor="let doc of documents" [value]="doc.id">
-          {{ doc.fileName.toLowerCase().endsWith('.zip') ? '📦' : '📄' }} {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} chunks)
-        </option>
-      </select>
-      <small class="helper-text" *ngIf="documents.length === 0 && !loadingDocs">
-        No completed documents found in this project. Upload files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
-      </small>
-    </div>
+    <!-- When Folder / Codebase is Selected: 2. Artifact Type & 3. Select Codebase -->
+    <div *ngIf="selectedProjectId" style="margin-top: 16px;">
+      <!-- 2. Artifact Type (READ ONLY with dropdown arrow) -->
+      <div class="form-group">
+        <label class="field-label">2. Artifact Type <span class="required">*</span></label>
+        <select class="form-control" disabled style="background-color: #f8fafc; color: #1e293b; font-weight: 500; cursor: not-allowed; border: 1px solid #cbd5e1;">
+          <option value="Codebase" selected>Codebase</option>
+        </select>
+      </div>
 
-    <div *ngIf="selectedDoc" class="selected-doc-badge" style="margin-top: 16px;">
-      <div class="doc-info">
-        <span class="doc-icon">{{ selectedDoc.fileName.toLowerCase().endsWith('.zip') ? '📦' : '📄' }}</span>
-        <div>
-          <strong>{{ selectedDoc.fileName }}</strong>
-          <div class="doc-sub">
-            Project: {{ selectedProject?.projectName }} • {{ selectedDoc.fileType }} • {{ selectedDoc.chunkCount || 0 }} chunks indexed
+      <!-- 3. Select Codebase -->
+      <div class="form-group" style="margin-top: 16px;">
+        <label class="field-label">3. Select Codebase <span class="required">*</span></label>
+        <select
+          [ngModel]="selectedDocId"
+          (ngModelChange)="onDocSelect($event)"
+          class="form-control"
+          [disabled]="loading || loadingDocs || documents.length === 0">
+          <option [ngValue]="null">-- Select Codebase --</option>
+          <option *ngFor="let doc of documents" [value]="doc.id">
+            📦 {{ doc.fileName }}
+          </option>
+        </select>
+        <small class="helper-text error-text" *ngIf="documents.length === 0 && !loadingDocs" style="color: #ef4444; margin-top: 4px; display: block;">
+          No Codebase ZIP files found in this project.
+        </small>
+        <small class="helper-text" *ngIf="loadingDocs" style="color: #64748b; margin-top: 4px; display: block;">
+          Loading Codebase ZIP archives...
+        </small>
+      </div>
+
+      <!-- Selected Document Badge -->
+      <div *ngIf="selectedDoc" class="selected-doc-badge" style="margin-top: 16px;">
+        <div class="doc-info">
+          <span class="doc-icon">📦</span>
+          <div>
+            <strong>{{ selectedDoc.fileName }}</strong>
+            <div class="doc-sub">
+              Project: {{ selectedProject?.projectName }} • Type: Codebase (ZIP) • {{ selectedDoc.chunkCount || 0 }} chunks indexed
+            </div>
           </div>
         </div>
+        <button type="button" class="btn-remove-doc" (click)="removeSelectedDoc()" [disabled]="loading">Remove</button>
       </div>
-      <button type="button" class="btn-remove-doc" (click)="removeSelectedDoc()" [disabled]="loading">Remove</button>
     </div>
-
   </div>
 
   <div class="action-row" style="margin-top: 20px;">
@@ -93,3 +110,11 @@
   (accept)="onAccept($event)"
   (reject)="onReject()">
 </app-response-modal>
+
+<!-- Feature History (shown when project is selected) -->
+<div style="margin-top: 24px;">
+  <app-feature-history
+    [projectId]="selectedProjectId"
+    feature="defect_triage">
+  </app-feature-history>
+</div>

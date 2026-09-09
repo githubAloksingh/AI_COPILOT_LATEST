@@ -871,3 +871,226 @@
   }
 }
 
+/* ── Requirement Title Banner (with inline Edit button) ───────────────────── */
+.req-title-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+
+  .req-title-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+
+    h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #0f172a;
+      font-weight: 700;
+    }
+  }
+}
+
+/* ── Per-Requirement Inline Edit ─────────────────────────────────────────── */
+.inline-edit-panel {
+  background: #fffbf5;
+  border: 1.5px solid #fed7aa;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  animation: fadeInEdit 0.18s ease-out;
+
+  .form-group {
+    margin-bottom: 14px;
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+  }
+
+  .inline-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #1e293b;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.2s;
+
+    &:focus {
+      border-color: #F36F21;
+      box-shadow: 0 0 0 3px rgba(243, 111, 33, 0.1);
+    }
+  }
+
+  .inline-textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #1e293b;
+    outline: none;
+    resize: vertical;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.2s;
+
+    &:focus {
+      border-color: #F36F21;
+      box-shadow: 0 0 0 3px rgba(243, 111, 33, 0.1);
+    }
+  }
+}
+
+.inline-edit-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #fed7aa;
+
+  .inline-edit-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #92400e;
+    flex: 1;
+  }
+
+  .inline-edit-actions {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+.btn-icon-edit {
+  background: transparent;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+  }
+}
+
+.btn-icon-save {
+  background: #F36F21;
+  color: #ffffff;
+  border: 1px solid #E05600;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #E05600;
+  }
+}
+
+.btn-icon-cancel {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #fef2f2;
+  }
+}
+
+@keyframes fadeInEdit {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Sources Table ────────────────────────────────────────────────────────── */
+.sources-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.sources-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  thead tr {
+    background: #f1f5f9;
+  }
+
+  th {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background: #f8fafc;
+  }
+}
+
+.source-snippet-cell {
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* ── Scenario Cell ────────────────────────────────────────────────────────── */
+.scenario-cell {
+  min-width: 240px;
+  font-weight: 500;
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: normal;
+}
+

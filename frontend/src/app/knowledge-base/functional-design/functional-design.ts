@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ApiService } from '../../core/api';
 import { ResponseModal } from '../../core/components/response-modal/response-modal';
+import { FeatureHistoryComponent } from '../../core/components/feature-history/feature-history';
 
 @Component({
   selector: 'app-functional-design',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ResponseModal],
+  imports: [CommonModule, FormsModule, RouterModule, ResponseModal, FeatureHistoryComponent],
   templateUrl: './functional-design.html',
   styleUrls: ['./functional-design.scss']
 })
@@ -24,6 +25,7 @@ export class FunctionalDesignComponent implements OnInit {
   loadingProjects = false;
 
   documents: any[] = [];
+  availableBrds: any[] = [];
   selectedDocumentId: number | null = null;
   selectedDocument: any = null;
   loadingDocs = false;
@@ -44,7 +46,7 @@ export class FunctionalDesignComponent implements OnInit {
   // Generated Response Modal State
   isModalOpen = false;
   generatedResult: any = null;
-  sources: string[] = [];
+  sources: any[] = [];
   model = 'gemini-3.7-flash';
   executionTimeMs = 0;
 
@@ -80,6 +82,7 @@ export class FunctionalDesignComponent implements OnInit {
     this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
     this.selectedDocumentId = null;
     this.selectedDocument = null;
+    this.availableBrds = [];
     this.documents = [];
     this.error = '';
 
@@ -89,7 +92,16 @@ export class FunctionalDesignComponent implements OnInit {
       this.api.getProjectDocuments(this.selectedProjectId).subscribe({
         next: (res) => {
           if (res.success) {
-            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
+            const allDocs = res.data || [];
+            this.documents = allDocs;
+            this.availableBrds = allDocs.filter((d: any) =>
+              d.status === 'COMPLETED' && (
+                d.fileType === 'BRD' ||
+                (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
+              )
+            );
+            this.selectedDocument = null;
+            this.selectedDocumentId = null;
           }
           this.loadingDocs = false;
           this.cdr.markForCheck();
@@ -104,15 +116,15 @@ export class FunctionalDesignComponent implements OnInit {
     }
   }
 
-  setInputMode(mode: 'kb' | 'manual') {
-    this.inputMode = mode;
+  onBrdSelect(docId: any) {
+    this.selectedDocumentId = docId ? Number(docId) : null;
+    this.selectedDocument = this.availableBrds.find(d => d.id === this.selectedDocumentId) || null;
     this.error = '';
     this.cdr.markForCheck();
   }
 
-  onDocumentSelect(docId: any) {
-    this.selectedDocumentId = docId ? Number(docId) : null;
-    this.selectedDocument = this.documents.find(d => d.id === this.selectedDocumentId) || null;
+  setInputMode(mode: 'kb' | 'manual') {
+    this.inputMode = mode;
     this.error = '';
     this.cdr.markForCheck();
   }
@@ -134,6 +146,7 @@ export class FunctionalDesignComponent implements OnInit {
     return {
       project: this.selectedProject?.projectName || undefined,
       documentName: this.selectedDocument ? this.selectedDocument.fileName : (this.manualTitle || 'Functional Specification'),
+      brd: this.selectedDocument ? this.selectedDocument.fileName : undefined,
       version: this.selectedDocument?.version || undefined,
       inputType: this.inputMode === 'kb' ? 'Knowledge Base Document' : 'Direct Text Input'
     };
@@ -174,7 +187,7 @@ export class FunctionalDesignComponent implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sources = aiResponse.sources || [];
+          this.sources = aiResponse.source_details || aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;

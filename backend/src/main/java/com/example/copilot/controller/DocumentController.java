@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 @RestController
@@ -46,12 +48,72 @@ public class DocumentController {
         }
         Document doc = ingestionService.uploadDocument(projectId, file, title, customType, uploadedBy, version);
         try {
-            byte[] fileBytes = file.getBytes();
-            ingestionService.processDocumentAsync(doc.getId(), fileBytes, file.getOriginalFilename(), file.getContentType());
+            Path temporaryUpload = Files.createTempFile("ai-upload-", ".bin");
+            file.transferTo(temporaryUpload);
+            ingestionService.processDocumentAsync(doc.getId(), temporaryUpload, file.getOriginalFilename(), file.getContentType());
         } catch (Exception e) {
             throw new RuntimeException("Failed to start document processing: " + e.getMessage(), e);
         }
         return ApiResponse.success(doc, "Document uploaded successfully. Ingestion in progress.");
+    }
+
+    @GetMapping({"/api/documents/{id}/file", "/api/documents/{id}/view"})
+    public org.springframework.http.ResponseEntity<byte[]> getDocumentFile(@PathVariable Long id) {
+        Document doc = documentService.getDocumentById(id);
+        byte[] fileBytes = documentService.getOriginalFileBytes(id);
+
+        String fileName = (doc.getFileName() != null && !doc.getFileName().trim().isEmpty())
+                ? doc.getFileName()
+                : "document.pdf";
+        String contentType = determineContentType(fileName, doc.getFileType());
+
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + sanitizeFilename(fileName) + "\"")
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                .body(fileBytes);
+    }
+
+    @GetMapping("/api/documents/{id}/download")
+    public org.springframework.http.ResponseEntity<byte[]> downloadDocument(@PathVariable Long id) {
+        Document doc = documentService.getDocumentById(id);
+        byte[] fileBytes = documentService.getOriginalFileBytes(id);
+
+        String fileName = (doc.getFileName() != null && !doc.getFileName().trim().isEmpty())
+                ? doc.getFileName()
+                : "document.pdf";
+        String contentType = determineContentType(fileName, doc.getFileType());
+
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + sanitizeFilename(fileName) + "\"")
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                .body(fileBytes);
+    }
+
+    private String determineContentType(String fileName, String fileType) {
+        if (fileName != null) {
+            String lower = fileName.toLowerCase();
+            if (lower.endsWith(".pdf")) return "application/pdf";
+            if (lower.endsWith(".zip")) return "application/zip";
+            if (lower.endsWith(".json")) return "application/json";
+            if (lower.endsWith(".txt")) return "text/plain";
+            if (lower.endsWith(".csv")) return "text/csv";
+            if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        }
+        if (fileType != null && !fileType.isEmpty() && !"unknown".equalsIgnoreCase(fileType)) {
+            if ("BRD".equalsIgnoreCase(fileType) || fileType.toLowerCase().contains("pdf")) return "application/pdf";
+            if ("ZIP".equalsIgnoreCase(fileType) || "CODEBASE".equalsIgnoreCase(fileType) || fileType.toLowerCase().contains("zip")) return "application/zip";
+            return fileType;
+        }
+        return org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
+    }
+
+    private String sanitizeFilename(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            return "document.pdf";
+        }
+        return fileName.replace("\"", "\\\"");
     }
 
     @GetMapping("/api/documents/{id}/content")

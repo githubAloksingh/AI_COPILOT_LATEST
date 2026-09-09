@@ -4,16 +4,20 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ApiService } from '../core/api';
 import { ResponseModal } from '../core/components/response-modal/response-modal';
+import { FeatureHistoryComponent } from '../core/components/feature-history/feature-history';
 
 @Component({
   selector: 'app-defect-triage',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ResponseModal],
+  imports: [CommonModule, FormsModule, RouterModule, ResponseModal, FeatureHistoryComponent],
   templateUrl: './defect-triage.html',
   styleUrl: './defect-triage.scss'
 })
 export class DefectTriage implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
+
+  // Tab state: 'existing' | 'upload'
+  codebaseTab: 'existing' | 'upload' = 'existing';
 
   // 2-Step KB Selection: Project -> Document
   projects: any[] = [];
@@ -41,7 +45,7 @@ export class DefectTriage implements OnInit {
   generatedResult: any = null;
   sources: string[] = [];
   model = 'gemini-3.7-flash';
-  promptVersion = 'defect-v2';
+  promptVersion = 'defect-v3';
   executionTimeMs = 0;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
@@ -49,6 +53,8 @@ export class DefectTriage implements OnInit {
   ngOnInit() {
     this.loadProjects();
   }
+
+  uploadingZip = false;
 
   loadProjects() {
     this.loadingProjects = true;
@@ -77,24 +83,95 @@ export class DefectTriage implements OnInit {
     this.error = '';
 
     if (this.selectedProjectId) {
-      this.loadingDocs = true;
-      this.cdr.markForCheck();
-      this.api.getProjectDocuments(this.selectedProjectId).subscribe({
-        next: (res) => {
-          if (res.success) {
-            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
-          }
-          this.loadingDocs = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.loadingDocs = false;
-          this.cdr.markForCheck();
-        }
-      });
+      this.loadDocuments();
     } else {
       this.cdr.markForCheck();
     }
+  }
+
+  loadDocuments(selectDocId?: number) {
+    if (!this.selectedProjectId) return;
+    this.loadingDocs = true;
+    this.cdr.markForCheck();
+    this.api.getProjectDocuments(this.selectedProjectId).subscribe({
+      next: (res) => {
+        if (res.success) {
+          // Defect Triage works strictly with Codebase ZIP files
+          this.documents = (res.data || []).filter(
+            (d: any) => d.status === 'COMPLETED' && (d.fileName || '').toLowerCase().endsWith('.zip')
+          );
+          if (selectDocId) {
+            this.selectedDocId = selectDocId;
+            this.selectedDoc = this.documents.find(d => d.id === selectDocId) || null;
+          }
+        }
+        this.loadingDocs = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingDocs = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  setTab(tab: 'existing' | 'upload') {
+    this.codebaseTab = tab;
+    this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    const fileName = (file.name || '').toLowerCase();
+    if (!fileName.endsWith('.zip')) {
+      if (event.target) {
+        event.target.value = '';
+      }
+      this.error = 'Only ZIP files are supported for Codebase.';
+      this.toastMessage = 'Only ZIP files are supported for Codebase.';
+      this.toastType = 'error';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (!this.selectedProjectId) {
+      this.error = 'Please select a Folder / Codebase project first.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.error = '';
+    this.uploadingZip = true;
+    this.cdr.markForCheck();
+
+    this.api.uploadProjectDocument(this.selectedProjectId, file, file.name, 'CODEBASE', 'System', 'v1').subscribe({
+      next: (res) => {
+        this.uploadingZip = false;
+        if (event.target) {
+          event.target.value = '';
+        }
+        if (res.success && res.data) {
+          this.toastMessage = `Codebase ZIP '${file.name}' uploaded successfully.`;
+          this.toastType = 'success';
+          this.loadDocuments(res.data.id);
+          this.codebaseTab = 'existing';
+        } else {
+          this.error = res.message || 'Failed to upload Codebase ZIP.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.uploadingZip = false;
+        if (event.target) {
+          event.target.value = '';
+        }
+        this.error = err.error?.message || 'Failed to upload Codebase ZIP. Please verify the file is a valid .zip archive.';
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   onDocSelect(docId: any) {
@@ -117,6 +194,16 @@ export class DefectTriage implements OnInit {
     return !!(this.selectedProjectId && this.selectedDocId);
   }
 
+  getDocumentType(doc: any): string {
+    if (!doc) return '';
+    const fn = (doc.fileName || '').toLowerCase();
+    const ft = (doc.fileType || '').toUpperCase();
+    if (fn.endsWith('.zip') || ft === 'ZIP' || ft === 'CODEBASE') {
+      return 'Codebase (ZIP)';
+    }
+    return 'BRD';
+  }
+
   analyze() {
     if (!this.isInputValid()) {
       this.error = 'Please select a Project and Document from Knowledge Base.';
@@ -128,20 +215,26 @@ export class DefectTriage implements OnInit {
     this.error = '';
     this.cdr.markForCheck();
 
+    const isZip = (this.selectedDoc?.fileName || '').toLowerCase().endsWith('.zip') || (this.selectedDoc?.fileType || '').toUpperCase() === 'ZIP';
+    const docTypeStr = this.getDocumentType(this.selectedDoc);
     const title = this.defectTitle.trim() || ('Defect Triage: ' + (this.selectedDoc?.fileName || 'Document'));
 
     const payload = {
       title,
-      description: `Automated defect triage for ${this.selectedDoc?.fileName || 'knowledge base artifact'}`,
-      logs: 'Analyze potential defects, error handlers, and failure modes in the document/codebase.',
-      environment: 'Knowledge Base Artifact',
+      description: isZip 
+        ? `Automated codebase defect triage for ${this.selectedDoc?.fileName || 'codebase ZIP'}`
+        : `Automated requirement/BRD defect triage for ${this.selectedDoc?.fileName || 'BRD document'}`,
+      logs: isZip
+        ? 'Analyze potential code defects, syntax/runtime bugs, error handlers, and failure modes in the codebase.'
+        : 'Analyze potential specification defects, requirement ambiguities, logical contradictions, edge case omissions, and failure modes in the BRD.',
+      environment: isZip ? 'Codebase Repository' : 'Business Requirements Specification',
       document_id: this.selectedDocId ? String(this.selectedDocId) : null,
       projectId: this.selectedProjectId,
       projectName: this.selectedProject?.projectName || null,
       documentId: this.selectedDocId,
       documentName: this.selectedDoc?.fileName || null,
       documentVersion: this.selectedDoc?.version || null,
-      inputType: 'KNOWLEDGE_BASE'
+      inputType: docTypeStr
     };
 
     this.api.analyzeDefect(payload).subscribe({
@@ -151,7 +244,7 @@ export class DefectTriage implements OnInit {
           this.generatedResult = aiResponse.result || aiResponse;
           this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
-          this.promptVersion = aiResponse.prompt_version || 'defect-v2';
+          this.promptVersion = aiResponse.prompt_version || 'defect-v3';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
         } else {
@@ -184,6 +277,7 @@ export class DefectTriage implements OnInit {
       evidence: event.editedData.evidence,
       suggestedInvestigation: event.editedData.suggestedInvestigation,
       suggestedFix: event.editedData.suggestedFix,
+      relatedDefects: event.editedData.defects || [],
       confidence: event.editedData.confidence || 'HIGH',
       severity: event.editedData.severity || 'MEDIUM',
       priority: event.editedData.priority || 'P2',

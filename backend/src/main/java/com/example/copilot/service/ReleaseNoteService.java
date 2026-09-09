@@ -43,7 +43,9 @@ public class ReleaseNoteService {
                     request.getProjectName(),
                     request.getDocumentName(),
                     request.getDocumentVersion(),
-                    inputType
+                    inputType,
+                    request.getProjectId(),
+                    parseDocId(request.getDocumentId())
             );
             return resp;
         } catch (Exception e) {
@@ -64,7 +66,9 @@ public class ReleaseNoteService {
                     request.getProjectName(),
                     request.getDocumentName(),
                     request.getDocumentVersion(),
-                    inputType
+                    inputType,
+                    request.getProjectId(),
+                    parseDocId(request.getDocumentId())
             );
             log.error("Error generating release notes preview: ", e);
             throw new RuntimeException("Failed to generate release notes: " + e.getMessage(), e);
@@ -109,9 +113,20 @@ public class ReleaseNoteService {
                 request.getProjectName(),
                 request.getDocumentName(),
                 request.getDocumentVersion(),
-                "Sprint Release Notes"
+                "Sprint Release Notes",
+                request.getProjectId(),
+                request.getDocumentId()
         );
 
         return saved;
+    }
+
+    private Long parseDocId(String docIdStr) {
+        if (docIdStr == null || docIdStr.trim().isEmpty()) return null;
+        try {
+            return Long.parseLong(docIdStr.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

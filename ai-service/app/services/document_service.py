@@ -2,6 +2,7 @@ import logging
 import re
 from typing import Optional
 from app.parsers import ALL_PARSERS
+from app.parsers.zip_parser import ZipParser
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,13 @@ class DocumentService:
 
         raw_text = matched_parser.parse(content_bytes)
         return self.clean_text(raw_text)
+
+    def extract_text_from_file(self, file_object, file_name: str = "", file_type: str = "") -> str:
+        """Extract ZIP content from its upload stream; other parsers use their byte API."""
+        if file_name.lower().endswith(".zip") or "zip" in (file_type or "").lower():
+            raw_text = ZipParser.extract_zip_file(file_object)[1]
+            return self.clean_text(raw_text)
+        return self.extract_text(file_object.read(), file_name=file_name, file_type=file_type)
 
     def clean_text(self, text: str) -> str:
         """Clean and normalize extracted text."""
