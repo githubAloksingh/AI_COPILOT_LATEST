@@ -11,4 +11,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByProjectIdOrderByCreatedAtDesc(Long projectId);
     List<Document> findByProjectIdAndFileNameOrderByCreatedAtDesc(Long projectId, String fileName);
     List<Document> findAllByOrderByCreatedAtDesc();
+
+    @org.springframework.data.jpa.repository.Query("SELECT d.fileData FROM Document d WHERE d.id = :id")
+    byte[] findFileDataById(@org.springframework.data.repository.query.Param("id") Long id);
 }

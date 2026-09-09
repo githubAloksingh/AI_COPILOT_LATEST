@@ -72,7 +72,7 @@
           <th>Version</th>
           <th>Chunks</th>
           <th style="text-align: center; width: 80px;">View</th>
-          <th style="text-align: right; width: 90px;">Actions</th>
+          <th style="text-align: right; width: 170px;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -108,7 +108,7 @@
           <td>
             <button class="btn btn-outline" 
                     style="padding: 2px 8px; font-size: 0.78rem; border-radius: 12px; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; cursor: pointer;" 
-                    title="View Chunks stored in DB"
+                    title="View Chunks stored in DB" 
                     (click)="openChunksModal(doc)">
               {{ doc.chunkCount || 0 }} Chunks
             </button>
@@ -122,7 +122,13 @@
             </button>
             <span *ngIf="!isBrd(doc.fileName)" style="color: #94a3b8; font-size: 0.85rem;">—</span>
           </td>
-          <td style="text-align: right;">
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn btn-outline download-btn" 
+                    style="padding: 4px 10px; font-size: 0.8rem; margin-right: 6px;" 
+                    title="Download Original File" 
+                    (click)="downloadDocument(doc)">
+              ⬇ Download
+            </button>
             <button class="btn btn-outline danger-btn" style="padding: 4px 10px; font-size: 0.8rem;" (click)="deleteDocument(doc.id)">
               Delete
             </button>
@@ -212,29 +218,48 @@
   </div>
 </div>
 
-<!-- BRD Preview Modal -->
+<!-- BRD Original PDF Viewer Modal -->
 <div class="modal-backdrop" *ngIf="showPreviewModal" (click)="closePreview()">
-  <div class="modal-content brd-modal" (click)="$event.stopPropagation()">
-    <div class="modal-header">
+  <div class="modal-content brd-modal pdf-viewer-modal" (click)="$event.stopPropagation()" style="max-width: 1050px; width: 94vw; height: 90vh; display: flex; flex-direction: column;">
+    <div class="modal-header" style="flex-shrink: 0;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="font-size: 1.25rem;">📄</span>
-        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600;">BRD Preview — {{ selectedDocName }}</h3>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600;">Original BRD — {{ selectedDocName }}</h3>
       </div>
-      <button class="close-btn" (click)="closePreview()">✕</button>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button *ngIf="previewBlobUrl" 
+                type="button" 
+                class="btn btn-outline" 
+                style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;"
+                (click)="openPdfInNewTab()" 
+                title="Open in Full Browser Tab">
+          <span>↗ Open in New Tab</span>
+        </button>
+        <button class="close-btn" (click)="closePreview()">✕</button>
+      </div>
     </div>
 
-    <div class="modal-body scrollable-content">
-      <div *ngIf="loadingPreview" class="loading-indicator" style="padding: 40px 0;">
+    <div class="modal-body" style="flex: 1; padding: 0; overflow: hidden; display: flex; flex-direction: column; background: #525659;">
+      <div *ngIf="loadingPreview" class="loading-indicator" style="padding: 60px 0; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
         <div class="spinner"></div>
-        <span>Loading document content...</span>
+        <span>Retrieving exact original PDF binary from server...</span>
       </div>
 
-      <div *ngIf="!loadingPreview">
-        <pre class="content-preview">{{ selectedDocContent }}</pre>
+      <div *ngIf="previewError && !loadingPreview" style="padding: 40px 20px; text-align: center; color: #fca5a5;">
+        <div style="font-size: 2rem; margin-bottom: 8px;">⚠️</div>
+        <p style="margin: 0; font-size: 0.95rem;">{{ previewError }}</p>
       </div>
+
+      <iframe *ngIf="previewPdfUrl && !loadingPreview" 
+              [src]="previewPdfUrl" 
+              type="application/pdf"
+              style="width: 100%; height: 100%; border: none;"
+              title="Original PDF Document">
+      </iframe>
     </div>
 
-    <div class="modal-footer">
+    <div class="modal-footer" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-size: 0.8rem; color: #64748b;">Showing exact uploaded PDF file (unparsed binary)</span>
       <button class="btn btn-primary" (click)="closePreview()">Close</button>
     </div>
   </div>

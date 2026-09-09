@@ -32,6 +32,38 @@
   border-radius: 12px;
 }
 
+/* Clean tab navigation - Import from Knowledge Base | Enter Text */
+.simple-tabs-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 24px;
+}
+
+.simple-tab {
+  padding: 10px 22px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: #1e293b;
+    background: #f8fafc;
+  }
+
+  &.active {
+    color: #F36F21;
+    border-bottom-color: #F36F21;
+    background: transparent;
+  }
+}
+
 /* Two Main Options at Top: Option A & Option B */
 .input-mode-tabs {
   display: flex;
@@ -622,4 +654,25 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* BRD + Codebase side-by-side layout */
+.brd-codebase-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.brd-codebase-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* History section below the main card */
+.page-history-wrap {
+  margin-top: 24px;
 }

@@ -15,7 +15,7 @@ export class ResponseModal implements OnInit, OnChanges {
   @Input() type: 'requirement' | 'testcase' | 'defect' | 'releasenote' | 'userstory' | 'functionaldesign' | 'technicaldesign' = 'requirement';
   @Input() title = 'Generated AI Response';
   @Input() data: any = null;
-  @Input() sources: string[] = [];
+  @Input() sources: any[] = [];
   @Input() model = 'gemini-3.7-flash';
   @Input() promptVersion = '';
   @Input() executionTimeMs = 0;
@@ -48,6 +48,12 @@ export class ResponseModal implements OnInit, OnChanges {
 
   /** For non-requirement types */
   editableData: any = {};
+
+  // ── Per-Requirement Inline Edit ───────────────────────────────────────────
+  /** Index of requirement currently being inline-edited (-1 = none) */
+  editingIndex = -1;
+  /** Deep copy of the requirement being edited (scratch copy) */
+  perReqEditable: any = null;
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   toastMessage = '';
@@ -94,6 +100,32 @@ export class ResponseModal implements OnInit, OnChanges {
 
   selectRequirement(index: number) {
     this.selectedReqIndex = index;
+    this.cdr.markForCheck();
+  }
+
+  // ── Per-Requirement Edit ───────────────────────────────────────────────────
+  editReq(index: number) {
+    this.editingIndex = index;
+    // Work on the live list so saved edits persist when switching tabs
+    const list = this.requirementList;
+    this.perReqEditable = JSON.parse(JSON.stringify(list[index]));
+    this.cdr.markForCheck();
+  }
+
+  saveReq(index: number) {
+    if (this.perReqEditable === null) return;
+    // Patch the value back into the original data object
+    const list = this.requirementList;
+    Object.assign(list[index], this.perReqEditable);
+    this.editingIndex = -1;
+    this.perReqEditable = null;
+    this.isEdited = true;
+    this.cdr.markForCheck();
+  }
+
+  cancelReq() {
+    this.editingIndex = -1;
+    this.perReqEditable = null;
     this.cdr.markForCheck();
   }
 
@@ -186,13 +218,113 @@ export class ResponseModal implements OnInit, OnChanges {
     this.cdr.markForCheck();
   }
 
+  // ── Release Notes Add Feature State ─────────────────────────────────────────
+  showAddFeatureInput = false;
+  newFeatureText = '';
+  addingFeature = false;
+  addFeatureStatus: 'IDLE' | 'SUCCESS' | 'ERROR' = 'IDLE';
+
+  submitNewFeature() {
+    if (!this.newFeatureText || !this.newFeatureText.trim()) return;
+    this.addingFeature = true;
+    this.addFeatureStatus = 'IDLE';
+    this.cdr.markForCheck();
+
+    setTimeout(() => {
+      try {
+        const text = this.newFeatureText.trim();
+        if (!this.data) this.data = {};
+        if (!this.data.newFeatures) this.data.newFeatures = [];
+        this.data.newFeatures.push(text);
+
+        if (this.editableData) {
+          if (!this.editableData.newFeatures) this.editableData.newFeatures = [];
+          this.editableData.newFeatures.push(text);
+        }
+
+        this.isEdited = true;
+        this.addingFeature = false;
+        this.addFeatureStatus = 'SUCCESS';
+        this.newFeatureText = '';
+        this.cdr.markForCheck();
+
+        setTimeout(() => {
+          this.addFeatureStatus = 'IDLE';
+          this.showAddFeatureInput = false;
+          this.cdr.markForCheck();
+        }, 2500);
+      } catch (e) {
+        this.addingFeature = false;
+        this.addFeatureStatus = 'ERROR';
+        this.cdr.markForCheck();
+      }
+    }, 600);
+  }
+
+  triggerAddFeatureInEdit() {
+    this.addingFeature = true;
+    this.addFeatureStatus = 'IDLE';
+    this.cdr.markForCheck();
+
+    setTimeout(() => {
+      try {
+        if (!this.editableData) this.editableData = {};
+        if (!this.editableData.newFeatures) this.editableData.newFeatures = [];
+        this.editableData.newFeatures.push('');
+        this.isEdited = true;
+        this.addingFeature = false;
+        this.addFeatureStatus = 'SUCCESS';
+        this.cdr.markForCheck();
+
+        setTimeout(() => {
+          this.addFeatureStatus = 'IDLE';
+          this.cdr.markForCheck();
+        }, 2000);
+      } catch (e) {
+        this.addingFeature = false;
+        this.addFeatureStatus = 'ERROR';
+        this.cdr.markForCheck();
+      }
+    }, 500);
+  }
+
+  saveAllEdits() {
+    if (this.isRequirementLike && this.editableRequirements?.length) {
+      if (this.data) {
+        if (Array.isArray(this.data)) {
+          this.data = JSON.parse(JSON.stringify(this.editableRequirements));
+        } else if (this.data.userStories) {
+          this.data.userStories = JSON.parse(JSON.stringify(this.editableRequirements));
+        } else if (this.data.requirements) {
+          this.data.requirements = JSON.parse(JSON.stringify(this.editableRequirements));
+        }
+      }
+    } else if (this.editableData) {
+      this.data = JSON.parse(JSON.stringify(this.editableData));
+    }
+    this.isEdited = true;
+    this.mode = 'VIEW';
+    this.cdr.markForCheck();
+  }
+
   // ── Download ───────────────────────────────────────────────────────────────
+  downloadExcel() {
+    const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
+    const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
+    this.exportService.downloadTestCaseExcel(items, 'test-cases');
+  }
+
+  downloadCsv() {
+    const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
+    const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
+    this.exportService.downloadTestCaseCsv(items, 'test-cases');
+  }
+
   download() {
     const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
 
     if (this.type === 'testcase') {
-      const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
-      this.exportService.downloadTestCaseCsv(items, 'test-cases');
+      this.downloadCsv();
     } else if (this.type === 'userstory') {
       const allReqs = this.mode === 'EDIT_ALL' ? this.editableRequirements : this.requirementList;
       this.exportService.downloadUserStoryPdf(allReqs);
@@ -249,6 +381,30 @@ export class ResponseModal implements OnInit, OnChanges {
     if (!item || typeof item === 'string' || !item.source) return [];
     if (Array.isArray(item.source)) return item.source;
     return [item.source];
+  }
+
+  // ── Source Table Helpers ───────────────────────────────────────────────────
+  /** Return display name for a source entry (object or string) */
+  getSourceDoc(s: any): string {
+    if (!s) return '—';
+    if (typeof s === 'string') return s || '—';
+    return s.file_name || s.fileName || s.document_id || '—';
+  }
+
+  /** Return a readable snippet for a source entry */
+  getSourceSnippet(s: any): string {
+    if (!s) return '—';
+    if (typeof s === 'string') return s.length > 120 ? s.slice(0, 120) + '…' : s;
+    const raw = s.snippet || '';
+    return raw ? (raw.length > 120 ? raw.slice(0, 120) + '…' : raw) : '—';
+  }
+
+  /** Return relevance from score or chunk_index (chunk_index as a proxy) */
+  getSourceRelevance(s: any): string {
+    if (!s || typeof s === 'string') return '—';
+    if (s.relevance_score != null) return (Math.round(s.relevance_score * 100) / 100).toString();
+    if (s.chunk_index != null) return 'Chunk ' + s.chunk_index;
+    return '—';
   }
 
   // ── Array Edit Helpers ─────────────────────────────────────────────────────

@@ -50,7 +50,7 @@
         <div>
           <strong>{{ selectedDoc.fileName }}</strong>
           <div class="doc-sub">
-            Project: {{ selectedProject?.projectName }} • {{ selectedDoc.fileType }} • {{ selectedDoc.chunkCount || 0 }} chunks indexed
+            Project: {{ selectedProject?.projectName }} • Type: {{ getDocumentType(selectedDoc) }} • {{ selectedDoc.chunkCount || 0 }} chunks indexed
           </div>
         </div>
       </div>
@@ -93,3 +93,11 @@
   (accept)="onAccept($event)"
   (reject)="onReject()">
 </app-response-modal>
+
+<!-- Feature History (shown when project is selected) -->
+<div style="margin-top: 24px;">
+  <app-feature-history
+    [projectId]="selectedProjectId"
+    feature="defect_triage">
+  </app-feature-history>
+</div>

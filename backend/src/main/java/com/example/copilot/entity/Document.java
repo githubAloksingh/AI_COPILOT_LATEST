@@ -29,4 +29,10 @@ public class Document extends BaseEntity {
     // UPLOADING, PROCESSING, COMPLETED, FAILED
     private String status;
     private String errorMessage;
+
+    @jakarta.persistence.Lob
+    @jakarta.persistence.Basic(fetch = jakarta.persistence.FetchType.LAZY)
+    @Column(name = "file_data", columnDefinition = "LONGBLOB")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private byte[] fileData;
 }

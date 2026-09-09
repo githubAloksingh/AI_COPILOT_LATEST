@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ApiService } from '../core/api';
 import { ResponseModal } from '../core/components/response-modal/response-modal';
+import { FeatureHistoryComponent } from '../core/components/feature-history/feature-history';
 
 @Component({
   selector: 'app-requirement-assistant',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ResponseModal],
+  imports: [CommonModule, FormsModule, RouterModule, ResponseModal, FeatureHistoryComponent],
   templateUrl: './requirement-assistant.html',
   styleUrl: './requirement-assistant.scss'
 })
@@ -29,6 +30,7 @@ export class RequirementAssistant implements OnInit {
   loadingProjects = false;
 
   documents: any[] = [];
+  availableBrds: any[] = [];
   selectedDocumentId: number | null = null;
   selectedDocument: any = null;
   loadingDocs = false;
@@ -45,7 +47,7 @@ export class RequirementAssistant implements OnInit {
   // Generated Result
   isModalOpen = false;
   generatedResult: any = null;
-  sources: string[] = [];
+  sources: any[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'requirement-v2';
   executionTimeMs = 0;
@@ -79,6 +81,7 @@ export class RequirementAssistant implements OnInit {
     this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
     this.selectedDocumentId = null;
     this.selectedDocument = null;
+    this.availableBrds = [];
     this.documents = [];
     this.error = '';
 
@@ -88,7 +91,24 @@ export class RequirementAssistant implements OnInit {
       this.api.getProjectDocuments(this.selectedProjectId).subscribe({
         next: (res) => {
           if (res.success) {
-            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
+            const allDocs = res.data || [];
+            this.documents = allDocs;
+            this.availableBrds = allDocs.filter((d: any) =>
+              d.status === 'COMPLETED' && (
+                d.fileType === 'BRD' ||
+                (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
+              )
+            );
+            if (this.availableBrds.length > 0) {
+              this.selectedDocument = this.availableBrds[0];
+              this.selectedDocumentId = this.availableBrds[0].id;
+              if (!this.title) {
+                this.title = 'Requirements from ' + this.selectedDocument.fileName;
+              }
+            } else {
+              this.selectedDocument = null;
+              this.selectedDocumentId = null;
+            }
           }
           this.loadingDocs = false;
           this.cdr.markForCheck();
@@ -103,18 +123,17 @@ export class RequirementAssistant implements OnInit {
     }
   }
 
-  setInputMode(mode: 'manual' | 'kb') {
-    this.inputMode = mode;
-    this.error = '';
-    this.cdr.markForCheck();
-  }
-
-  onDocumentSelect(docId: any) {
+  onBrdSelect(docId: any) {
     this.selectedDocumentId = docId ? Number(docId) : null;
-    this.selectedDocument = this.documents.find(d => d.id === this.selectedDocumentId) || null;
+    this.selectedDocument = this.availableBrds.find(d => d.id === this.selectedDocumentId) || null;
     if (this.selectedDocument && !this.title) {
       this.title = 'Requirements from ' + this.selectedDocument.fileName;
     }
+    this.cdr.markForCheck();
+  }
+
+  setInputMode(mode: 'manual' | 'kb') {
+    this.inputMode = mode;
     this.error = '';
     this.cdr.markForCheck();
   }
@@ -130,6 +149,16 @@ export class RequirementAssistant implements OnInit {
       return !!(this.selectedProjectId && this.selectedDocumentId);
     }
     return !!(this.title.trim() && this.description.trim());
+  }
+
+  getModalMeta() {
+    return {
+      project: this.selectedProject?.projectName || undefined,
+      documentName: this.selectedDocument ? this.selectedDocument.fileName : (this.title || 'Requirement Specification'),
+      brd: this.selectedDocument ? this.selectedDocument.fileName : undefined,
+      version: this.selectedDocument?.version || undefined,
+      inputType: this.inputMode === 'kb' ? 'Knowledge Base Document' : 'Manual Input'
+    };
   }
 
   generate() {
@@ -165,7 +194,7 @@ export class RequirementAssistant implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sources = aiResponse.sources || [];
+          this.sources = aiResponse.source_details || aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'requirement-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;

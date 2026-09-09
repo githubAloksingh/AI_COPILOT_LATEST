@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://localhost:8080/api'
+  apiUrl: 'https://ai-copilot-latest-3.onrender.com/api'
 };

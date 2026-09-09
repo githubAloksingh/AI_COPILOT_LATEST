@@ -129,6 +129,28 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.baseUrl}/documents/${id}`);
   }
 
+  downloadDocument(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/download`, {
+      responseType: 'blob'
+    });
+  }
+
+  getDocumentFile(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/file`, {
+      responseType: 'blob'
+    });
+  }
+
+  viewDocument(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/view`, {
+      responseType: 'blob'
+    });
+  }
+
+  getDocumentFileUrl(id: number): string {
+    return `${this.baseUrl}/documents/${id}/file`;
+  }
+
   // AI Copilot features - Preview Generation
   generateRequirement(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/requirements`, data);
@@ -200,6 +222,10 @@ export class ApiService {
 
   recordAuditLog(logData: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/audit-logs`, logData, { headers: this.getAuthHeaders() });
+  }
+
+  getHistory(projectId: number, feature: string): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/history?projectId=${projectId}&feature=${encodeURIComponent(feature)}`);
   }
 }
 
