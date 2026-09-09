@@ -29,6 +29,7 @@ public class IngestionService {
     private final ProjectRepository projectRepository;
     private final AiServiceClient aiServiceClient;
     private final AuditService auditService;
+    private final DocumentService documentService;
 
     public Document uploadDocument(MultipartFile file) {
         return uploadDocument(null, file, null, null, "System", "v1");
@@ -72,6 +73,11 @@ public class IngestionService {
         doc.setUploadedBy(uploadedBy != null && !uploadedBy.trim().isEmpty() ? uploadedBy.trim() : "System");
         doc.setVersion(calculatedVersion != null && !calculatedVersion.trim().isEmpty() ? calculatedVersion.trim() : "v1");
         doc.setStatus("PROCESSING");
+        try {
+            doc.setFileData(file.getBytes());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not read uploaded file", e);
+        }
         return documentRepository.save(doc);
     }
 
@@ -87,6 +93,8 @@ public class IngestionService {
 
         long startTime = System.currentTimeMillis();
         try {
+            documentService.saveOriginalFile(documentId, Files.readAllBytes(filePath));
+
             AiIngestionResponse response = aiServiceClient.ingestDocument(
                     documentId,
                     originalFileName,
