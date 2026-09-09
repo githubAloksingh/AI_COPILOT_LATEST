@@ -29,64 +29,56 @@
   <div *ngIf="inputMode === 'kb'" class="mode-panel kb-panel">
     <!-- Step 1: Select Project -->
     <div class="form-group">
-      <label>Select Project <span class="required">*</span></label>
-      <select 
-        [ngModel]="selectedProjectId" 
-        (ngModelChange)="onProjectChange($event)" 
-        class="form-control"
-        [disabled]="loading || loadingProjects">
-        <option [ngValue]="null">Select Project</option>
-        <option *ngFor="let proj of projects" [value]="proj.id">
-          {{ proj.projectName }} ({{ proj.department || 'General' }})
-        </option>
-      </select>
-      <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects">
+      <label class="field-label">1. Select Project <span class="required">*</span></label>
+      <div class="kb-select-wrap">
+        <select 
+          [ngModel]="selectedProjectId" 
+          (ngModelChange)="onProjectChange($event)" 
+          class="form-control"
+          [disabled]="loading || loadingProjects">
+          <option [ngValue]="null">Select Project</option>
+          <option *ngFor="let proj of projects" [value]="proj.id">
+            {{ proj.projectName }} ({{ proj.department || 'General' }})
+          </option>
+        </select>
+      </div>
+      <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects" style="color: #64748b; margin-top: 4px; display: block;">
         No projects found. Please create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
       </small>
     </div>
 
     <!-- When Project is Selected: Step 2 & Step 3 -->
     <div *ngIf="selectedProjectId" style="margin-top: 16px;">
-      <!-- Step 2: Selected BRD Box (READ ONLY) -->
+      <!-- Step 2: Select Artifact Type (READ ONLY) -->
       <div class="form-group">
-        <label>Selected BRD</label>
-        <div class="selected-brd-readonly-box" [class.no-brd]="!selectedDocument && !loadingDocs">
-          <div *ngIf="selectedDocument" class="brd-display-content">
-            <div class="brd-title">
-              <span class="file-icon">📄</span>
-              <strong>{{ selectedDocument.fileName }}</strong>
-            </div>
-            <div class="brd-subtitle" *ngIf="selectedProject">
-              {{ selectedProject.projectName }} BRD
-            </div>
-          </div>
-          <div *ngIf="!selectedDocument && !loadingDocs" class="no-brd-message">
-            <div style="font-weight: 500; color: #64748b;">No BRD available</div>
-            <div style="font-size: 0.85rem; color: #ef4444; margin-top: 4px;">
-              No BRD documents are available for this project.
-            </div>
-          </div>
-          <div *ngIf="loadingDocs" class="loading-brd-message" style="color: #64748b; font-size: 0.875rem;">
-            Loading BRD documents...
-          </div>
+        <label class="field-label">2. Select Artifact Type <span class="required">*</span></label>
+        <div class="kb-select-wrap">
+          <select class="form-control" disabled style="background-color: #f8fafc; color: #1e293b; font-weight: 500; cursor: not-allowed; border: 1px solid #cbd5e1;">
+            <option value="BRD" selected>BRD</option>
+          </select>
         </div>
       </div>
 
-      <!-- Step 3: BRD Dropdown -->
+      <!-- Step 3: Select BRD -->
       <div class="form-group" style="margin-top: 16px;">
-        <label>Select BRD <span class="required">*</span></label>
-        <select 
-          [ngModel]="selectedDocumentId" 
-          (ngModelChange)="onBrdSelect($event)" 
-          class="form-control"
-          [disabled]="loading || loadingDocs || availableBrds.length === 0">
-          <option [ngValue]="null">Select BRD</option>
-          <option *ngFor="let doc of availableBrds" [value]="doc.id">
-            {{ doc.fileName }}
-          </option>
-        </select>
+        <label class="field-label">3. Select BRD <span class="required">*</span></label>
+        <div class="kb-select-wrap">
+          <select 
+            [ngModel]="selectedDocumentId" 
+            (ngModelChange)="onBrdSelect($event)" 
+            class="form-control"
+            [disabled]="loading || loadingDocs || availableBrds.length === 0">
+            <option [ngValue]="null">Select BRD</option>
+            <option *ngFor="let doc of availableBrds" [value]="doc.id">
+              {{ doc.fileName }}
+            </option>
+          </select>
+        </div>
         <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingDocs" style="color: #ef4444; margin-top: 4px; display: block;">
-          No BRD documents are available for this project. Upload BRD files in <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
+          No BRD documents are available for this project.
+        </small>
+        <small class="helper-text" *ngIf="loadingDocs" style="color: #64748b; margin-top: 4px; display: block;">
+          Loading BRD documents...
         </small>
       </div>
     </div>

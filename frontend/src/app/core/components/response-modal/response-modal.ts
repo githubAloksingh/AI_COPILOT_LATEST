@@ -72,21 +72,27 @@ export class ResponseModal implements OnInit, OnChanges {
   initEditableCopy() {
     if (this.data) {
       this.editableData = JSON.parse(JSON.stringify(this.data));
-      // Pre-populate editable requirements list
       const list = this.requirementList;
       this.editableRequirements = JSON.parse(JSON.stringify(list));
-      this.collapsedPanels = list.map(() => false); // all expanded by default
+      this.collapsedPanels = list.map(() => false);
     }
   }
 
   // ── Requirement Helpers ────────────────────────────────────────────────────
   get requirementList(): any[] {
     if (!this.data) return [];
+    if (Array.isArray(this.data)) return this.data;
     if (Array.isArray(this.data.requirements) && this.data.requirements.length > 0) {
       return this.data.requirements;
     }
-    if (Array.isArray(this.data)) {
-      return this.data;
+    if (Array.isArray(this.data.userStories) && this.data.userStories.length > 0) {
+      return this.data.userStories;
+    }
+    if (Array.isArray(this.data.items) && this.data.items.length > 0) {
+      return this.data.items;
+    }
+    if (Array.isArray(this.data.result) && this.data.result.length > 0) {
+      return this.data.result;
     }
     return [this.data];
   }

@@ -28,25 +28,24 @@ public class DefectService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Please provide a valid file to analyze.");
         }
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "";
+        if (!fileName.toLowerCase().endsWith(".zip")) {
+            throw new IllegalArgumentException("Only ZIP files are supported for Codebase.");
+        }
         if (file.getSize() > 50 * 1024 * 1024) {
             throw new IllegalArgumentException("File size exceeds the 50MB limit.");
         }
 
         try {
-            String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "uploaded_log.txt";
-            String fileContent = new String(file.getBytes(), StandardCharsets.UTF_8);
-
-            if (fileContent.length() > 60000) {
-                fileContent = fileContent.substring(0, 60000) + "\n... [truncated due to size]";
-            }
+            String fileContent = "Codebase ZIP Archive: " + fileName;
 
             DefectRequest request = new DefectRequest();
             request.setTitle("Defect Triage: " + fileName);
-            request.setDescription("Automated triage for uploaded file: " + fileName);
+            request.setDescription("Automated triage for uploaded codebase: " + fileName);
             request.setLogs(fileContent);
-            request.setEnvironment("Uploaded File Environment");
+            request.setEnvironment("Codebase Repository");
             request.setDocumentName(fileName);
-            request.setInputType("Log File");
+            request.setInputType("Codebase (ZIP)");
 
             return analyzeDefect(request);
         } catch (Exception e) {
@@ -56,6 +55,11 @@ public class DefectService {
     }
 
     public AiDefectResponse analyzeDefect(DefectRequest request) {
+        if (request.getDocumentName() != null && !request.getDocumentName().isBlank()) {
+            if (!request.getDocumentName().toLowerCase().endsWith(".zip")) {
+                throw new IllegalArgumentException("Only ZIP files are supported for Codebase.");
+            }
+        }
         long startTime = System.currentTimeMillis();
         String inputType = request.getInputType() != null ? request.getInputType() : "Defect Context / Logs";
         try {

@@ -16,6 +16,9 @@ import { FeatureHistoryComponent } from '../core/components/feature-history/feat
 export class DefectTriage implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
 
+  // Tab state: 'existing' | 'upload'
+  codebaseTab: 'existing' | 'upload' = 'existing';
+
   // 2-Step KB Selection: Project -> Document
   projects: any[] = [];
   selectedProjectId: number | null = null;
@@ -51,6 +54,8 @@ export class DefectTriage implements OnInit {
     this.loadProjects();
   }
 
+  uploadingZip = false;
+
   loadProjects() {
     this.loadingProjects = true;
     this.cdr.markForCheck();
@@ -78,24 +83,95 @@ export class DefectTriage implements OnInit {
     this.error = '';
 
     if (this.selectedProjectId) {
-      this.loadingDocs = true;
-      this.cdr.markForCheck();
-      this.api.getProjectDocuments(this.selectedProjectId).subscribe({
-        next: (res) => {
-          if (res.success) {
-            this.documents = (res.data || []).filter((d: any) => d.status === 'COMPLETED');
-          }
-          this.loadingDocs = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.loadingDocs = false;
-          this.cdr.markForCheck();
-        }
-      });
+      this.loadDocuments();
     } else {
       this.cdr.markForCheck();
     }
+  }
+
+  loadDocuments(selectDocId?: number) {
+    if (!this.selectedProjectId) return;
+    this.loadingDocs = true;
+    this.cdr.markForCheck();
+    this.api.getProjectDocuments(this.selectedProjectId).subscribe({
+      next: (res) => {
+        if (res.success) {
+          // Defect Triage works strictly with Codebase ZIP files
+          this.documents = (res.data || []).filter(
+            (d: any) => d.status === 'COMPLETED' && (d.fileName || '').toLowerCase().endsWith('.zip')
+          );
+          if (selectDocId) {
+            this.selectedDocId = selectDocId;
+            this.selectedDoc = this.documents.find(d => d.id === selectDocId) || null;
+          }
+        }
+        this.loadingDocs = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingDocs = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  setTab(tab: 'existing' | 'upload') {
+    this.codebaseTab = tab;
+    this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    const fileName = (file.name || '').toLowerCase();
+    if (!fileName.endsWith('.zip')) {
+      if (event.target) {
+        event.target.value = '';
+      }
+      this.error = 'Only ZIP files are supported for Codebase.';
+      this.toastMessage = 'Only ZIP files are supported for Codebase.';
+      this.toastType = 'error';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (!this.selectedProjectId) {
+      this.error = 'Please select a Folder / Codebase project first.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.error = '';
+    this.uploadingZip = true;
+    this.cdr.markForCheck();
+
+    this.api.uploadProjectDocument(this.selectedProjectId, file, file.name, 'CODEBASE', 'System', 'v1').subscribe({
+      next: (res) => {
+        this.uploadingZip = false;
+        if (event.target) {
+          event.target.value = '';
+        }
+        if (res.success && res.data) {
+          this.toastMessage = `Codebase ZIP '${file.name}' uploaded successfully.`;
+          this.toastType = 'success';
+          this.loadDocuments(res.data.id);
+          this.codebaseTab = 'existing';
+        } else {
+          this.error = res.message || 'Failed to upload Codebase ZIP.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.uploadingZip = false;
+        if (event.target) {
+          event.target.value = '';
+        }
+        this.error = err.error?.message || 'Failed to upload Codebase ZIP. Please verify the file is a valid .zip archive.';
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   onDocSelect(docId: any) {

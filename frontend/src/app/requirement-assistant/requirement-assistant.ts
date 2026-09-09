@@ -99,16 +99,8 @@ export class RequirementAssistant implements OnInit {
                 (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
               )
             );
-            if (this.availableBrds.length > 0) {
-              this.selectedDocument = this.availableBrds[0];
-              this.selectedDocumentId = this.availableBrds[0].id;
-              if (!this.title) {
-                this.title = 'Requirements from ' + this.selectedDocument.fileName;
-              }
-            } else {
-              this.selectedDocument = null;
-              this.selectedDocumentId = null;
-            }
+            this.selectedDocument = null;
+            this.selectedDocumentId = null;
           }
           this.loadingDocs = false;
           this.cdr.markForCheck();

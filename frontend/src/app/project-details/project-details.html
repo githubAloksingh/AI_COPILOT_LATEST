@@ -70,9 +70,8 @@
           <th>Uploaded By</th>
           <th>Uploaded Time</th>
           <th>Version</th>
-          <th>Chunks</th>
           <th style="text-align: center; width: 80px;">View</th>
-          <th style="text-align: right; width: 170px;">Actions</th>
+          <th style="text-align: right; width: 100px;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -83,8 +82,8 @@
               {{ getDocumentType(doc.fileName) }}
             </span>
           </td>
-          <td style="font-weight: 500; word-break: break-all;">
-            <div>{{ doc.fileName }}</div>
+          <td class="file-cell">
+            <span class="file-name" [title]="doc.fileName">{{ doc.fileName }}</span>
             <div *ngIf="doc.status === 'PROCESSING' || doc.status === 'UPLOADING'" 
                  style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">
               <span class="spinner" style="width: 10px; height: 10px; border-width: 2px; margin: 0;"></span>
@@ -95,7 +94,8 @@
               ✓ Ready
             </div>
             <div *ngIf="doc.status === 'FAILED'" 
-                 style="font-size: 0.75rem; color: #ef4444; margin-top: 4px;">
+                 style="font-size: 0.75rem; color: #ef4444; margin-top: 4px;"
+                 [title]="doc.errorMessage || 'Ingestion failed'">
               ✖ {{ doc.errorMessage || 'Ingestion failed' }}
             </div>
           </td>
@@ -104,14 +104,6 @@
           <td>{{ doc.createdAt | date:'short' }}</td>
           <td>
             <span class="version-badge">{{ doc.version || 'v1' }}</span>
-          </td>
-          <td>
-            <button class="btn btn-outline" 
-                    style="padding: 2px 8px; font-size: 0.78rem; border-radius: 12px; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; cursor: pointer;" 
-                    title="View Chunks stored in DB" 
-                    (click)="openChunksModal(doc)">
-              {{ doc.chunkCount || 0 }} Chunks
-            </button>
           </td>
           <td style="text-align: center;">
             <button *ngIf="isBrd(doc.fileName)" 
@@ -123,15 +115,31 @@
             <span *ngIf="!isBrd(doc.fileName)" style="color: #94a3b8; font-size: 0.85rem;">—</span>
           </td>
           <td style="text-align: right; white-space: nowrap;">
-            <button class="btn btn-outline download-btn" 
-                    style="padding: 4px 10px; font-size: 0.8rem; margin-right: 6px;" 
-                    title="Download Original File" 
-                    (click)="downloadDocument(doc)">
-              ⬇ Download
-            </button>
-            <button class="btn btn-outline danger-btn" style="padding: 4px 10px; font-size: 0.8rem;" (click)="deleteDocument(doc.id)">
-              Delete
-            </button>
+            <div class="action-buttons">
+              <button type="button"
+                      class="action-icon-btn download-btn" 
+                      title="Download" 
+                      aria-label="Download"
+                      (click)="downloadDocument(doc)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </button>
+              <button type="button"
+                      class="action-icon-btn danger-btn" 
+                      title="Delete" 
+                      aria-label="Delete"
+                      (click)="deleteDocument(doc.id)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  <line x1="10" y1="11" x2="10" y2="17"/>
+                  <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>

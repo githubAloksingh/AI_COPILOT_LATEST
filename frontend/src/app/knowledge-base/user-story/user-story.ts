@@ -102,13 +102,8 @@ export class UserStoryComponent implements OnInit {
                 (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
               )
             );
-            if (this.availableBrds.length > 0) {
-              this.selectedDocument = this.availableBrds[0];
-              this.selectedDocumentId = this.availableBrds[0].id;
-            } else {
-              this.selectedDocument = null;
-              this.selectedDocumentId = null;
-            }
+            this.selectedDocument = null;
+            this.selectedDocumentId = null;
           }
           this.loadingDocs = false;
           this.cdr.markForCheck();
@@ -130,6 +125,7 @@ export class UserStoryComponent implements OnInit {
   onBrdSelect(docId: any) {
     this.selectedDocumentId = docId ? Number(docId) : null;
     this.selectedDocument = this.availableBrds.find(d => d.id === this.selectedDocumentId) || null;
+    this.error = '';
     this.cdr.markForCheck();
   }
 

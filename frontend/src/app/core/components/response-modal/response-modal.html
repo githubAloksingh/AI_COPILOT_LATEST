@@ -55,8 +55,8 @@
                   <span class="req-id-badge">{{ req.userStoryId || req.requirementId || 'REQ' }}</span>
                   <span class="inline-edit-label">✏️ Editing</span>
                   <div class="inline-edit-actions">
-                    <button class="btn-icon-save" (click)="saveReq(i)" title="Save">💾 Save</button>
-                    <button class="btn-icon-cancel" (click)="cancelReq()" title="Cancel">✕ Cancel</button>
+                    <button class="btn-icon-save" (click)="saveReq(i)" title="Save">💾</button>
+                    <button class="btn-icon-cancel" (click)="cancelReq()" title="Cancel">✕</button>
                   </div>
                 </div>
                 <div class="form-group">
@@ -90,7 +90,7 @@
                     <span class="req-id-badge">{{ req.userStoryId || req.requirementId || 'REQ' }}</span>
                     <h3>{{ req.title }}</h3>
                   </div>
-                  <button class="btn-icon-edit" (click)="editReq(i)" title="Edit">✏️ Edit</button>
+                  <button class="btn-icon-edit" (click)="editReq(i)" title="Edit">✏️</button>
                 </div>
 
                 <!-- User Story Card -->
@@ -1156,48 +1156,52 @@
     <div class="modal-footer">
       <div class="footer-left" style="display: flex; gap: 10px; align-items: center;">
         <ng-container *ngIf="type === 'testcase'">
-          <button type="button" class="btn btn-primary btn-download" (click)="downloadExcel()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;" title="Download Excel (.xlsx)">
-            📥 Download Excel
+          <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadExcel()" [disabled]="saving" title="Download Excel (.xlsx)" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+            📥
           </button>
-          <button type="button" class="btn btn-secondary btn-download" (click)="downloadCsv()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;" title="Download CSV (.csv)">
-            📥 Download CSV
+          <button type="button" class="btn btn-secondary btn-icon-action" (click)="downloadCsv()" [disabled]="saving" title="Download CSV (.csv)" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+            📄
           </button>
         </ng-container>
         <ng-container *ngIf="type !== 'testcase'">
-          <button type="button" class="btn btn-primary btn-download" (click)="download()" [disabled]="saving" style="display: inline-flex; align-items: center; gap: 6px;">
-            📥 Download PDF
+          <button type="button" class="btn btn-primary btn-icon-action" (click)="download()" [disabled]="saving" title="Download as PDF" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+            📥
           </button>
         </ng-container>
       </div>
-      <div class="footer-right">
-        <button class="btn btn-secondary" (click)="closeModal()" [disabled]="saving">
+      <div class="footer-right" style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn btn-secondary" (click)="closeModal()" [disabled]="saving" title="Close">
           Close
         </button>
-        <button *ngIf="mode === 'EDIT_ALL'" class="btn btn-success" (click)="saveAllEdits()" [disabled]="saving" title="Save">
-          💾 Save
+        <button *ngIf="mode === 'EDIT_ALL'" class="btn btn-success btn-icon-action" (click)="saveAllEdits()" [disabled]="saving" title="Save" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+          💾
         </button>
-        <button class="btn btn-secondary" (click)="toggleEditMode()" [disabled]="saving" [title]="mode === 'EDIT_ALL' ? 'Cancel' : 'Edit'">
-          {{ mode === 'EDIT_ALL' ? '✕ Cancel Edit' : '✏️ Edit All' }}
+        <button class="btn btn-secondary btn-icon-action" (click)="toggleEditMode()" [disabled]="saving" [title]="mode === 'EDIT_ALL' ? 'Cancel Edit' : 'Edit'" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+          {{ mode === 'EDIT_ALL' ? '✕' : '✏️' }}
         </button>
-        <!-- Reject placed beside Accept -->
-        <button class="btn btn-danger-outline" (click)="onRejectClick()" [disabled]="saving">
-          Reject
+        <!-- Reject icon -->
+        <button class="btn btn-danger-outline btn-icon-action" (click)="onRejectClick()" [disabled]="saving" title="Reject" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+          ❌
         </button>
         <!-- For requirement, userstory, functionaldesign, technicaldesign -->
         <button 
           *ngIf="isRequirementLike"
-          class="btn btn-success btn-accept-all" 
+          class="btn btn-success btn-icon-action" 
           (click)="onAcceptClick()" 
-          [disabled]="saving">
-          {{ saving ? 'Saving...' : '✅ Accept All ' + requirementList.length + ' Item' + (requirementList.length !== 1 ? 's' : '') }}
+          [disabled]="saving"
+          [title]="saving ? 'Saving...' : 'Accept All ' + requirementList.length + ' Item' + (requirementList.length !== 1 ? 's' : '')"
+          style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+          {{ saving ? '⏳' : '✅' }}
         </button>
         <!-- For other types: regular Accept -->
         <button 
           *ngIf="!isRequirementLike"
-          class="btn btn-success" 
+          class="btn btn-success btn-icon-action" 
           (click)="onAcceptClick()" 
-          [disabled]="saving">
-          {{ saving ? 'Saving...' : 'Accept' }}
+          [disabled]="saving"
+          [title]="saving ? 'Saving...' : 'Accept'"
+          style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+          {{ saving ? '⏳' : '✅' }}
         </button>
       </div>
     </div>
