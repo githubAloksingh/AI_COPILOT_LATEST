@@ -231,5 +231,50 @@ class RetrievalService:
 
         return [], []
 
+    def retrieve_document_context(self, document_id: str) -> Tuple[List[str], List[SourceDto]]:
+        """Return every indexed chunk for a document in source order."""
+        if not document_id:
+            return [], []
+
+        self.ensure_collection()
+        where_clause = {"documentId": str(document_id).strip()}
+        chunks: List[str] = []
+        sources: List[SourceDto] = []
+
+        if self.base_collection_url and not self._use_local:
+            url = f"{self.base_collection_url}/get"
+            payload = {"where": where_clause, "include": ["documents", "metadatas"]}
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.post(url, json=payload)
+                if resp.status_code != 200:
+                    raise RuntimeError(f"Chroma document retrieval failed with status {resp.status_code}")
+                data = resp.json()
+                chunks = data.get("documents", []) or []
+                metadatas = data.get("metadatas", []) or []
+        else:
+            local_col = self._get_local_collection()
+            if not local_col:
+                return [], []
+            data = local_col.get(where=where_clause, include=["documents", "metadatas"])
+            chunks = data.get("documents", []) or []
+            metadatas = data.get("metadatas", []) or []
+
+        entries = []
+        for index, chunk in enumerate(chunks):
+            meta = metadatas[index] if index < len(metadatas) and metadatas[index] else {}
+            entries.append((int(meta.get("chunkIndex", index)), str(chunk or ""), meta))
+        entries.sort(key=lambda item: item[0])
+
+        ordered_chunks = []
+        for chunk_index, chunk, meta in entries:
+            ordered_chunks.append(chunk)
+            sources.append(SourceDto(
+                document_id=str(meta.get("documentId", document_id)),
+                file_name=str(meta.get("fileName", "")),
+                chunk_index=chunk_index,
+                snippet=chunk[:150] + "..." if len(chunk) > 150 else chunk
+            ))
+        return ordered_chunks, sources
+
 
 retrieval_service = RetrievalService()

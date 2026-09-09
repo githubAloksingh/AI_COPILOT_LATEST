@@ -41,7 +41,7 @@ export class DefectTriage implements OnInit {
   generatedResult: any = null;
   sources: string[] = [];
   model = 'gemini-3.7-flash';
-  promptVersion = 'defect-v2';
+  promptVersion = 'defect-v3';
   executionTimeMs = 0;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
@@ -151,7 +151,7 @@ export class DefectTriage implements OnInit {
           this.generatedResult = aiResponse.result || aiResponse;
           this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
-          this.promptVersion = aiResponse.prompt_version || 'defect-v2';
+          this.promptVersion = aiResponse.prompt_version || 'defect-v3';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
         } else {
@@ -184,6 +184,7 @@ export class DefectTriage implements OnInit {
       evidence: event.editedData.evidence,
       suggestedInvestigation: event.editedData.suggestedInvestigation,
       suggestedFix: event.editedData.suggestedFix,
+      relatedDefects: event.editedData.defects || [],
       confidence: event.editedData.confidence || 'HIGH',
       severity: event.editedData.severity || 'MEDIUM',
       priority: event.editedData.priority || 'P2',

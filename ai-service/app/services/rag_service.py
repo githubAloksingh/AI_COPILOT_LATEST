@@ -15,6 +15,7 @@ from app.api.schemas import (
     DefectAnalyzeRequest,
     DefectAnalyzeResponse,
     DefectResult,
+    DefectItem,
     ReleaseNoteGenerateRequest,
     ReleaseNoteGenerateResponse,
     ReleaseNoteResult,
@@ -358,25 +359,67 @@ class RagService:
     def analyze_defect(self, req: DefectAnalyzeRequest) -> DefectAnalyzeResponse:
         start_time = time.time()
         combined_input = f"{req.title or ''}\n{req.description or ''}\n{req.logs or ''}".strip()
-        top_k = 25 if req.document_id else None
+        if req.document_id:
+            chunks, sources = self.retrieval.retrieve_document_context(req.document_id)
+        else:
+            chunks, sources = self.retrieval.retrieve_relevant_context(
+                query=combined_input or "defect error stacktrace exception root cause fix investigation"
+            )
 
-        chunks, sources = self.retrieval.retrieve_relevant_context(
-            query=combined_input or "defect error stacktrace exception root cause fix investigation",
-            top_k=top_k,
-            document_id=req.document_id
-        )
-        combined_context = "\n\n---\n\n".join(chunks)
+        batches = []
+        current_batch = []
+        current_chars = 0
+        max_batch_chars = max(5000, settings.defect_context_batch_chars)
+        for chunk in chunks or ["No retrieved knowledge-base context available."]:
+            if current_batch and current_chars + len(chunk) > max_batch_chars:
+                batches.append(current_batch)
+                current_batch = []
+                current_chars = 0
+            current_batch.append(chunk)
+            current_chars += len(chunk)
+        if current_batch:
+            batches.append(current_batch)
 
-        prompt = build_defect_prompt(
-            title=req.title,
-            description=req.description or "",
-            logs=req.logs or "",
-            steps=req.stepsToReproduce or "",
-            actual=req.actualBehavior or "",
-            expected=req.expectedBehavior or "",
-            context=combined_context
-        )
-        result = self.gemini.generate_structured(prompt, DefectResult)
+        all_defects = []
+        batch_results = []
+        for batch_number, batch in enumerate(batches, start=1):
+            prompt = build_defect_prompt(
+                title=req.title,
+                description=req.description or "",
+                logs=req.logs or "",
+                steps=req.stepsToReproduce or "",
+                actual=req.actualBehavior or "",
+                expected=req.expectedBehavior or "",
+                context=f"DOCUMENT EVIDENCE BATCH {batch_number} OF {len(batches)}:\n\n" + "\n\n---\n\n".join(batch)
+            )
+            batch_result = self.gemini.generate_structured(prompt, DefectResult)
+            batch_results.append(batch_result)
+            all_defects.extend(batch_result.defects)
+
+        unique_defects = []
+        seen_keys = set()
+        for defect in all_defects:
+            key = (defect.title.strip().lower(), defect.location.strip().lower(), defect.rootCause.strip().lower())
+            if key != ("", "", "") and key in seen_keys:
+                continue
+            seen_keys.add(key)
+            defect.defectId = f"DEFECT-{len(unique_defects) + 1:03d}"
+            unique_defects.append(defect)
+
+        if unique_defects:
+            result = DefectResult(
+                defects=unique_defects,
+                summary=f"Found {len(unique_defects)} distinct defects across {len(batches)} evidence batch(es).",
+                probableRootCause="\n\n".join(f"[{d.defectId}] {d.title}: {d.rootCause} Impact: {d.impact}" for d in unique_defects),
+                evidence="\n\n".join(f"[{d.defectId}] {d.evidence}" for d in unique_defects),
+                suggestedInvestigation="\n\n".join(f"[{d.defectId}] {d.investigation}" for d in unique_defects),
+                suggestedFix="\n\n".join(f"[{d.defectId}] {d.fix}" for d in unique_defects),
+                confidence=max((d.confidence for d in unique_defects), key=lambda value: {"HIGH": 3, "MEDIUM": 2, "LOW": 1}.get(value, 0), default="LOW"),
+                severity=max((d.severity for d in unique_defects), key=lambda value: {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}.get(value, 0), default="LOW"),
+                priority=min((d.priority for d in unique_defects), key=lambda value: {"P0": 0, "P1": 1, "P2": 2, "P3": 3}.get(value, 9), default="P3")
+            )
+        else:
+            result = batch_results[0] if batch_results else DefectResult()
         exec_time_ms = int((time.time() - start_time) * 1000)
 
         source_strings = [s.snippet or s.file_name or "" for s in sources if s.snippet or s.file_name]

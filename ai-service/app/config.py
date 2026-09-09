@@ -12,13 +12,12 @@ class Settings(BaseSettings):
 
     # Gemini
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.7-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
     transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
-        "gemini-3.7-flash",
+        "gemini-3.5-flash-lite",
         "gemini-3.6-flash",
         "gemini-3.5-flash",
-        "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
         "gemini-3-flash-preview",
         "gemini-2.5-flash",
@@ -35,6 +34,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = 150
     top_k: int = 5
     max_upload_size_mb: int = 1024
+    defect_context_batch_chars: int = 40000
 
     # App
     host: str = "0.0.0.0"

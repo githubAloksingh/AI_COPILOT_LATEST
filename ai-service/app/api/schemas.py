@@ -153,7 +153,26 @@ class DefectAnalyzeRequest(BaseModel):
     document_id: Optional[str] = None
 
 
+class DefectItem(BaseModel):
+    defectId: str = "DEFECT-001"
+    title: str = ""
+    status: str = "CONFIRMED"
+    component: str = ""
+    location: str = ""
+    trigger: str = ""
+    rootCause: str = ""
+    impact: str = ""
+    evidence: str = ""
+    investigation: str = ""
+    fix: str = ""
+    confidence: str = "MEDIUM"
+    severity: str = "MEDIUM"
+    priority: str = "P2"
+
+
 class DefectResult(BaseModel):
+    defects: List[DefectItem] = Field(default_factory=list)
+    summary: str = ""
     probableRootCause: str = ""
     evidence: str = ""
     suggestedInvestigation: str = ""

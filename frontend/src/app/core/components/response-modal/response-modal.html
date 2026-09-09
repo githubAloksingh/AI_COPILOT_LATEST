@@ -807,6 +807,46 @@
         
         <!-- VIEW MODE -->
         <div *ngIf="mode === 'VIEW'" class="view-content">
+          <div *ngIf="data.defects?.length" class="defect-list">
+            <div class="section-card defect-card" *ngFor="let defect of data.defects">
+              <div class="triage-status-banner">
+                <div>
+                  <h3>{{ defect.defectId }}: {{ defect.title || 'Identified Defect' }}</h3>
+                  <span class="badge badge-severity">Severity: {{ defect.severity || 'MEDIUM' }}</span>
+                  <span class="badge badge-priority">Priority: {{ defect.priority || 'P2' }}</span>
+                  <span class="badge badge-confidence">{{ defect.status || 'CONFIRMED' }} / {{ defect.confidence || 'MEDIUM' }}</span>
+                </div>
+              </div>
+              <p *ngIf="defect.component"><strong>Component:</strong> {{ defect.component }}</p>
+              <p *ngIf="defect.location"><strong>Location:</strong> {{ defect.location }}</p>
+              <p *ngIf="defect.trigger"><strong>Trigger:</strong> {{ defect.trigger }}</p>
+              <div class="section-card alert-danger-card" *ngIf="defect.rootCause">
+                <h3>Root Cause</h3>
+                <p>{{ defect.rootCause }}</p>
+              </div>
+              <p *ngIf="defect.impact"><strong>Impact:</strong> {{ defect.impact }}</p>
+              <div class="section-card" *ngIf="defect.evidence">
+                <h3>Evidence</h3>
+                <p>{{ defect.evidence }}</p>
+              </div>
+              <div class="section-card" *ngIf="defect.investigation">
+                <h3>Investigation</h3>
+                <p>{{ defect.investigation }}</p>
+              </div>
+              <div class="section-card alert-success-card" *ngIf="defect.fix">
+                <h3>Suggested Fix</h3>
+                <pre class="code-block">{{ defect.fix }}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="data.summary" class="section-card">
+            <h3>Analysis Summary</h3>
+            <p>{{ data.summary }}</p>
+          </div>
+
+          <!-- Backward-compatible view for responses without a defects array. -->
+          <ng-container *ngIf="!data.defects?.length">
           <div class="triage-status-banner">
             <div>
               <span class="badge badge-severity">Severity: {{ data.severity || 'MEDIUM' }}</span>
@@ -841,6 +881,7 @@
               <span class="source-tag" *ngFor="let s of sources">{{ s | slice:0:80 }}...</span>
             </div>
           </div>
+          </ng-container>
         </div>
 
         <!-- EDIT MODE -->
