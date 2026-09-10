@@ -10,13 +10,25 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+
+
+
     # Gemini
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_model: str = "gemini-3.7-flash"
     gemini_timeout_seconds: float = 30.0
     transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
-        "gemini-3.5-flash-lite"
+        "gemini-3.7-flash",
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash"
     ]
     # Chroma
     chroma_url: str = "http://localhost:8001"
