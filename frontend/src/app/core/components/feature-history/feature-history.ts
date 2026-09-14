@@ -1,15 +1,18 @@
-import { Component, Input, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../api';
+import { PdfViewerComponent } from '../pdf-viewer/pdf-viewer';
 
 @Component({
   selector: 'app-feature-history',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PdfViewerComponent],
   templateUrl: './feature-history.html',
   styleUrls: ['./feature-history.scss']
 })
 export class FeatureHistoryComponent implements OnChanges {
+  @ViewChild(PdfViewerComponent) pdfViewer?: PdfViewerComponent;
+
   @Input() projectId: number | null = null;
   @Input() feature: string = '';
   @Input() projectName?: string = '';
@@ -163,6 +166,11 @@ export class FeatureHistoryComponent implements OnChanges {
     const isCsv = docName.endsWith('.csv') || item.fileType === 'CSV';
     const isPdf = docName.endsWith('.pdf') || item.fileType === 'PDF';
 
+    if (isPdf) {
+      this.pdfViewer?.open(docId, item.documentName || item.fileName || 'document.pdf');
+      return;
+    }
+
     this.api.getDocumentFile(docId).subscribe({
       next: (blob: Blob) => {
         let mimeType = blob.type;
@@ -187,10 +195,7 @@ export class FeatureHistoryComponent implements OnChanges {
 
         const viewBlob = new Blob([blob], { type: mimeType });
         const url = window.URL.createObjectURL(viewBlob);
-        const win = window.open(url, '_blank');
-        if (!win) {
-          window.location.href = url;
-        }
+        window.location.href = url;
       },
       error: () => {
         alert('Unable to view this document.');

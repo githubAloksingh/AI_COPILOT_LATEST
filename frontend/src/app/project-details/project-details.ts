@@ -1,18 +1,20 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ApiService } from '../core/api';
+import { PdfViewerComponent } from '../core/components/pdf-viewer/pdf-viewer';
 
 @Component({
   selector: 'app-project-details',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PdfViewerComponent],
   templateUrl: './project-details.html',
   styleUrls: ['./project-details.scss']
 })
 export class ProjectDetails implements OnInit, OnDestroy {
+  @ViewChild(PdfViewerComponent) pdfViewer?: PdfViewerComponent;
+
   private readonly maxUploadBytes = 1024 * 1024 * 1024;
   projectId: number = 0;
   project: any = null;
@@ -35,15 +37,6 @@ export class ProjectDetails implements OnInit, OnDestroy {
   uploadFormError = '';
   submittingUpload = false;
 
-  // BRD PDF Viewer Modal State (Original Uploaded Binary)
-  showPreviewModal = false;
-  selectedDocName = '';
-  selectedDocId: number | null = null;
-  previewPdfUrl: SafeResourceUrl | null = null;
-  previewBlobUrl: string | null = null;
-  loadingPreview = false;
-  previewError = '';
-
   // Document Chunks Modal State
   showChunksModal = false;
   chunksDocName = '';
@@ -54,8 +47,7 @@ export class ProjectDetails implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private api: ApiService,
-    private cdr: ChangeDetectorRef,
-    private sanitizer: DomSanitizer
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -70,7 +62,6 @@ export class ProjectDetails implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.stopPolling();
-    this.cleanupPreviewBlobUrl();
   }
 
   loadProjectDetails() {
@@ -306,61 +297,7 @@ export class ProjectDetails implements OnInit, OnDestroy {
       return;
     }
 
-    this.selectedDocName = doc.fileName;
-    this.selectedDocId = docId;
-    this.previewError = '';
-    this.loadingPreview = true;
-    this.showPreviewModal = true;
-    this.cleanupPreviewBlobUrl();
-    this.previewPdfUrl = null;
-    this.cdr.markForCheck();
-
-    this.api.getDocumentFile(docId).subscribe({
-      next: (blob: Blob) => {
-        const contentType = (blob?.type || '').toLowerCase();
-        const mimeType = contentType.includes('pdf') ? 'application/pdf' : contentType || 'application/pdf';
-        const pdfBlob = new Blob([blob], { type: mimeType });
-        this.previewBlobUrl = URL.createObjectURL(pdfBlob);
-        this.previewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.previewBlobUrl);
-        this.loadingPreview = false;
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.loadingPreview = false;
-        this.previewError = 'Unable to retrieve the original file from the server.';
-        this.cdr.markForCheck();
-      }
-    });
-  }
-
-  closePreview() {
-    this.showPreviewModal = false;
-    this.cleanupPreviewBlobUrl();
-    this.previewPdfUrl = null;
-    this.selectedDocName = '';
-    this.selectedDocId = null;
-    this.previewError = '';
-  }
-
-  private cleanupPreviewBlobUrl() {
-    if (this.previewBlobUrl) {
-      URL.revokeObjectURL(this.previewBlobUrl);
-      this.previewBlobUrl = null;
-    }
-  }
-
-  openPdfInNewTab() {
-    if (this.previewBlobUrl) {
-      window.open(this.previewBlobUrl, '_blank');
-    } else if (this.selectedDocId) {
-      this.api.getDocumentFile(this.selectedDocId).subscribe({
-        next: (blob: Blob) => {
-          const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-          const url = URL.createObjectURL(pdfBlob);
-          window.open(url, '_blank');
-        }
-      });
-    }
+    this.pdfViewer?.open(docId, doc.fileName);
   }
 
   openChunksModal(doc: any) {

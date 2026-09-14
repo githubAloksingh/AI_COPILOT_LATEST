@@ -1,0 +1,33 @@
+<div class="modal-backdrop" *ngIf="visible" (click)="close()">
+  <div class="pdf-viewer-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="title-wrap">
+        <span class="document-icon">📄</span>
+        <h3>{{ documentName }}</h3>
+      </div>
+      <div class="header-actions">
+        <button *ngIf="previewBlobUrl" type="button" class="open-tab-button" (click)="openInNewTab()" title="Open in Full Browser Tab">
+          ↗ Open in New Tab
+        </button>
+        <button type="button" class="close-button" (click)="close()" aria-label="Close">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <span>Retrieving exact original PDF binary from server...</span>
+      </div>
+      <div *ngIf="error && !loading" class="error-state">
+        <div class="error-icon">⚠️</div>
+        <p>{{ error }}</p>
+      </div>
+      <iframe *ngIf="previewPdfUrl && !loading" [src]="previewPdfUrl" type="application/pdf" title="Original PDF Document"></iframe>
+    </div>
+
+    <div class="modal-footer">
+      <span>Showing exact uploaded PDF file (unparsed binary)</span>
+      <button type="button" class="close-footer-button" (click)="close()">Close</button>
+    </div>
+  </div>
+</div>
