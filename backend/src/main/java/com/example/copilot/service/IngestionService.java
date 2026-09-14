@@ -1,5 +1,5 @@
 package com.example.copilot.service;
- 
+
 import com.example.copilot.client.AiServiceClient;
 
 import com.example.copilot.dto.ai.AiIngestionResponse;
@@ -25,7 +25,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import org.springframework.web.multipart.MultipartFile;
- 
+
 import java.util.ArrayList;
 
 import java.util.List;
@@ -33,7 +33,7 @@ import java.util.List;
 import java.nio.file.Files;
 
 import java.nio.file.Path;
- 
+
 @Slf4j
 
 @Service
@@ -41,7 +41,7 @@ import java.nio.file.Path;
 @RequiredArgsConstructor
 
 public class IngestionService {
- 
+
     private final DocumentRepository documentRepository;
 
     private final DocumentChunkRepository documentChunkRepository;
@@ -53,30 +53,32 @@ public class IngestionService {
     private final AuditService auditService;
 
     private final DocumentService documentService;
- 
+
     public Document uploadDocument(MultipartFile file) {
 
         return uploadDocument(null, file, null, null, "System", "v1");
 
     }
- 
+
     public Document uploadDocument(Long projectId, MultipartFile file, String uploadedBy, String version) {
 
         return uploadDocument(projectId, file, null, null, uploadedBy, version);
 
     }
- 
-    public Document uploadDocument(Long projectId, MultipartFile file, String title, String customType, String uploadedBy, String version) {
+
+    public Document uploadDocument(Long projectId, MultipartFile file, String title, String customType,
+            String uploadedBy, String version) {
 
         String originalFileName = file.getOriginalFilename();
 
         String finalName = (title != null && !title.trim().isEmpty()) ? title.trim() : originalFileName;
 
         String calculatedVersion = version;
- 
+
         if (projectId != null && (version == null || version.isEmpty() || "v1".equalsIgnoreCase(version))) {
 
-            java.util.List<Document> existing = documentRepository.findByProjectIdAndFileNameOrderByCreatedAtDesc(projectId, finalName);
+            java.util.List<Document> existing = documentRepository
+                    .findByProjectIdAndFileNameOrderByCreatedAtDesc(projectId, finalName);
 
             if (existing != null && !existing.isEmpty()) {
 
@@ -98,7 +100,8 @@ public class IngestionService {
 
                             }
 
-                        } catch (NumberFormatException ignored) {}
+                        } catch (NumberFormatException ignored) {
+                        }
 
                     }
 
@@ -113,43 +116,36 @@ public class IngestionService {
             }
 
         }
- 
+
         Document doc = new Document();
 
         doc.setProjectId(projectId);
 
         doc.setFileName(finalName);
 
-        doc.setFileType(customType != null && !customType.trim().isEmpty() ? customType.trim() : (file.getContentType() != null ? file.getContentType() : "unknown"));
+        doc.setFileType(customType != null && !customType.trim().isEmpty() ? customType.trim()
+                : (file.getContentType() != null ? file.getContentType() : "unknown"));
 
         doc.setFileSize(file.getSize());
 
         doc.setUploadedBy(uploadedBy != null && !uploadedBy.trim().isEmpty() ? uploadedBy.trim() : "System");
 
-        doc.setVersion(calculatedVersion != null && !calculatedVersion.trim().isEmpty() ? calculatedVersion.trim() : "v1");
+        doc.setVersion(
+                calculatedVersion != null && !calculatedVersion.trim().isEmpty() ? calculatedVersion.trim() : "v1");
 
         doc.setStatus("PROCESSING");
-
-        try {
-
-            doc.setFileData(file.getBytes());
-
-        } catch (java.io.IOException e) {
-
-            throw new IllegalStateException("Could not read uploaded file", e);
-
-        }
 
         return documentRepository.save(doc);
 
     }
- 
+
     @Async("documentTaskExecutor")
 
     public void processDocumentAsync(Long documentId, Path filePath, String originalFileName, String fileType) {
 
-        log.info("Starting async document ingestion for document ID: {} ({}) via AI Service", documentId, originalFileName);
- 
+        log.info("Starting async document ingestion for document ID: {} ({}) via AI Service", documentId,
+                originalFileName);
+
         Document document = documentRepository.findById(documentId).orElse(null);
 
         if (document == null) {
@@ -159,13 +155,13 @@ public class IngestionService {
             return;
 
         }
- 
+
         long startTime = System.currentTimeMillis();
 
         try {
 
-            documentService.saveOriginalFile(documentId, Files.readAllBytes(filePath));
- 
+            documentService.saveOriginalFile(documentId, filePath);
+
             AiIngestionResponse response = aiServiceClient.ingestDocument(
 
                     documentId,
@@ -177,7 +173,7 @@ public class IngestionService {
                     filePath
 
             );
- 
+
             document.setStatus("COMPLETED");
 
             document.setErrorMessage(null);
@@ -185,7 +181,7 @@ public class IngestionService {
             document.setChunkCount(response.getChunk_count());
 
             documentRepository.save(document);
- 
+
             // Persist chunks directly into MySQL document_chunk table
 
             if (response.getChunks() != null && !response.getChunks().isEmpty()) {
@@ -211,7 +207,7 @@ public class IngestionService {
                 documentChunkRepository.saveAll(chunkEntities);
 
             }
- 
+
             // Resolve Project Name for audit log
 
             String projectName = "General";
@@ -223,15 +219,18 @@ public class IngestionService {
                         .map(Project::getProjectName).orElse("General");
 
             }
- 
+
             long duration = System.currentTimeMillis() - startTime;
 
             auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
 
-                    "Uploaded document: " + document.getFileName() + " (" + response.getChunk_count() + " chunks)", null, "Parser", "v1.0", "COMPLETED", "COMPLETED", duration, null, projectName, document.getFileName(), document.getVersion(), document.getFileType());
+                    "Uploaded document: " + document.getFileName() + " (" + response.getChunk_count() + " chunks)",
+                    null, "Parser", "v1.0", "COMPLETED", "COMPLETED", duration, null, projectName,
+                    document.getFileName(), document.getVersion(), document.getFileType());
 
-            log.info("Successfully completed ingestion for document ID: {} ({} chunks) in project '{}'", document.getId(), response.getChunk_count(), projectName);
- 
+            log.info("Successfully completed ingestion for document ID: {} ({} chunks) in project '{}'",
+                    document.getId(), response.getChunk_count(), projectName);
+
         } catch (Exception e) {
 
             long duration = System.currentTimeMillis() - startTime;
@@ -251,7 +250,7 @@ public class IngestionService {
             document.setErrorMessage(err);
 
             documentRepository.save(document);
- 
+
             String projectName = "General";
 
             if (document.getProjectId() != null) {
@@ -261,10 +260,11 @@ public class IngestionService {
                         .map(Project::getProjectName).orElse("General");
 
             }
- 
+
             auditService.logAuditFull("Knowledge Base", "UPLOAD_DOCUMENT", document.getUploadedBy(), "USER",
 
-                    "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration, err, projectName, document.getFileName(), document.getVersion(), document.getFileType());
+                    "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration,
+                    err, projectName, document.getFileName(), document.getVersion(), document.getFileType());
 
         } finally {
 
@@ -283,4 +283,3 @@ public class IngestionService {
     }
 
 }
- 

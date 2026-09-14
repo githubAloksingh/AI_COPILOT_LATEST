@@ -34,6 +34,12 @@ export class ReleaseNotes implements OnInit {
   selectedDocumentId: number | null = null;
   selectedDocument: any = null;
   loadingDocs = false;
+  selectedInputType: 'BRD' | 'Codebase' | 'BRD + Codebase' = 'BRD';
+  availableCodebases: any[] = [];
+  selectedBrdId: number | null = null;
+  selectedBrdDocument: any = null;
+  selectedCodebaseId: number | null = null;
+  selectedCodebaseDocument: any = null;
 
   // State
   loading = false;
@@ -79,7 +85,12 @@ export class ReleaseNotes implements OnInit {
     this.selectedProject = this.projects.find(p => p.id === this.selectedProjectId) || null;
     this.selectedDocumentId = null;
     this.selectedDocument = null;
+    this.selectedBrdId = null;
+    this.selectedBrdDocument = null;
+    this.selectedCodebaseId = null;
+    this.selectedCodebaseDocument = null;
     this.availableBrds = [];
+    this.availableCodebases = [];
     this.documents = [];
     this.error = '';
 
@@ -95,6 +106,13 @@ export class ReleaseNotes implements OnInit {
               d.status === 'COMPLETED' && (
                 d.fileType === 'BRD' ||
                 (d.fileName && !d.fileName.toLowerCase().endsWith('.zip'))
+              )
+            );
+            this.availableCodebases = allDocs.filter((d: any) =>
+              d.status === 'COMPLETED' && (
+                d.fileType === 'CODEBASE' ||
+                d.fileType === 'ZIP' ||
+                (d.fileName && d.fileName.toLowerCase().endsWith('.zip'))
               )
             );
             this.selectedDocument = null;
@@ -115,10 +133,47 @@ export class ReleaseNotes implements OnInit {
 
   onBrdSelect(docId: any) {
     this.selectedDocumentId = docId ? Number(docId) : null;
-    this.selectedDocument = this.availableBrds.find(d => d.id === this.selectedDocumentId) || null;
+    const sourceDocuments = this.selectedInputType === 'Codebase' ? this.availableCodebases : this.availableBrds;
+    this.selectedDocument = sourceDocuments.find(d => d.id === this.selectedDocumentId) || null;
+    if (this.selectedInputType === 'Codebase') {
+      this.selectedCodebaseId = this.selectedDocumentId;
+      this.selectedCodebaseDocument = this.selectedDocument;
+    } else {
+      this.selectedBrdId = this.selectedDocumentId;
+      this.selectedBrdDocument = this.selectedDocument;
+    }
     if (this.selectedDocument && !this.sprintInformation) {
       this.sprintInformation = 'Release notes for ' + this.selectedDocument.fileName;
     }
+    this.cdr.markForCheck();
+  }
+
+  onArtifactSelect(docId: any) {
+    this.onBrdSelect(docId);
+  }
+
+  onBrdArtifactSelect(docId: any) {
+    this.selectedBrdId = docId ? Number(docId) : null;
+    this.selectedBrdDocument = this.availableBrds.find(d => d.id === this.selectedBrdId) || null;
+    this.selectedDocumentId = this.selectedBrdId;
+    this.selectedDocument = this.selectedBrdDocument;
+    this.cdr.markForCheck();
+  }
+
+  onCodebaseArtifactSelect(docId: any) {
+    this.selectedCodebaseId = docId ? Number(docId) : null;
+    this.selectedCodebaseDocument = this.availableCodebases.find(d => d.id === this.selectedCodebaseId) || null;
+    this.cdr.markForCheck();
+  }
+
+  onArtifactTypeChange() {
+    this.selectedDocumentId = null;
+    this.selectedDocument = null;
+    this.selectedBrdId = null;
+    this.selectedBrdDocument = null;
+    this.selectedCodebaseId = null;
+    this.selectedCodebaseDocument = null;
+    this.sprintInformation = '';
     this.cdr.markForCheck();
   }
 
@@ -136,6 +191,9 @@ export class ReleaseNotes implements OnInit {
 
   isInputValid(): boolean {
     if (this.inputMode === 'kb') {
+      if (this.selectedInputType === 'BRD + Codebase') {
+        return !!(this.selectedProjectId && this.selectedBrdId && this.selectedCodebaseId && this.version.trim());
+      }
       return !!(this.selectedProjectId && this.selectedDocumentId && this.version.trim());
     }
     return !!(this.version.trim() && this.sprintInformation.trim());
@@ -145,9 +203,10 @@ export class ReleaseNotes implements OnInit {
     return {
       project: this.selectedProject?.projectName || undefined,
       documentName: this.selectedDocument ? this.selectedDocument.fileName : ('Release Notes v' + this.version),
-      brd: this.selectedDocument ? this.selectedDocument.fileName : undefined,
-      version: this.selectedDocument?.version || this.version || undefined,
-      inputType: this.inputMode === 'kb' ? 'Knowledge Base Document' : 'Manual Input'
+      brd: this.selectedInputType !== 'Codebase' ? (this.selectedBrdDocument?.fileName || this.selectedDocument?.fileName) : undefined,
+      codebase: this.selectedInputType !== 'BRD' ? (this.selectedCodebaseDocument?.fileName || this.selectedDocument?.fileName) : undefined,
+      version: this.selectedBrdDocument?.version || this.selectedDocument?.version || this.version || undefined,
+      inputType: this.inputMode === 'kb' ? this.selectedInputType : 'Manual Input'
     };
   }
 
@@ -165,19 +224,24 @@ export class ReleaseNotes implements OnInit {
     this.cdr.markForCheck();
 
     const sprintDetails = this.inputMode === 'kb'
-      ? `Release Notes for version ${this.version} based on ${this.selectedDocument?.fileName || 'BRD'}`
+      ? `Release Notes for version ${this.version} based on ${this.selectedInputType === 'BRD + Codebase'
+        ? `${this.selectedBrdDocument?.fileName} and ${this.selectedCodebaseDocument?.fileName}`
+        : this.selectedDocument?.fileName || this.selectedInputType}`
       : this.sprintInformation.trim();
 
     const payload: any = {
       version: this.version || '1.0.0',
       sprintInformation: sprintDetails,
-      document_id: this.selectedDocumentId ? String(this.selectedDocumentId) : null,
+      document_id: (this.selectedBrdId || this.selectedDocumentId) ? String(this.selectedBrdId || this.selectedDocumentId) : null,
+      zip_document_id: this.selectedCodebaseId ? String(this.selectedCodebaseId) : null,
       projectId: this.selectedProjectId,
       projectName: this.selectedProject?.projectName || null,
       documentId: this.selectedDocumentId,
-      documentName: this.selectedDocument?.fileName || null,
-      documentVersion: this.selectedDocument?.version || null,
-      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL'
+      documentName: this.selectedInputType === 'BRD + Codebase'
+        ? `${this.selectedBrdDocument?.fileName} + ${this.selectedCodebaseDocument?.fileName}`
+        : this.selectedDocument?.fileName || null,
+      documentVersion: this.selectedBrdDocument?.version || this.selectedDocument?.version || null,
+      inputType: this.inputMode === 'kb' ? this.selectedInputType : 'MANUAL'
     };
 
     this.api.generateReleaseNotes(payload).subscribe({
@@ -230,7 +294,7 @@ export class ReleaseNotes implements OnInit {
       documentId: this.selectedDocumentId,
       documentName: this.selectedDocument?.fileName || null,
       documentVersion: this.selectedDocument?.version || null,
-      inputType: this.inputMode === 'kb' ? 'KNOWLEDGE_BASE' : 'MANUAL'
+      inputType: this.inputMode === 'kb' ? this.selectedInputType : 'MANUAL'
     };
 
     this.api.acceptReleaseNotes(acceptPayload).subscribe({

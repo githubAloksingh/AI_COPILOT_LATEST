@@ -26,4 +26,19 @@ if (Test-Path $envFile) {
     }
 }
 
+$env:HF_HUB_DISABLE_XET = '1'
+
+$existingListener = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+if ($existingListener) {
+    try {
+        $health = Invoke-RestMethod 'http://localhost:8000/health' -TimeoutSec 3
+        if ($health.service -eq 'ai-service' -and $health.status -eq 'healthy') {
+            Write-Host 'AI service is already running and healthy at http://localhost:8000.'
+            exit 0
+        }
+    } catch {
+        throw 'Port 8000 is already in use by another process. Stop that process or configure a different AI service port.'
+    }
+}
+
 & $python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

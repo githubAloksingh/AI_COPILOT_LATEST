@@ -106,19 +106,21 @@
             <span class="version-badge">{{ doc.version || 'v1' }}</span>
           </td>
           <td style="text-align: center;">
-            <button *ngIf="isBrd(doc.fileName)" 
-                    class="eye-btn" 
-                    title="Preview BRD Content" 
+            <button *ngIf="canViewDocument(doc)"
+                    class="eye-btn"
+                    title="View"
+                    aria-label="View"
                     (click)="openPreview(doc)">
               👁
             </button>
-            <span *ngIf="!isBrd(doc.fileName)" style="color: #94a3b8; font-size: 0.85rem;">—</span>
+            <span *ngIf="!canViewDocument(doc)" style="color: #94a3b8; font-size: 0.85rem;">—</span>
           </td>
           <td style="text-align: right; white-space: nowrap;">
             <div class="action-buttons">
               <button type="button"
-                      class="action-icon-btn download-btn" 
-                      title="Download" 
+                      *ngIf="resolveDocumentId(doc)"
+                      class="action-icon-btn download-btn"
+                      title="Download"
                       aria-label="Download"
                       (click)="downloadDocument(doc)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -128,10 +130,10 @@
                 </svg>
               </button>
               <button type="button"
-                      class="action-icon-btn danger-btn" 
-                      title="Delete" 
+                      class="action-icon-btn danger-btn"
+                      title="Delete"
                       aria-label="Delete"
-                      (click)="deleteDocument(doc.id)">
+                      (click)="deleteDocument(resolveDocumentId(doc) ?? 0)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="3 6 5 6 21 6"/>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>

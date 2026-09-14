@@ -198,6 +198,7 @@ class ReleaseNoteGenerateRequest(BaseModel):
     version: str
     sprintInformation: str
     document_id: Optional[str] = None
+    zip_document_id: Optional[str] = None
 
 
 class ReleaseNoteResult(BaseModel):

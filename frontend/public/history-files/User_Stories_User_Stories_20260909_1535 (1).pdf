@@ -1,0 +1,1562 @@
+%PDF-1.3
+%ºß¬à
+3 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 6689
+>>
+stream
+0.200025 w
+0 G
+BT
+/F2 20 Tf
+23. TL
+0. g
+54. 787.8899999999999864 Td
+(User Stories) Tj
+ET
+0.71 G
+0.75 w
+54. 755.8899999999999864 m
+541.2799999999999727 755.8899999999999864 l
+S
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0. g
+54. 737.8899999999999864 Td
+(US-001  AI Agent CLI Query Processing ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 721.8899999999999864 Td
+(I want to submit questions through the CLI and receive AI-generated responses, so that my queries are) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 707.8899999999999864 Td
+(correctly classified and processed by capabilities like calculator and datetime.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 689.8899999999999864 Td
+(Description: ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+114.9000000000000057 689.8899999999999864 Td
+(The application should accept user questions through the CLI and return an AI-generated) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 675.8899999999999864 Td
+(response. The agent should classify questions and route them to the appropriate processing) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 661.8899999999999864 Td
+(capability, specifically incorporating calculator and datetime capabilities.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 643.8899999999999864 Td
+(Acceptance Criteria:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 629.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 629.8899999999999864 Td
+(AC-001  The system shall accept a valid user question through the CLI and return a generated response.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 615.8899999999999864 Td
+( [Source: REQ-004;REQ-009]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 601.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 601.8899999999999864 Td
+(AC-002  The system shall classify supported queries and route them to the corresponding processing) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 587.8899999999999864 Td
+(capability, including calculator and datetime handling.  [Source: REQ-007;REQ-008, REL-003]) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 569.8899999999999864 Td
+(Business Rules:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 555.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 555.8899999999999864 Td
+(BR-001  Supported queries must be classified and routed to corresponding processing capabilities.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 537.8899999999999864 Td
+(Dependencies:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 523.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 523.8899999999999864 Td
+(Calculator and datetime capability implementations.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 505.8899999999999864 Td
+(Assumptions:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 491.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 491.8899999999999864 Td
+(Not specified in the provided input.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 473.8899999999999864 Td
+(Edge Cases:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 459.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 459.8899999999999864 Td
+(Entering an empty or whitespace-only message is handled without unnecessary AI processing.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 445.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 445.8899999999999864 Td
+(Web search request failure results in an external search-service failure probable cause, recommending) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 431.8899999999999864 Td
+(safe exception handling and a controlled no-results/error response.) Tj
+ET
+0.82 G
+0.4 w
+54. 403.8899999999999864 m
+541.2799999999999727 403.8899999999999864 l
+S
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0. g
+54. 389.8899999999999864 Td
+(US-002  AI Image Analyzer File Validation and Analysis) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 373.8899999999999864 Td
+(As a user, I want to upload supported image formats under 10 MB for AI-based image analysis, so that I) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 359.8899999999999864 Td
+(receive object detection, scene analysis, image summaries, and OCR.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 341.8899999999999864 Td
+(Description: ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+114.9000000000000057 341.8899999999999864 Td
+(The system should analyze images and identify objects, scenes, summaries, and text. It must) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 327.8899999999999864 Td
+(support image formats and reject files larger than 10 MB before analysis.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 309.8899999999999864 Td
+(Acceptance Criteria:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 295.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 295.8899999999999864 Td
+(AC-001  The requirement summary shall mention AI-based image analysis including object detection,) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 281.8899999999999864 Td
+(scene analysis, image summary, and OCR.  [Source: REQ-021;REQ-022;REQ-023;REQ-024;REQ-025]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 267.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 267.8899999999999864 Td
+(AC-002  The system shall support image formats and reject files larger than 10 MB before analysis. ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 253.8899999999999864 Td
+([Source: REQ-017;REQ-018;REQ-019]) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 235.8899999999999864 Td
+(Business Rules:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 221.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 221.8899999999999864 Td
+(BR-001  Files larger than 10 MB must be rejected before analysis.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 203.8899999999999864 Td
+(Dependencies:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 189.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 189.8899999999999864 Td
+(AI image analysis service.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 171.8899999999999864 Td
+(Assumptions:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 157.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 157.8899999999999864 Td
+(Not specified in the provided input.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 139.8899999999999864 Td
+(Edge Cases:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 125.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 125.8899999999999864 Td
+(Uploading a PDF file instead of an image results in rejection with a controlled validation error.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 111.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 111.8899999999999864 Td
+(Handling an image larger than 10 MB that is incorrectly accepted.) Tj
+ET
+0.82 G
+0.4 w
+54. 83.8899999999999864 m
+541.2799999999999727 83.8899999999999864 l
+S
+BT
+/F1 8 Tf
+9.1999999999999993 TL
+0.471 g
+54. 16. Td
+(User Stories  |  User Stories) Tj
+ET
+BT
+/F1 8 Tf
+9.1999999999999993 TL
+0.471 g
+500.6399999999999864 16. Td
+(Page 1 of 3) Tj
+ET
+0.78 G
+0.4 w
+54. 26. m
+541.2799999999999727 26. l
+S
+endstream
+endobj
+5 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 6 0 R
+>>
+endobj
+6 0 obj
+<<
+/Length 6707
+>>
+stream
+0.4 w
+0.82 G
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0. g
+54. 787.8899999999999864 Td
+(US-003  Document Summary Assistant Upload and Processing) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 771.8899999999999864 Td
+(As a user, I want to upload PDF or DOCX documents up to 10 MB, so that the system extracts readable text) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 757.8899999999999864 Td
+(and generates a summary.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 739.8899999999999864 Td
+(Description: ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+114.9000000000000057 739.8899999999999864 Td
+(The system shall allow a user to upload a document for summarization, accepting PDF and) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 725.8899999999999864 Td
+(DOCX documents while rejecting documents larger than the configured 10 MB limit, and) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 711.8899999999999864 Td
+(extracting readable PDF text.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 693.8899999999999864 Td
+(Acceptance Criteria:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 679.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 679.8899999999999864 Td
+(AC-001  User can submit a document for summarization, accepting PDF and DOCX uploads.  [Source:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 665.8899999999999864 Td
+(REQ-033, REQ-034]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 651.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 651.8899999999999864 Td
+(AC-002  Documents exceeding 10 MB are rejected.  [Source: REQ-035]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 637.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 637.8899999999999864 Td
+(AC-003  Readable PDF text is extracted for summarization.  [Source: REQ-065]) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 619.8899999999999864 Td
+(Business Rules:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 605.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 605.8899999999999864 Td
+(BR-001  Accepted file formats are PDF and DOCX.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 591.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 591.8899999999999864 Td
+(BR-002  Maximum file size limit is 10 MB.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 573.8899999999999864 Td
+(Dependencies:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 559.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 559.8899999999999864 Td
+(PDF text extraction service.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 541.8899999999999864 Td
+(Assumptions:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 527.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 527.8899999999999864 Td
+(Not specified in the provided input.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 509.8899999999999864 Td
+(Edge Cases:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 495.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 495.8899999999999864 Td
+(Submitting a document larger than 10 MB triggers rejection.) Tj
+ET
+0.82 G
+0.4 w
+54. 467.8899999999999864 m
+541.2799999999999727 467.8899999999999864 l
+S
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0. g
+54. 453.8899999999999864 Td
+(US-004  AI Email Generator Tone and Field Output) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 437.8899999999999864 Td
+(As a user, I want the AI generation service to return subject and body fields based on my bullet points and) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 423.8899999999999864 Td
+(tone choices, so that I receive structured email drafts.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 405.8899999999999864 Td
+(Description: ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+114.9000000000000057 405.8899999999999864 Td
+(The AI generation service shall return subject and body fields, supporting email generation from) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 391.8899999999999864 Td
+(valid bullet points and using specified tones like Friendly.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 373.8899999999999864 Td
+(Acceptance Criteria:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 359.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 359.8899999999999864 Td
+(AC-001  Successful generation contains subject and body fields.  [Source: REQ-053]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 345.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 345.8899999999999864 Td
+(AC-002  Generated email uses the selected tone \(e.g., Friendly\) and is generated from valid bullet points.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 331.8899999999999864 Td
+( [Source: GE-247, GE-248]) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 313.8899999999999864 Td
+(Business Rules:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 299.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 299.8899999999999864 Td
+(BR-001  The AI generation service response must include subject and body fields.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 281.8899999999999864 Td
+(Dependencies:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 267.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 267.8899999999999864 Td
+(AI generation service.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 249.8899999999999864 Td
+(Assumptions:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 235.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 235.8899999999999864 Td
+(Not specified in the provided input.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 217.8899999999999864 Td
+(Edge Cases:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 203.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 203.8899999999999864 Td
+(Generation with missing or invalid bullet points.) Tj
+ET
+0.82 G
+0.4 w
+54. 175.8899999999999864 m
+541.2799999999999727 175.8899999999999864 l
+S
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0. g
+54. 161.8899999999999864 Td
+(US-005  Smart FAQ Bot PDF Upload, Extraction, and Chunking) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 145.8899999999999864 Td
+(As a user, I want to upload PDF files up to 25 MB, so that the system extracts readable text and page) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 131.8899999999999864 Td
+(metadata using PyMuPDF and splits the text into chunks.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 113.8899999999999864 Td
+(Description: ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+114.9000000000000057 113.8899999999999864 Td
+(The system shall accept only PDF files, reject non-PDF uploads with a controlled error, reject) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 99.8899999999999864 Td
+(PDF files larger than 25 MB, extract text from PDFs using PyMuPDF yielding readable page text) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 85.8899999999999864 Td
+(and page metadata, and split extracted PDF text into chunks using configured size and overlap.) Tj
+ET
+BT
+/F1 8 Tf
+9.1999999999999993 TL
+0.471 g
+54. 16. Td
+(User Stories  |  User Stories) Tj
+ET
+BT
+/F1 8 Tf
+9.1999999999999993 TL
+0.471 g
+500.6399999999999864 16. Td
+(Page 2 of 3) Tj
+ET
+0.78 G
+0.4 w
+54. 26. m
+541.2799999999999727 26. l
+S
+endstream
+endobj
+7 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 8 0 R
+>>
+endobj
+8 0 obj
+<<
+/Length 5912
+>>
+stream
+0.4 w
+0.82 G
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 787.8899999999999864 Td
+(Acceptance Criteria:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 773.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 773.8899999999999864 Td
+(AC-001  Non-PDF uploads are rejected with a controlled error.  [Source: REQ-066]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 759.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 759.8899999999999864 Td
+(AC-002  Files above 25 MB are rejected.  [Source: REQ-067]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 745.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 745.8899999999999864 Td
+(AC-003  Readable page text and page metadata are extracted using PyMuPDF.  [Source: REQ-068]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 731.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 731.8899999999999864 Td
+(AC-004  Chunks are generated using configured size and overlap.  [Source: REQ-069]) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 713.8899999999999864 Td
+(Business Rules:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 699.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 699.8899999999999864 Td
+(BR-001  Only PDF files are accepted.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 685.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 685.8899999999999864 Td
+(BR-002  Maximum PDF file size is 25 MB.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 667.8899999999999864 Td
+(Dependencies:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 653.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 653.8899999999999864 Td
+(PyMuPDF library.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 635.8899999999999864 Td
+(Assumptions:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 621.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 621.8899999999999864 Td
+(Not specified in the provided input.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 603.8899999999999864 Td
+(Edge Cases:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 589.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 589.8899999999999864 Td
+(Rejecting a PDF larger than 25 MB returns a controlled file-size error.) Tj
+ET
+0.82 G
+0.4 w
+54. 561.8899999999999864 m
+541.2799999999999727 561.8899999999999864 l
+S
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0. g
+54. 547.8899999999999864 Td
+(US-006  Meeting Transcript & Minutes Generator System and Ingestion) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 531.8899999999999864 Td
+(As a user, I want the system to expose a health endpoint and process transcripts or media recordings, so that I) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+54. 517.8899999999999864 Td
+(can generate structured meeting minutes from valid inputs.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 499.8899999999999864 Td
+(Description: ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+114.9000000000000057 499.8899999999999864 Td
+(The system shall expose a health endpoint \(GET / returns status healthy with HTTP 200\). It shall) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 485.8899999999999864 Td
+(accept a meeting transcript as text, allow TXT transcript uploads, reject non-TXT transcript) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 471.8899999999999864 Td
+(uploads with controlled errors or HTTP 400 invalid-format responses, and accept supported) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+54. 457.8899999999999864 Td
+(audio and video recordings \(such as MP4\).) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 439.8899999999999864 Td
+(Acceptance Criteria:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 425.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 425.8899999999999864 Td
+(AC-001  GET / returns status healthy with HTTP 200.  [Source: REQ-081]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 411.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 411.8899999999999864 Td
+(AC-002  A non-empty transcript can be submitted for minutes generation, and valid TXT content is) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 397.8899999999999864 Td
+(returned as transcript text.  [Source: REQ-082, REQ-083]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 383.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 383.8899999999999864 Td
+(AC-003  Invalid transcript file types return controlled errors or HTTP 400 invalid-format response. ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 369.8899999999999864 Td
+([Source: REQ-084, TC-306]) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 355.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 355.8899999999999864 Td
+(AC-004  Supported media extensions \(such as MP4\) are accepted and can enter the transcription flow. ) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 341.8899999999999864 Td
+([Source: REQ-085, TC-308]) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 323.8899999999999864 Td
+(Business Rules:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 309.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 309.8899999999999864 Td
+(BR-001  Only supported TXT transcripts and supported audio/video extensions are accepted.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 291.8899999999999864 Td
+(Dependencies:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 277.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 277.8899999999999864 Td
+(Transcription and minutes generation service.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 259.8899999999999864 Td
+(Assumptions:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 245.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 245.8899999999999864 Td
+(Not specified in the provided input.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+54. 227.8899999999999864 Td
+(Edge Cases:) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+68. 213.8899999999999864 Td
+(•) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.118 g
+78. 213.8899999999999864 Td
+(Rejecting a PDF as a transcript upload returns an HTTP 400 invalid-format response.) Tj
+ET
+BT
+/F1 8 Tf
+9.1999999999999993 TL
+0.471 g
+54. 16. Td
+(User Stories  |  User Stories) Tj
+ET
+BT
+/F1 8 Tf
+9.1999999999999993 TL
+0.471 g
+500.6399999999999864 16. Td
+(Page 3 of 3) Tj
+ET
+0.78 G
+0.4 w
+54. 26. m
+541.2799999999999727 26. l
+S
+endstream
+endobj
+1 0 obj
+<</Type /Pages
+/Kids [3 0 R 5 0 R 7 0 R ]
+/Count 3
+>>
+endobj
+9 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+10 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+11 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+12 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+13 0 obj
+<<
+/Type /Font
+/BaseFont /Courier
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+14 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+15 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+16 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+17 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Roman
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+18 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+19 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Italic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+20 0 obj
+<<
+/Type /Font
+/BaseFont /Times-BoldItalic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+21 0 obj
+<<
+/Type /Font
+/BaseFont /ZapfDingbats
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+22 0 obj
+<<
+/Type /Font
+/BaseFont /Symbol
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+2 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 9 0 R
+/F2 10 0 R
+/F3 11 0 R
+/F4 12 0 R
+/F5 13 0 R
+/F6 14 0 R
+/F7 15 0 R
+/F8 16 0 R
+/F9 17 0 R
+/F10 18 0 R
+/F11 19 0 R
+/F12 20 0 R
+/F13 21 0 R
+/F14 22 0 R
+>>
+/XObject <<
+>>
+>>
+endobj
+23 0 obj
+<<
+/Producer (jsPDF 4.2.1)
+/CreationDate (D:20260909153513+05'30')
+>>
+endobj
+24 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+>>
+endobj
+xref
+0 25
+0000000000 65535 f 
+0000019890 00000 n 
+0000021723 00000 n 
+0000000015 00000 n 
+0000000152 00000 n 
+0000006893 00000 n 
+0000007030 00000 n 
+0000013789 00000 n 
+0000013926 00000 n 
+0000019959 00000 n 
+0000020084 00000 n 
+0000020215 00000 n 
+0000020349 00000 n 
+0000020487 00000 n 
+0000020611 00000 n 
+0000020740 00000 n 
+0000020872 00000 n 
+0000021008 00000 n 
+0000021136 00000 n 
+0000021263 00000 n 
+0000021392 00000 n 
+0000021525 00000 n 
+0000021627 00000 n 
+0000021975 00000 n 
+0000022061 00000 n 
+trailer
+<<
+/Size 25
+/Root 24 0 R
+/Info 23 0 R
+/ID [ <148A930F656E01880BA5CCC25A91D3AB> <148A930F656E01880BA5CCC25A91D3AB> ]
+>>
+startxref
+22165
+%%EOF

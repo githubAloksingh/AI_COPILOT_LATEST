@@ -1,5 +1,6 @@
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 from app.config import settings
 from app.api.schemas import (
@@ -53,6 +54,10 @@ class RagService:
         self.retrieval = retrieval_service
         self.gemini = gemini_service
 
+    @staticmethod
+    def _build_context(chunks: List[str]) -> str:
+        return "\n\n---\n\n".join(str(chunk or "") for chunk in chunks if str(chunk or "").strip())
+
     def generate_requirement(self, req: RequirementGenerateRequest) -> RequirementGenerateResponse:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
@@ -62,7 +67,7 @@ class RagService:
             top_k=top_k,
             document_id=req.document_id
         )
-        combined_context = "\n\n---\n\n".join(chunks)
+        combined_context = self._build_context(chunks)
 
         prompt = build_requirement_prompt(combined_query or "Requirement from knowledge base", combined_context)
         raw_result = self.gemini.generate_structured(prompt, RequirementResult)
@@ -89,7 +94,7 @@ class RagService:
             top_k=top_k,
             document_id=req.document_id
         )
-        combined_context = "\n\n---\n\n".join(chunks)
+        combined_context = self._build_context(chunks)
 
         prompt = build_user_story_prompt(combined_query or "User Story from requirement", combined_context)
         parsed_dict = self.gemini.generate_dict(prompt)
@@ -142,7 +147,7 @@ class RagService:
             top_k=top_k,
             document_id=req.document_id
         )
-        combined_context = "\n\n---\n\n".join(chunks)
+        combined_context = self._build_context(chunks)
 
         prompt = build_functional_design_prompt(combined_query or "Functional Design requirement", combined_context)
         parsed_dict = self.gemini.generate_dict(prompt)
@@ -194,7 +199,7 @@ class RagService:
             top_k=top_k,
             document_id=req.document_id
         )
-        combined_context = "\n\n---\n\n".join(chunks)
+        combined_context = self._build_context(chunks)
 
         prompt = build_technical_design_prompt(combined_query or "Technical Design requirement", combined_context)
         parsed_dict = self.gemini.generate_dict(prompt)
@@ -206,17 +211,63 @@ class RagService:
         objective = td_raw.get("objective", "")
         summary = td_raw.get("requirementSummary", objective)
 
+        # Collect acceptance criteria from validation, validationRules, and acceptanceCriteriaMappings
+        ac_items = []
+        if isinstance(td_raw.get("validation"), list):
+            ac_items.extend(td_raw.get("validation", []))
+        val_rules = td_raw.get("validationRules", {})
+        if isinstance(val_rules, dict) and isinstance(val_rules.get("frontend"), list):
+            ac_items.extend([f"{v.get('field', '')}: {v.get('rule', '')}" for v in val_rules.get("frontend", []) if isinstance(v, dict)])
+        if isinstance(td_raw.get("acceptanceCriteriaMappings"), list):
+            ac_items.extend([m.get("acceptanceCriterion", "") for m in td_raw.get("acceptanceCriteriaMappings", []) if isinstance(m, dict)])
+
+        # Collect business rules from businessLogic and businessRuleMappings
+        br_items = []
+        if isinstance(td_raw.get("businessLogic"), list):
+            br_items.extend(td_raw.get("businessLogic", []))
+        if isinstance(td_raw.get("businessRuleMappings"), list):
+            br_items.extend([f"{m.get('businessRule', '')}: {m.get('technicalImplementation', '')}" for m in td_raw.get("businessRuleMappings", []) if isinstance(m, dict)])
+
+        # Collect edge cases
+        ec_items = []
+        if isinstance(td_raw.get("edgeCases"), list):
+            ec_items.extend([f"{ec.get('scenario', '')}: {ec.get('handling', '')}" if isinstance(ec, dict) else ec for ec in td_raw.get("edgeCases", [])])
+        elif isinstance(td_raw.get("errorHandling"), list):
+            ec_items.extend([eh.get("scenario", "") if isinstance(eh, dict) else eh for eh in td_raw.get("errorHandling", [])])
+
+        # Collect dependencies
+        dep_items = []
+        raw_deps = td_raw.get("dependencies", [])
+        if isinstance(raw_deps, list):
+            dep_items.extend(raw_deps)
+        elif isinstance(raw_deps, dict):
+            for k, vals in raw_deps.items():
+                if isinstance(vals, list):
+                    dep_items.extend([f"[{k}] {v}" for v in vals])
+                else:
+                    dep_items.append(f"[{k}] {vals}")
+
+        # Collect assumptions
+        assump_items = []
+        raw_assump = td_raw.get("assumptions", [])
+        if isinstance(raw_assump, list):
+            for a in raw_assump:
+                if isinstance(a, dict):
+                    assump_items.append(f"{a.get('assumption', a.get('text', ''))} ({a.get('status', 'CONFIRMED')})")
+                else:
+                    assump_items.append(str(a))
+
         req_item = RequirementItem(
             requirementId="TD-001",
             title=title,
             summary=summary,
             userStory=f"Objective: {objective}",
             description=summary,
-            acceptanceCriteria=[GroundedItem.from_any(v) for v in td_raw.get("validation", [])],
-            businessRules=[GroundedItem.from_any(bl) for bl in td_raw.get("businessLogic", [])],
-            assumptions=[GroundedItem.from_any(a) for a in td_raw.get("assumptions", [])],
-            dependencies=[GroundedItem.from_any(d) for d in td_raw.get("dependencies", [])],
-            edgeCases=[GroundedItem.from_any(eh.get("scenario", "") if isinstance(eh, dict) else eh) for eh in td_raw.get("errorHandling", [])]
+            acceptanceCriteria=[GroundedItem.from_any(v) for v in (ac_items or td_raw.get("validation", []))],
+            businessRules=[GroundedItem.from_any(bl) for bl in (br_items or td_raw.get("businessLogic", []))],
+            assumptions=[GroundedItem.from_any(a) for a in (assump_items or td_raw.get("assumptions", []))],
+            dependencies=[GroundedItem.from_any(d) for d in (dep_items or td_raw.get("dependencies", []))],
+            edgeCases=[GroundedItem.from_any(ec) for ec in (ec_items or td_raw.get("errorHandling", []))]
         )
 
         raw_result = RequirementResult(
@@ -300,7 +351,7 @@ class RagService:
             top_k=top_k,
             document_id=target_doc_id
         )
-        combined_context = "\n\n---\n\n".join(chunks)
+        combined_context = self._build_context(chunks)
 
         prompt = build_testcase_prompt(
             requirement=query_text or "Generate test cases for provided context",
@@ -380,9 +431,7 @@ class RagService:
         if current_batch:
             batches.append(current_batch)
 
-        all_defects = []
-        batch_results = []
-        for batch_number, batch in enumerate(batches, start=1):
+        def analyze_batch(batch_number, batch):
             prompt = build_defect_prompt(
                 title=req.title,
                 description=req.description or "",
@@ -392,9 +441,21 @@ class RagService:
                 expected=req.expectedBehavior or "",
                 context=f"DOCUMENT EVIDENCE BATCH {batch_number} OF {len(batches)}:\n\n" + "\n\n---\n\n".join(batch)
             )
-            batch_result = self.gemini.generate_structured(prompt, DefectResult)
-            batch_results.append(batch_result)
-            all_defects.extend(batch_result.defects)
+            return self.gemini.generate_structured(prompt, DefectResult)
+
+        worker_count = max(1, min(settings.defect_analysis_workers, len(batches)))
+        # Each batch retains its complete evidence; concurrent requests remove
+        # the batch-by-batch wait for large ZIP uploads.
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            batch_results = list(
+                executor.map(
+                    analyze_batch,
+                    range(1, len(batches) + 1),
+                    batches,
+                )
+            )
+
+        all_defects = [defect for batch_result in batch_results for defect in batch_result.defects]
 
         unique_defects = []
         seen_keys = set()
@@ -436,11 +497,12 @@ class RagService:
     def generate_release_notes(self, req: ReleaseNoteGenerateRequest) -> ReleaseNoteGenerateResponse:
         start_time = time.time()
         query_text = (req.sprintInformation or "").strip()
+        document_ids = [doc_id for doc_id in (req.document_id, req.zip_document_id) if doc_id]
         chunks, sources = self.retrieval.retrieve_relevant_context(
             query=query_text or "release notes",
-            document_id=req.document_id
+            document_id=document_ids or None
         )
-        combined_context = "\n\n---\n\n".join(chunks)
+        combined_context = self._build_context(chunks)
 
         prompt = build_release_notes_prompt(
             version=req.version or "1.0.0",
@@ -467,7 +529,7 @@ class RagService:
             query=req.sprintInformation or "daily scrum standup status updates",
             document_id=req.document_id
         )
-        combined_context = "\n\n---\n\n".join(chunks)
+        combined_context = self._build_context(chunks)
         
         prompt = build_daily_status_prompt(req.sprintInformation, context=combined_context)
         result = self.gemini.generate_structured(prompt, DailyStatusResult)

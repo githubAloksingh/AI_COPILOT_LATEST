@@ -46,9 +46,29 @@ public class DocumentService {
     public void saveOriginalFile(Long documentId, byte[] bytes) {
         Document doc = getDocumentById(documentId);
         doc.setFileData(bytes);
+        doc.setOriginalFilePath(null);
         documentRepository.save(doc);
         log.info("Saved original file binary ({} bytes) directly into MySQL for document ID {}",
                 bytes != null ? bytes.length : 0, documentId);
+    }
+
+    public void saveOriginalFile(Long documentId, Path sourcePath) throws IOException {
+        Document doc = getDocumentById(documentId);
+        Path uploadDirectory = Path.of("uploads").toAbsolutePath().normalize();
+        Files.createDirectories(uploadDirectory);
+
+        String fileName = doc.getFileName() != null ? doc.getFileName() : "document.bin";
+        String suffix = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.')) : ".bin";
+        Path destination = uploadDirectory.resolve("document-" + documentId + suffix).normalize();
+        if (!destination.getParent().equals(uploadDirectory)) {
+            throw new IOException("Invalid upload destination");
+        }
+
+        Files.copy(sourcePath, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        doc.setFileData(null);
+        doc.setOriginalFilePath(destination.toString());
+        documentRepository.save(doc);
+        log.info("Stored original file on disk ({} bytes) for document ID {}", Files.size(destination), documentId);
     }
 
     /**
@@ -67,6 +87,21 @@ public class DocumentService {
         byte[] bytes = documentRepository.findFileDataById(id);
         if (bytes == null || bytes.length == 0) {
             bytes = doc.getFileData();
+        }
+
+        if (bytes == null || bytes.length == 0) {
+            String storedPath = doc.getOriginalFilePath();
+            if (storedPath != null && !storedPath.isBlank()) {
+                try {
+                    Path path = Path.of(storedPath).toAbsolutePath().normalize();
+                    Path uploadDirectory = Path.of("uploads").toAbsolutePath().normalize();
+                    if (path.startsWith(uploadDirectory) && Files.isRegularFile(path)) {
+                        return Files.readAllBytes(path);
+                    }
+                } catch (IOException e) {
+                    log.warn("Could not read original file for document {}: {}", id, e.getMessage());
+                }
+            }
         }
 
         if (bytes == null || bytes.length == 0) {

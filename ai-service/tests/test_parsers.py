@@ -43,6 +43,16 @@ def test_document_service_cleaning():
     assert "Line 1\n\nLine 2" == cleaned
 
 
+def test_pdf_parser_rejects_invalid_pdf():
+    with pytest.raises(ValueError, match="empty, incomplete, or corrupted"):
+        PdfParser().parse(b"not a PDF")
+
+
+def test_pdf_parser_rejects_empty_pdf():
+    with pytest.raises(ValueError, match="uploaded PDF is empty"):
+        PdfParser().parse(b"")
+
+
 def test_zip_parser():
     parser = ZipParser()
     assert parser.supports("application/zip", "project.zip")

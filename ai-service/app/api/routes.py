@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+import re
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from app.config import settings
 from app.api.schemas import (
@@ -312,9 +313,12 @@ def analyze_defect(req: DefectAnalyzeRequest):
     except Exception as e:
         logger.error("Defect analysis failed: %s", e, exc_info=True)
         if "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
+            retry_match = re.search(r"Retry after approximately (\d+) seconds", str(e), re.IGNORECASE)
+            retry_after = retry_match.group(1) if retry_match else "60"
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Gemini API quota is exhausted for this project. Wait for the quota reset or configure a project with available Gemini quota."
+                detail=str(e),
+                headers={"Retry-After": retry_after}
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

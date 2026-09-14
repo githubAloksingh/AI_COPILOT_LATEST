@@ -52,6 +52,66 @@ export class ExportService {
     XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
   }
 
+  downloadDefectExcel(data: any, baseFilename = 'defect-triage'): void {
+    const defects = Array.isArray(data?.defects)
+      ? data.defects
+      : (data ? [data] : []);
+
+    if (defects.length === 0) {
+      alert('No defect triage data available to export.');
+      return;
+    }
+
+    const rows = defects.map((defect: any, index: number) => ({
+      'Defect ID': defect.defectId || `DEF-${String(index + 1).padStart(3, '0')}`,
+      'Title': defect.title || '',
+      'Status': defect.status || '',
+      'Severity': defect.severity || '',
+      'Priority': defect.priority || '',
+      'Confidence': defect.confidence || '',
+      'Component': defect.component || '',
+      'Location': defect.location || '',
+      'Trigger': defect.trigger || '',
+      'Root Cause': defect.rootCause || defect.probableRootCause || '',
+      'Impact': defect.impact || '',
+      'Evidence': defect.evidence || '',
+      'Investigation': defect.investigation || defect.suggestedInvestigation || '',
+      'Suggested Fix': defect.fix || defect.suggestedFix || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 16 }, { wch: 36 }, { wch: 16 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 28 }, { wch: 48 },
+      { wch: 36 }, { wch: 48 }, { wch: 48 }, { wch: 48 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Defect Triage');
+    XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
+  }
+
+  downloadDefectCsv(data: any, baseFilename = 'defect-triage'): void {
+    const defects = Array.isArray(data?.defects) ? data.defects : (data ? [data] : []);
+    if (defects.length === 0) {
+      alert('No defect triage data available to export.');
+      return;
+    }
+
+    const headers = ['Defect ID', 'Title', 'Status', 'Severity', 'Priority', 'Confidence', 'Component', 'Location', 'Trigger', 'Root Cause', 'Impact', 'Evidence', 'Investigation', 'Suggested Fix'];
+    const value = (defect: any, field: string, fallback = ''): string => String(defect[field] ?? fallback);
+    const rows = defects.map((defect: any, index: number) => [
+      value(defect, 'defectId', `DEF-${String(index + 1).padStart(3, '0')}`),
+      value(defect, 'title'), value(defect, 'status'), value(defect, 'severity'), value(defect, 'priority'), value(defect, 'confidence'),
+      value(defect, 'component'), value(defect, 'location'), value(defect, 'trigger'),
+      value(defect, 'rootCause', defect.probableRootCause), value(defect, 'impact'), value(defect, 'evidence'),
+      value(defect, 'investigation', defect.suggestedInvestigation), value(defect, 'fix', defect.suggestedFix)
+    ]);
+    const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\r\n');
+    this.triggerDownload(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }), `${baseFilename}-${this.getTimestampSuffix()}.csv`);
+  }
+
   // ==========================================
   // CSV EXPORT (TEST CASES ONLY)
   // RFC 4180 Compliant
@@ -468,6 +528,14 @@ export class ExportService {
       }
     };
 
+    const drawWrapped = (lines: string[], x: number, lineHeight: number) => {
+      lines.forEach((line: string) => {
+        checkPageBreak(lineHeight);
+        doc.text(line, x, y);
+        y += lineHeight;
+      });
+    };
+
     // Header
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
@@ -506,8 +574,8 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       const splitRc = doc.splitTextToSize(data.probableRootCause, contentWidth);
-      doc.text(splitRc, margin, y);
-      y += (splitRc.length * 13) + 14;
+      drawWrapped(splitRc, margin, 13);
+      y += 14;
     }
 
     // Suggested Fix
@@ -523,8 +591,8 @@ export class ExportService {
       doc.setFontSize(9);
       doc.setTextColor(30, 41, 59);
       const splitFix = doc.splitTextToSize(data.suggestedFix, contentWidth);
-      doc.text(splitFix, margin, y);
-      y += (splitFix.length * 12) + 14;
+      drawWrapped(splitFix, margin, 12);
+      y += 14;
     }
 
     // Evidence & Stack Trace Analysis
@@ -540,8 +608,8 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       const splitEvidence = doc.splitTextToSize(data.evidence, contentWidth);
-      doc.text(splitEvidence, margin, y);
-      y += (splitEvidence.length * 13) + 14;
+      drawWrapped(splitEvidence, margin, 13);
+      y += 14;
     }
 
     // Suggested Investigation
@@ -557,8 +625,8 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       const splitInv = doc.splitTextToSize(data.suggestedInvestigation, contentWidth);
-      doc.text(splitInv, margin, y);
-      y += (splitInv.length * 13) + 14;
+      drawWrapped(splitInv, margin, 13);
+      y += 14;
     }
 
     doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
@@ -580,6 +648,14 @@ export class ExportService {
         doc.addPage();
         y = 40;
       }
+    };
+
+    const drawWrapped = (lines: string[], x: number, lineHeight: number) => {
+      lines.forEach((line: string) => {
+        checkPageBreak(lineHeight);
+        doc.text(line, x, y);
+        y += lineHeight;
+      });
     };
 
     // ── Document Header ──────────────────────────────────────
@@ -610,18 +686,21 @@ export class ExportService {
       doc.setDrawColor(226, 232, 240);
       const splitSummary = doc.splitTextToSize(data.summary, contentWidth - 24);
       const cardHeight = (splitSummary.length * 13) + 36;
-      doc.roundedRect(margin, y, contentWidth, cardHeight, 4, 4, 'FD');
+      checkPageBreak(cardHeight);
+      const cardTop = y;
+      doc.roundedRect(margin, cardTop, contentWidth, cardHeight, 4, 4, 'FD');
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(30, 41, 59);
-      doc.text('Executive Summary', margin + 12, y + 18);
+      doc.text('Executive Summary', margin + 12, cardTop + 18);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(71, 85, 105);
-      doc.text(splitSummary, margin + 12, y + 32);
-      y += cardHeight + 14;
+      y = cardTop + 32;
+      drawWrapped(splitSummary, margin + 12, 13);
+      y = cardTop + cardHeight + 14;
     }
 
     // New Features Section
@@ -639,9 +718,8 @@ export class ExportService {
       data.newFeatures.forEach((f: string) => {
         const itemText = `•  ${f}`;
         const splitF = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitF.length * 13 + 4);
-        doc.text(splitF, margin + 5, y);
-        y += (splitF.length * 13) + 4;
+        drawWrapped(splitF, margin + 5, 13);
+        y += 4;
       });
       y += 12;
     }
@@ -661,9 +739,8 @@ export class ExportService {
       data.improvements.forEach((imp: string) => {
         const itemText = `•  ${imp}`;
         const splitImp = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitImp.length * 13 + 4);
-        doc.text(splitImp, margin + 5, y);
-        y += (splitImp.length * 13) + 4;
+        drawWrapped(splitImp, margin + 5, 13);
+        y += 4;
       });
       y += 12;
     }
@@ -683,9 +760,8 @@ export class ExportService {
       data.bugFixes.forEach((bf: string) => {
         const itemText = `•  ${bf}`;
         const splitBf = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitBf.length * 13 + 4);
-        doc.text(splitBf, margin + 5, y);
-        y += (splitBf.length * 13) + 4;
+        drawWrapped(splitBf, margin + 5, 13);
+        y += 4;
       });
       y += 12;
     }
@@ -705,9 +781,8 @@ export class ExportService {
       data.breakingChanges.forEach((bc: string) => {
         const itemText = `•  ${bc}`;
         const splitBc = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitBc.length * 13 + 4);
-        doc.text(splitBc, margin + 5, y);
-        y += (splitBc.length * 13) + 4;
+        drawWrapped(splitBc, margin + 5, 13);
+        y += 4;
       });
       y += 12;
     }
@@ -725,8 +800,8 @@ export class ExportService {
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
       const splitTech = doc.splitTextToSize(data.technicalNotes, contentWidth);
-      doc.text(splitTech, margin, y);
-      y += (splitTech.length * 13) + 14;
+      drawWrapped(splitTech, margin, 13);
+      y += 14;
     }
 
     doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
@@ -1606,6 +1681,101 @@ export class ExportService {
     if (data.implementationNotes && data.implementationNotes.length > 0) {
       this.docSection(ctx, `${secIdx++}. Implementation Notes`);
       data.implementationNotes.forEach((n: any) => this.docBullet(ctx, n.note || this.toText(n)));
+      ctx.addY(6);
+    }
+
+    // Edge Cases
+    if (data.edgeCases && data.edgeCases.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Edge Cases`);
+      data.edgeCases.forEach((ec: any) => {
+        const title = ec.scenario || 'Edge Case';
+        const impact = ec.impact ? ` (Impact: ${ec.impact})` : '';
+        this.docSubSection(ctx, `${title}${impact}`);
+        if (ec.handling) this.docParagraph(ctx, ec.handling, 10);
+      });
+      ctx.addY(6);
+    }
+
+    // Business Rule & AC Mappings
+    if (data.businessRuleMappings && data.businessRuleMappings.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Business Rule to Technical Mappings`);
+      data.businessRuleMappings.forEach((brm: any) => {
+        this.docBullet(ctx, `${brm.businessRule || 'Rule'}: ${brm.technicalImplementation || ''}`);
+      });
+      ctx.addY(6);
+    }
+
+    if (data.acceptanceCriteriaMappings && data.acceptanceCriteriaMappings.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Acceptance Criteria to Technical Mappings`);
+      data.acceptanceCriteriaMappings.forEach((acm: any) => {
+        this.docBullet(ctx, `${acm.acceptanceCriterion || 'Criterion'}: ${acm.technicalImplementation || ''}`);
+      });
+      ctx.addY(6);
+    }
+
+    // Implementation Plan
+    if (data.implementationPlan && data.implementationPlan.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Implementation Plan`);
+      this.docTable(ctx, [
+        { header: 'Step', key: 'stepStr', width: 45 },
+        { header: 'Phase', key: 'phase', width: 100 },
+        { header: 'Action', key: 'action', width: 190 },
+        { header: 'Deliverable', key: 'deliverable', width: 110 },
+        { header: 'Verification', key: 'verification', width: 70 }
+      ], data.implementationPlan.map((ip: any, idx: number) => ({
+        stepStr: String(ip.step != null ? ip.step : idx + 1),
+        phase: ip.phase || 'General',
+        action: ip.action || '',
+        deliverable: ip.deliverable || '',
+        verification: ip.verification || ''
+      })));
+    }
+
+    // Testing Strategy
+    if (data.testingStrategy) {
+      this.docSection(ctx, `${secIdx++}. Testing Strategy`);
+      const ts = data.testingStrategy;
+      if (ts.unitTesting?.length) {
+        this.docSubSection(ctx, 'Unit Testing');
+        ts.unitTesting.forEach((ut: any) => this.docBullet(ctx, this.toText(ut)));
+      }
+      if (ts.integrationTesting?.length) {
+        this.docSubSection(ctx, 'Integration Testing');
+        ts.integrationTesting.forEach((it: any) => this.docBullet(ctx, this.toText(it)));
+      }
+      if (ts.functionalTesting?.length) {
+        this.docSubSection(ctx, 'Functional Testing');
+        ts.functionalTesting.forEach((ft: any) => this.docBullet(ctx, this.toText(ft)));
+      }
+      if (ts.negativeTesting?.length) {
+        this.docSubSection(ctx, 'Negative Testing');
+        ts.negativeTesting.forEach((nt: any) => this.docBullet(ctx, this.toText(nt)));
+      }
+      ctx.addY(6);
+    }
+
+    // Technical Risks
+    if (data.technicalRisks && data.technicalRisks.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Technical Risks`);
+      this.docTable(ctx, [
+        { header: 'Risk', key: 'risk', width: 180 },
+        { header: 'Impact', key: 'impact', width: 70 },
+        { header: 'Mitigation', key: 'mitigation', width: 265 }
+      ], data.technicalRisks.map((tr: any) => ({
+        risk: tr.risk || '',
+        impact: tr.impact || 'Medium',
+        mitigation: tr.mitigation || ''
+      })));
+    }
+
+    // Technical Decisions
+    if (data.technicalDecisions && data.technicalDecisions.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Technical Decisions`);
+      data.technicalDecisions.forEach((tdDec: any) => {
+        this.docSubSection(ctx, tdDec.decision || 'Decision');
+        if (tdDec.reason) this.docParagraph(ctx, `Rationale: ${tdDec.reason}`, 10);
+        if (tdDec.whySelected) this.docParagraph(ctx, `Why Selected: ${tdDec.whySelected}`, 10);
+      });
       ctx.addY(6);
     }
 

@@ -7,6 +7,7 @@ class ChunkingService:
         self.chunk_size = chunk_size or settings.chunk_size
         self.chunk_overlap = chunk_overlap or settings.chunk_overlap
 
+
     def chunk_text(self, text: str, chunk_size: int = None, chunk_overlap: int = None) -> List[str]:
         if not text:
             return []

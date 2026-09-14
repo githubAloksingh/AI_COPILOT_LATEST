@@ -10,13 +10,25 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+
+
+
     # Gemini
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.5-flash-lite"
-    gemini_timeout_seconds: float = 30.0
+    gemini_model: str = "gemini-3.7-flash"
+    gemini_timeout_seconds: float = 90.0
     transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
-        "gemini-3.5-flash-lite"
+        "gemini-3.7-flash",
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash"
     ]
     # Chroma
     chroma_url: str = "http://localhost:8001"
@@ -24,11 +36,13 @@ class Settings(BaseSettings):
     chroma_persist_directory: str = "./chroma_data"
 
     # RAG
-    chunk_size: int = 1000
-    chunk_overlap: int = 150
+    chunk_size: int = 4000
+    chunk_overlap: int = 400
+    ingestion_batch_size: int = 512
     top_k: int = 5
     max_upload_size_mb: int = 1024
     defect_context_batch_chars: int = 40000
+    defect_analysis_workers: int = 4
 
     # App
     host: str = "0.0.0.0"
