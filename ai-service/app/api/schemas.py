@@ -123,8 +123,6 @@ class TestCaseGenerateRequest(BaseModel):
 class TestCaseItem(BaseModel):
     __test__ = False
     scenario: str
-    type: str = "POSITIVE"
-    priority: str = "MEDIUM"
     preconditions: List[str] = Field(default_factory=list)
     steps: List[str] = Field(default_factory=list)
     expectedResult: str = ""

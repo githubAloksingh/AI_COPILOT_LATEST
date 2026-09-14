@@ -1982,8 +1982,6 @@
                 <tr>
                   <th style="width: 80px;">TC ID</th>
                   <th class="scenario-th" style="min-width: 320px; max-width: 480px;">Scenario</th>
-                  <th style="width: 100px;">Type</th>
-                  <th style="width: 90px;">Priority</th>
                   <th style="min-width: 140px;">Preconditions</th>
                   <th style="min-width: 160px;">Steps</th>
                   <th style="min-width: 160px;">Expected Result</th>
@@ -1993,8 +1991,6 @@
                 <tr *ngFor="let tc of (data.items || data); let i = index">
                   <td><strong>{{ tc.tcId || ('TC-' + (i + 1)) }}</strong></td>
                   <td class="scenario-cell"><span *ngIf="!isEditingSection(tc, 'scenario')">{{ tc.scenario }}</span><input *ngIf="isEditingSection(tc, 'scenario')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'scenario')" class="section-action" type="button" (click)="editSection(tc, 'scenario')" title="Edit" aria-label="Edit scenario">✏️</button><button *ngIf="isEditingSection(tc, 'scenario')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save scenario">💾</button></td>
-                  <td><span *ngIf="!isEditingSection(tc, 'type')" class="pill pill-type">{{ tc.type }}</span><input *ngIf="isEditingSection(tc, 'type')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'type')" class="section-action" type="button" (click)="editSection(tc, 'type')" title="Edit" aria-label="Edit type">✏️</button><button *ngIf="isEditingSection(tc, 'type')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save type">💾</button></td>
-                  <td><span *ngIf="!isEditingSection(tc, 'priority')" class="pill pill-priority">{{ tc.priority }}</span><input *ngIf="isEditingSection(tc, 'priority')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'priority')" class="section-action" type="button" (click)="editSection(tc, 'priority')" title="Edit" aria-label="Edit priority">✏️</button><button *ngIf="isEditingSection(tc, 'priority')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save priority">💾</button></td>
                   <td style="font-size: 0.85rem;"><span *ngIf="!isEditingSection(tc, 'preconditions')">{{ tc.preconditions }}</span><textarea *ngIf="isEditingSection(tc, 'preconditions')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea><button *ngIf="!isEditingSection(tc, 'preconditions')" class="section-action" type="button" (click)="editSection(tc, 'preconditions')" title="Edit" aria-label="Edit preconditions">✏️</button><button *ngIf="isEditingSection(tc, 'preconditions')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save preconditions">💾</button></td>
                   <td style="font-size: 0.85rem;"><div *ngIf="!isEditingSection(tc, 'steps')"><div *ngFor="let step of (tc.steps | slice:0:3); let s = index">{{ s + 1 }}. {{ step }}</div></div><textarea *ngIf="isEditingSection(tc, 'steps')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="3"></textarea><button *ngIf="!isEditingSection(tc, 'steps')" class="section-action" type="button" (click)="editSection(tc, 'steps')" title="Edit" aria-label="Edit steps">✏️</button><button *ngIf="isEditingSection(tc, 'steps')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save steps">💾</button></td>
                   <td style="font-size: 0.85rem;"><span *ngIf="!isEditingSection(tc, 'expectedResult')">{{ tc.expectedResult }}</span><textarea *ngIf="isEditingSection(tc, 'expectedResult')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea><button *ngIf="!isEditingSection(tc, 'expectedResult')" class="section-action" type="button" (click)="editSection(tc, 'expectedResult')" title="Edit" aria-label="Edit expected result">✏️</button><button *ngIf="isEditingSection(tc, 'expectedResult')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save expected result">💾</button></td>
@@ -2040,20 +2036,9 @@
               <h4>Test Case #{{ i + 1 }}</h4>
               <button class="btn-remove-item" (click)="removeArrayItem((editableData.items || editableData), i)">Remove</button>
             </div>
-            <div class="grid-2-col">
-              <div class="form-group">
-                <label>Scenario / Title</label>
-                <input type="text" [(ngModel)]="tc.scenario">
-              </div>
-              <div class="form-group">
-                <label>Type</label>
-                <select [(ngModel)]="tc.type">
-                  <option value="POSITIVE">Positive</option>
-                  <option value="NEGATIVE">Negative</option>
-                  <option value="EDGE">Edge Case</option>
-                  <option value="SECURITY">Security</option>
-                </select>
-              </div>
+            <div class="form-group">
+              <label>Scenario / Title</label>
+              <input type="text" [(ngModel)]="tc.scenario">
             </div>
             <div class="form-group">
               <label>Expected Result</label>

@@ -19,8 +19,6 @@ export class ExportService {
     const rows = items.map((item, index) => {
       const tcId = item.tcId || `TC-${String(index + 1).padStart(3, '0')}`;
       const scenario = item.scenario || '';
-      const type = item.type || 'POSITIVE';
-      const priority = item.priority || 'MEDIUM';
       const preconditions = item.preconditions ? (Array.isArray(item.preconditions) ? item.preconditions.join('\n') : item.preconditions) : '';
       const steps = item.steps ? (Array.isArray(item.steps) ? item.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : item.steps) : '';
       const expectedResult = item.expectedResult || '';
@@ -28,8 +26,6 @@ export class ExportService {
       return {
         'Test Case ID': tcId,
         'Scenario / Title': scenario,
-        'Type': type,
-        'Priority': priority,
         'Preconditions': preconditions,
         'Test Steps': steps,
         'Expected Result': expectedResult
@@ -40,8 +36,6 @@ export class ExportService {
     ws['!cols'] = [
       { wch: 15 },
       { wch: 45 },
-      { wch: 15 },
-      { wch: 12 },
       { wch: 30 },
       { wch: 45 },
       { wch: 35 }
@@ -125,8 +119,6 @@ export class ExportService {
     const headers = [
       'Test Case ID',
       'Scenario / Title',
-      'Type',
-      'Priority',
       'Preconditions',
       'Test Steps',
       'Expected Result'
@@ -149,8 +141,6 @@ export class ExportService {
     items.forEach((item, index) => {
       const tcId = item.tcId || `TC-${String(index + 1).padStart(3, '0')}`;
       const scenario = item.scenario || '';
-      const type = item.type || 'POSITIVE';
-      const priority = item.priority || 'MEDIUM';
       const preconditions = item.preconditions ? (Array.isArray(item.preconditions) ? item.preconditions.join('\n') : item.preconditions) : '';
       const steps = item.steps ? (Array.isArray(item.steps) ? item.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : item.steps) : '';
       const expectedResult = item.expectedResult || '';
@@ -158,8 +148,6 @@ export class ExportService {
       const row = [
         escapeCsvCell(tcId),
         escapeCsvCell(scenario),
-        escapeCsvCell(type),
-        escapeCsvCell(priority),
         escapeCsvCell(preconditions),
         escapeCsvCell(steps),
         escapeCsvCell(expectedResult)

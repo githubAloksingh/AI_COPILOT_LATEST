@@ -315,7 +315,13 @@ export class TestGenerator implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           const aiResponse = res.data;
-          this.generatedResult = aiResponse.result || aiResponse;
+          const rawItems = aiResponse.result || aiResponse || [];
+          this.generatedResult = Array.isArray(rawItems)
+            ? rawItems.map((tc: any) => {
+                const { type, priority, ...cleanTc } = tc || {};
+                return cleanTc;
+              })
+            : [];
           this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'testcase-v2';
@@ -368,9 +374,16 @@ export class TestGenerator implements OnInit {
       requirementTitle = this.manualTitle.trim() || 'Manual Requirement';
     }
 
+    const sanitizedItems = Array.isArray(items)
+      ? items.map((item: any) => {
+          const { type, priority, ...cleanItem } = item || {};
+          return cleanItem;
+        })
+      : [];
+
     const acceptPayload = {
       requirement: requirementTitle,
-      testCases: items,
+      testCases: sanitizedItems,
       sources: this.sources,
       model: this.model,
       promptVersion: this.promptVersion,
