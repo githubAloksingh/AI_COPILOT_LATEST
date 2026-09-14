@@ -16,6 +16,7 @@ export class FeatureHistoryComponent implements OnChanges {
 
   loading = false;
   historyItems: any[] = [];
+  projectDocuments: any[] = [];
   errorMessage = '';
 
   constructor(
@@ -42,11 +43,26 @@ export class FeatureHistoryComponent implements OnChanges {
     this.errorMessage = '';
     this.cdr.markForCheck();
 
-    this.api.getHistory(this.projectId, this.feature).subscribe({
+    // Fetch project documents first to help resolve any unlinked history items
+    this.api.getProjectDocuments(this.projectId).subscribe({
+      next: (docRes) => {
+        this.projectDocuments = (docRes && docRes.success && docRes.data) ? docRes.data : [];
+        this.fetchHistoryRecords();
+      },
+      error: () => {
+        this.projectDocuments = [];
+        this.fetchHistoryRecords();
+      }
+    });
+  }
+
+  private fetchHistoryRecords(): void {
+    this.api.getHistory(this.projectId!, this.feature).subscribe({
       next: (res) => {
         this.loading = false;
         if (res.success) {
-          this.historyItems = res.data || [];
+          const rawItems = res.data || [];
+          this.historyItems = rawItems.map((item: any) => this.enrichHistoryItem(item));
         } else {
           this.historyItems = [];
           this.errorMessage = res.message || 'Failed to load history';
@@ -62,41 +78,146 @@ export class FeatureHistoryComponent implements OnChanges {
     });
   }
 
+  private enrichHistoryItem(item: any): any {
+    const enriched = { ...item };
+    
+    // Ensure documentName exists
+    if (!enriched.documentName) {
+      enriched.documentName = enriched.fileName || `Document_${enriched.id || 'record'}`;
+    }
+
+    // Try resolving documentId if missing
+    if (!enriched.documentId && this.projectDocuments.length > 0) {
+      const match = this.findMatchingDocument(enriched);
+      if (match) {
+        enriched.documentId = match.id;
+      } else {
+        // Fallback to latest available document for the project if available
+        const fallbackDoc = this.projectDocuments[0];
+        if (fallbackDoc && fallbackDoc.id) {
+          enriched.documentId = fallbackDoc.id;
+        }
+      }
+    }
+
+    return enriched;
+  }
+
+  private findMatchingDocument(item: any): any {
+    if (!this.projectDocuments || this.projectDocuments.length === 0) return null;
+
+    const itemName = (item.documentName || item.fileName || '').toLowerCase().trim();
+    const itemCleanName = itemName.replace(/\.[^/.]+$/, '').replace(/[\s_()\-]/g, '');
+
+    // 1. Exact match on fileName, originalFilename, or title
+    for (const doc of this.projectDocuments) {
+      const fn = (doc.fileName || '').toLowerCase().trim();
+      const orig = (doc.originalFilename || '').toLowerCase().trim();
+      const title = (doc.title || '').toLowerCase().trim();
+      if (fn === itemName || orig === itemName || title === itemName) {
+        return doc;
+      }
+    }
+
+    // 2. Cleaned name match
+    for (const doc of this.projectDocuments) {
+      const fn = (doc.fileName || '').toLowerCase().trim();
+      const cleanFn = fn.replace(/\.[^/.]+$/, '').replace(/[\s_()\-]/g, '');
+      if (cleanFn && cleanFn === itemCleanName) {
+        return doc;
+      }
+    }
+
+    // 3. Substring match
+    for (const doc of this.projectDocuments) {
+      const fn = (doc.fileName || '').toLowerCase().trim();
+      if (fn && (fn.includes(itemName) || itemName.includes(fn))) {
+        return doc;
+      }
+    }
+
+    // 4. File extension / type match
+    const isPdf = itemName.endsWith('.pdf') || item.fileType === 'PDF';
+    const isZip = itemName.endsWith('.zip') || item.fileType === 'ZIP';
+    const isCsv = itemName.endsWith('.csv') || item.fileType === 'CSV';
+
+    for (const doc of this.projectDocuments) {
+      const fn = (doc.fileName || '').toLowerCase().trim();
+      if (isPdf && fn.endsWith('.pdf')) return doc;
+      if (isZip && fn.endsWith('.zip')) return doc;
+      if (isCsv && fn.endsWith('.csv')) return doc;
+    }
+
+    return null;
+  }
+
   viewDocument(item: any): void {
-    if (!item.documentId) {
-      alert('Document ID is not available for this record.');
+    const docId = item.documentId || item.fileId || item.id;
+    if (!docId) {
+      alert('Unable to view this document.');
       return;
     }
-    this.api.getDocumentFile(item.documentId).subscribe({
+
+    const docName = (item.documentName || item.fileName || 'document.pdf').toLowerCase();
+    const isZip = docName.endsWith('.zip') || item.fileType === 'ZIP';
+    const isCsv = docName.endsWith('.csv') || item.fileType === 'CSV';
+    const isPdf = docName.endsWith('.pdf') || item.fileType === 'PDF';
+
+    this.api.getDocumentFile(docId).subscribe({
       next: (blob: Blob) => {
-        const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(pdfBlob);
-        window.open(url, '_blank');
+        let mimeType = blob.type;
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          if (isPdf) mimeType = 'application/pdf';
+          else if (isCsv) mimeType = 'text/csv';
+          else if (isZip) mimeType = 'application/zip';
+          else mimeType = 'text/plain';
+        }
+
+        if (isZip) {
+          const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = item.documentName || 'codebase.zip';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          return;
+        }
+
+        const viewBlob = new Blob([blob], { type: mimeType });
+        const url = window.URL.createObjectURL(viewBlob);
+        const win = window.open(url, '_blank');
+        if (!win) {
+          window.location.href = url;
+        }
       },
       error: () => {
-        alert('Failed to retrieve original PDF file from server.');
+        alert('Unable to view this document.');
       }
     });
   }
 
   downloadDocument(item: any): void {
-    if (!item.documentId) {
-      alert('Document ID is not available for this record.');
+    const docId = item.documentId || item.fileId || item.id;
+    if (!docId) {
+      alert('Unable to download this document.');
       return;
     }
-    this.api.downloadDocument(item.documentId).subscribe({
+
+    this.api.downloadDocument(docId).subscribe({
       next: (blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = item.documentName || 'document.pdf';
+        link.download = item.documentName || item.fileName || 'document.pdf';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       },
       error: () => {
-        alert('Failed to download original document from server.');
+        alert('Unable to download this document.');
       }
     });
   }
@@ -105,3 +226,4 @@ export class FeatureHistoryComponent implements OnChanges {
     this.loadHistory();
   }
 }
+

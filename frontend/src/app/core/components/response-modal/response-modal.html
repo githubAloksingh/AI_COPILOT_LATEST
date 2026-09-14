@@ -5,19 +5,10 @@
     <div class="modal-header">
       <div class="header-left">
         <h2>{{ title }}</h2>
-        <div class="meta-badges">
-          <span class="badge badge-model">{{ model }}</span>
-          <span class="badge badge-mode" [class.badge-edit]="mode === 'EDIT_ALL'">
-            {{ mode === 'EDIT_ALL' ? 'EDIT ALL MODE' : 'REVIEW MODE' }}
-          </span>
-          <span class="badge badge-time" *ngIf="executionTimeMs > 0">{{ executionTimeMs }} ms</span>
-          <span class="badge badge-count" *ngIf="isRequirementLike && requirementList.length > 1">
-            {{ requirementList.length }} Items
-          </span>
-        </div>
       </div>
       <button class="close-btn" (click)="closeModal()" aria-label="Close modal">✕</button>
     </div>
+
 
     <!-- Selection Bar for Multiple Generated Items (Requirements / User Stories) -->
     <div class="req-tabs-bar" *ngIf="(type === 'requirement' || type === 'userstory') && requirementList.length > 1">
@@ -69,15 +60,19 @@
                 </div>
                 <div class="form-group">
                   <label>Description / Summary</label>
-                  <textarea [(ngModel)]="perReqEditable.summary" rows="3" class="inline-textarea"></textarea>
+                  <textarea [(ngModel)]="perReqEditable.summary" rows="6" class="inline-textarea"></textarea>
                 </div>
-                <div class="form-group" *ngIf="perReqEditable.acceptanceCriteria?.length">
-                  <label>Acceptance Criteria</label>
+                <div class="form-group">
+                  <div class="label-with-action">
+                    <label>Acceptance Criteria</label>
+                    <button type="button" class="btn-text-action" (click)="addArrayItemSafe(perReqEditable, 'acceptanceCriteria')">+ Add</button>
+                  </div>
                   <div class="array-item" *ngFor="let ac of perReqEditable.acceptanceCriteria; let j = index; trackBy: trackByIndex">
                     <input type="text"
                       [ngModel]="getItemText(perReqEditable.acceptanceCriteria[j])"
-                      (ngModelChange)="perReqEditable.acceptanceCriteria[j] = { text: $event, grounding: 'DERIVED', source: [] }"
+                      (ngModelChange)="onArrayItemChange(perReqEditable.acceptanceCriteria, j, $event)"
                       class="inline-input">
+                    <button type="button" class="btn-remove-item" (click)="removeArrayItem(perReqEditable.acceptanceCriteria, j)">✕</button>
                   </div>
                 </div>
               </div>
@@ -88,34 +83,81 @@
                 <div class="req-title-banner">
                   <div class="req-title-left">
                     <span class="req-id-badge">{{ req.userStoryId || req.requirementId || 'REQ' }}</span>
-                    <h3>{{ req.title }}</h3>
+                    <h3 *ngIf="!isEditingSection(req, 'title')">{{ req.title }}</h3>
+                    <input *ngIf="isEditingSection(req, 'title')" [(ngModel)]="sectionDraft" class="inline-input" aria-label="Title">
                   </div>
-                  <button class="btn-icon-edit" (click)="editReq(i)" title="Edit">✏️</button>
+                  <button *ngIf="!isEditingSection(req, 'title')" class="section-action" type="button" (click)="editSection(req, 'title')" title="Edit" aria-label="Edit title">✏️</button>
+                  <button *ngIf="isEditingSection(req, 'title')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save title">💾</button>
                 </div>
 
                 <!-- User Story Card -->
                 <div class="section-card user-story-card" *ngIf="req.userStory">
-                  <h3>User Story</h3>
-                  <div class="user-story-callout">
+                  <div class="section-heading"><h3>User Story</h3><button *ngIf="!isEditingSection(req, 'userStory')" class="section-action" type="button" (click)="editSection(req, 'userStory')" title="Edit" aria-label="Edit user story">✏️</button><button *ngIf="isEditingSection(req, 'userStory')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save user story">💾</button></div>
+                  <div class="user-story-callout" *ngIf="!isEditingSection(req, 'userStory')">
                     <strong>📖 </strong>{{ req.userStory }}
                   </div>
+                  <textarea *ngIf="isEditingSection(req, 'userStory')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
                 </div>
 
                 <!-- Description or Summary -->
                 <div class="section-card" *ngIf="req.description || req.summary">
-                  <h3>{{ type === 'userstory' ? 'Description' : 'Summary' }}</h3>
-                  <p>{{ req.description || req.summary }}</p>
+                  <div class="section-heading"><h3>{{ type === 'userstory' ? 'Description' : 'Summary' }}</h3><button *ngIf="!isEditingSection(req, req.description !== undefined ? 'description' : 'summary')" class="section-action" type="button" (click)="editSection(req, req.description !== undefined ? 'description' : 'summary')" title="Edit" aria-label="Edit summary">✏️</button><button *ngIf="isEditingSection(req, req.description !== undefined ? 'description' : 'summary')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save summary">💾</button></div>
+                  <p *ngIf="!isEditingSection(req, req.description !== undefined ? 'description' : 'summary')">{{ req.description || req.summary }}</p>
+                  <textarea *ngIf="isEditingSection(req, req.description !== undefined ? 'description' : 'summary')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="6"></textarea>
                 </div>
 
                 <!-- Acceptance Criteria -->
-                <div class="section-card" *ngIf="req.acceptanceCriteria?.length">
-                  <h3>Acceptance Criteria</h3>
-                  <ul class="styled-list">
-                    <li *ngFor="let item of req.acceptanceCriteria">
+                <div class="section-card" *ngIf="type === 'userstory' || type === 'requirement' || req.acceptanceCriteria?.length">
+                  <div class="section-heading">
+                    <h3>Acceptance Criteria</h3>
+                    <button type="button" 
+                            class="btn-text-action add-criterion-btn" 
+                            (click)="addNewAcceptanceCriterion(req)" 
+                            title="Add Acceptance Criteria">
+                      + Add
+                    </button>
+                  </div>
+
+                  <p *ngIf="!req.acceptanceCriteria || req.acceptanceCriteria.length === 0" class="empty-list-notice">
+                    No acceptance criteria added yet. Click "+ Add" to create one.
+                  </p>
+
+                  <ul class="styled-list" *ngIf="req.acceptanceCriteria?.length">
+                    <li *ngFor="let item of req.acceptanceCriteria; let j = index">
                       <span class="bullet-check">✓</span>
                       <div class="item-content-wrap">
-                        <span class="item-text">{{ getItemText(item) }}</span>
-                        <div class="grounding-tags-row">
+                        <!-- Read-only View -->
+                        <div *ngIf="!isEditingSection(req.acceptanceCriteria, j)" class="item-view-row">
+                          <span class="item-text">{{ getItemText(item) }}</span>
+                          <div class="item-actions">
+                            <button class="section-action" type="button" (click)="editExistingCriterion(req, j)" title="Edit" aria-label="Edit acceptance criterion">✏️</button>
+                            <button class="section-action delete-action" type="button" (click)="deleteCriterion(req, j)" title="Delete" aria-label="Delete acceptance criterion">✕</button>
+                          </div>
+                        </div>
+
+                        <!-- Edit View -->
+                        <div *ngIf="isEditingSection(req.acceptanceCriteria, j)" class="criterion-editor-box">
+                          <textarea [(ngModel)]="sectionDraft" 
+                                    class="inline-textarea criterion-edit-textarea" 
+                                    rows="3" 
+                                    placeholder="Enter acceptance criterion..." 
+                                    aria-label="Acceptance criterion"
+                                    id="list-editor-acceptanceCriteria-{{j}}"></textarea>
+                          <div *ngIf="criterionValidationError" class="criterion-validation-error">
+                            ⚠️ {{ criterionValidationError }}
+                          </div>
+                          <div class="criterion-editor-actions">
+                            <button class="btn btn-sm btn-success" type="button" (click)="saveCriterion(req, j)" title="Save">
+                              💾 Save
+                            </button>
+                            <button class="btn btn-sm btn-secondary" type="button" (click)="cancelCriterion(req, j)" title="Cancel">
+                              ✕ Cancel
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- Grounding Tags (view only) -->
+                        <div class="grounding-tags-row" *ngIf="!isEditingSection(req.acceptanceCriteria, j) && (getItemGrounding(item) || getItemSource(item).length)">
                           <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
                             {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ REQUIRES CONFIRMATION' : getItemGrounding(item) }}
                           </span>
@@ -127,14 +169,44 @@
                 </div>
 
                 <!-- Business Rules -->
-                <div class="section-card" *ngIf="req.businessRules?.length">
-                  <h3>Business Rules</h3>
-                  <ul class="styled-list">
-                    <li *ngFor="let item of req.businessRules">
+                <div class="section-card" *ngIf="type === 'userstory' || type === 'requirement' || req.businessRules?.length">
+                  <div class="section-heading">
+                    <h3>Business Rules</h3>
+                    <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(req, 'businessRules')" title="Add Business Rule">+ Add</button>
+                  </div>
+
+                  <p *ngIf="!req.businessRules || req.businessRules.length === 0" class="empty-list-notice">
+                    No business rules added yet. Click "+ Add" to create one.
+                  </p>
+
+                  <ul class="styled-list" *ngIf="req.businessRules?.length">
+                    <li *ngFor="let item of req.businessRules; let j = index">
                       <span class="bullet-check" style="color: #F36F21;">⚖️</span>
                       <div class="item-content-wrap">
-                        <span class="item-text">{{ getItemText(item) }}</span>
-                        <div class="grounding-tags-row">
+                        <!-- Read-only View -->
+                        <div *ngIf="!isEditingSection(req.businessRules, j)" class="item-view-row">
+                          <span class="item-text">{{ getItemText(item) }}</span>
+                          <div class="item-actions">
+                            <button class="section-action" type="button" (click)="editExistingListItem(req, 'businessRules', j)" title="Edit" aria-label="Edit business rule">✏️</button>
+                            <button class="section-action delete-action" type="button" (click)="deleteListItem(req, 'businessRules', j)" title="Delete" aria-label="Delete business rule">✕</button>
+                          </div>
+                        </div>
+                        <!-- Edit View -->
+                        <div *ngIf="isEditingSection(req.businessRules, j)" class="criterion-editor-box">
+                          <textarea [(ngModel)]="sectionDraft"
+                                    class="inline-textarea criterion-edit-textarea"
+                                    rows="3"
+                                    placeholder="Enter business rule..."
+                                    aria-label="Business rule"
+                                    id="list-editor-businessRules-{{j}}"></textarea>
+                          <div *ngIf="criterionValidationError" class="criterion-validation-error">⚠️ {{ criterionValidationError }}</div>
+                          <div class="criterion-editor-actions">
+                            <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(req, 'businessRules', j)" title="Save">💾 Save</button>
+                            <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(req, 'businessRules', j)" title="Cancel">✕ Cancel</button>
+                          </div>
+                        </div>
+                        <!-- Grounding Tags -->
+                        <div class="grounding-tags-row" *ngIf="!isEditingSection(req.businessRules, j) && (getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length)">
                           <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">{{ getItemGrounding(item) }}</span>
                           <span class="source-pill" *ngFor="let src of getItemSource(item)">📌 {{ src }}</span>
                         </div>
@@ -143,14 +215,44 @@
                   </ul>
                 </div>
 
+                <!-- Assumptions & Dependencies -->
                 <div class="grid-2-col">
-                  <div class="section-card" *ngIf="req.assumptions?.length">
-                    <h3>Assumptions</h3>
-                    <ul class="dot-list">
-                      <li *ngFor="let item of req.assumptions">
+                  <!-- Assumptions -->
+                  <div class="section-card">
+                    <div class="section-heading">
+                      <h3>Assumptions</h3>
+                      <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(req, 'assumptions')" title="Add Assumption">+ Add</button>
+                    </div>
+
+                    <p *ngIf="!req.assumptions || req.assumptions.length === 0" class="empty-list-notice">
+                      No assumptions added yet.
+                    </p>
+
+                    <ul class="styled-list" *ngIf="req.assumptions?.length">
+                      <li *ngFor="let item of req.assumptions; let j = index">
+                        <span class="bullet-check" style="color: #64748b;">→</span>
                         <div class="item-content-wrap">
-                          <span>{{ getItemText(item) }}</span>
-                          <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                          <div *ngIf="!isEditingSection(req.assumptions, j)" class="item-view-row">
+                            <span class="item-text">{{ getItemText(item) }}</span>
+                            <div class="item-actions">
+                              <button class="section-action" type="button" (click)="editExistingListItem(req, 'assumptions', j)" title="Edit" aria-label="Edit assumption">✏️</button>
+                              <button class="section-action delete-action" type="button" (click)="deleteListItem(req, 'assumptions', j)" title="Delete" aria-label="Delete assumption">✕</button>
+                            </div>
+                          </div>
+                          <div *ngIf="isEditingSection(req.assumptions, j)" class="criterion-editor-box">
+                            <textarea [(ngModel)]="sectionDraft"
+                                      class="inline-textarea criterion-edit-textarea"
+                                      rows="3"
+                                      placeholder="Enter assumption..."
+                                      aria-label="Assumption"
+                                      id="list-editor-assumptions-{{j}}"></textarea>
+                            <div *ngIf="criterionValidationError" class="criterion-validation-error">⚠️ {{ criterionValidationError }}</div>
+                            <div class="criterion-editor-actions">
+                              <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(req, 'assumptions', j)">💾 Save</button>
+                              <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(req, 'assumptions', j)">✕ Cancel</button>
+                            </div>
+                          </div>
+                          <div class="grounding-tags-row" *ngIf="!isEditingSection(req.assumptions, j) && (getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length)">
                             <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
                               {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Confirmation Needed' : getItemGrounding(item) }}
                             </span>
@@ -160,13 +262,43 @@
                       </li>
                     </ul>
                   </div>
-                  <div class="section-card" *ngIf="req.dependencies?.length">
-                    <h3>Dependencies</h3>
-                    <ul class="dot-list">
-                      <li *ngFor="let item of req.dependencies">
+
+                  <!-- Dependencies -->
+                  <div class="section-card">
+                    <div class="section-heading">
+                      <h3>Dependencies</h3>
+                      <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(req, 'dependencies')" title="Add Dependency">+ Add</button>
+                    </div>
+
+                    <p *ngIf="!req.dependencies || req.dependencies.length === 0" class="empty-list-notice">
+                      No dependencies added yet.
+                    </p>
+
+                    <ul class="styled-list" *ngIf="req.dependencies?.length">
+                      <li *ngFor="let item of req.dependencies; let j = index">
+                        <span class="bullet-check" style="color: #3b82f6;">🔗</span>
                         <div class="item-content-wrap">
-                          <span>{{ getItemText(item) }}</span>
-                          <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                          <div *ngIf="!isEditingSection(req.dependencies, j)" class="item-view-row">
+                            <span class="item-text">{{ getItemText(item) }}</span>
+                            <div class="item-actions">
+                              <button class="section-action" type="button" (click)="editExistingListItem(req, 'dependencies', j)" title="Edit" aria-label="Edit dependency">✏️</button>
+                              <button class="section-action delete-action" type="button" (click)="deleteListItem(req, 'dependencies', j)" title="Delete" aria-label="Delete dependency">✕</button>
+                            </div>
+                          </div>
+                          <div *ngIf="isEditingSection(req.dependencies, j)" class="criterion-editor-box">
+                            <textarea [(ngModel)]="sectionDraft"
+                                      class="inline-textarea criterion-edit-textarea"
+                                      rows="3"
+                                      placeholder="Enter dependency..."
+                                      aria-label="Dependency"
+                                      id="list-editor-dependencies-{{j}}"></textarea>
+                            <div *ngIf="criterionValidationError" class="criterion-validation-error">⚠️ {{ criterionValidationError }}</div>
+                            <div class="criterion-editor-actions">
+                              <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(req, 'dependencies', j)">💾 Save</button>
+                              <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(req, 'dependencies', j)">✕ Cancel</button>
+                            </div>
+                          </div>
+                          <div class="grounding-tags-row" *ngIf="!isEditingSection(req.dependencies, j) && (getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length)">
                             <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">{{ getItemGrounding(item) }}</span>
                             <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
                           </div>
@@ -177,13 +309,44 @@
                 </div>
 
                 <!-- Edge Cases -->
-                <div class="section-card" *ngIf="req.edgeCases?.length">
-                  <h3>Edge Cases</h3>
-                  <ul class="dot-list">
-                    <li *ngFor="let item of req.edgeCases">
+                <div class="section-card" *ngIf="type === 'userstory' || type === 'requirement' || req.edgeCases?.length">
+                  <div class="section-heading">
+                    <h3>Edge Cases</h3>
+                    <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(req, 'edgeCases')" title="Add Edge Case">+ Add</button>
+                  </div>
+
+                  <p *ngIf="!req.edgeCases || req.edgeCases.length === 0" class="empty-list-notice">
+                    No edge cases added yet. Click "+ Add" to create one.
+                  </p>
+
+                  <ul class="styled-list" *ngIf="req.edgeCases?.length">
+                    <li *ngFor="let item of req.edgeCases; let j = index">
+                      <span class="bullet-check" style="color: #8b5cf6;">⚡</span>
                       <div class="item-content-wrap">
-                        <span>{{ getItemText(item) }}</span>
-                        <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
+                        <!-- Read-only View -->
+                        <div *ngIf="!isEditingSection(req.edgeCases, j)" class="item-view-row">
+                          <span class="item-text">{{ getItemText(item) }}</span>
+                          <div class="item-actions">
+                            <button class="section-action" type="button" (click)="editExistingListItem(req, 'edgeCases', j)" title="Edit" aria-label="Edit edge case">✏️</button>
+                            <button class="section-action delete-action" type="button" (click)="deleteListItem(req, 'edgeCases', j)" title="Delete" aria-label="Delete edge case">✕</button>
+                          </div>
+                        </div>
+                        <!-- Edit View -->
+                        <div *ngIf="isEditingSection(req.edgeCases, j)" class="criterion-editor-box">
+                          <textarea [(ngModel)]="sectionDraft"
+                                    class="inline-textarea criterion-edit-textarea"
+                                    rows="3"
+                                    placeholder="Enter edge case..."
+                                    aria-label="Edge case"
+                                    id="list-editor-edgeCases-{{j}}"></textarea>
+                          <div *ngIf="criterionValidationError" class="criterion-validation-error">⚠️ {{ criterionValidationError }}</div>
+                          <div class="criterion-editor-actions">
+                            <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(req, 'edgeCases', j)" title="Save">💾 Save</button>
+                            <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(req, 'edgeCases', j)" title="Cancel">✕ Cancel</button>
+                          </div>
+                        </div>
+                        <!-- Grounding Tags -->
+                        <div class="grounding-tags-row" *ngIf="!isEditingSection(req.edgeCases, j) && (getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length)">
                           <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">
                             {{ getItemGrounding(item) === 'REQUIRES_CONFIRMATION' ? '⚠️ Requires Confirmation' : getItemGrounding(item) }}
                           </span>
@@ -275,32 +438,32 @@
 
               <div class="form-group">
                 <label>Description / Summary</label>
-                <textarea [(ngModel)]="req.summary" rows="3"></textarea>
+                <textarea [(ngModel)]="req.summary" rows="5" placeholder="Enter a clear description of this user story..."></textarea>
               </div>
 
               <div class="form-group">
                 <div class="label-with-action">
                   <label>Acceptance Criteria</label>
-                  <button class="btn-text-action" (click)="addArrayItem(req.acceptanceCriteria)">+ Add</button>
+                  <button type="button" class="btn-text-action" (click)="addArrayItemSafe(req, 'acceptanceCriteria')">+ Add</button>
                 </div>
                 <div class="array-item" *ngFor="let ac of req.acceptanceCriteria; let j = index; trackBy: trackByIndex">
                   <input type="text"
                     [ngModel]="getItemText(req.acceptanceCriteria[j])"
-                    (ngModelChange)="req.acceptanceCriteria[j] = { text: $event, grounding: 'DERIVED', source: [] }">
-                  <button class="btn-remove-item" (click)="removeArrayItem(req.acceptanceCriteria, j)">✕</button>
+                    (ngModelChange)="onArrayItemChange(req.acceptanceCriteria, j, $event)">
+                  <button type="button" class="btn-remove-item" (click)="removeArrayItem(req.acceptanceCriteria, j)">✕</button>
                 </div>
               </div>
 
               <div class="form-group" *ngIf="req.businessRules?.length">
                 <div class="label-with-action">
                   <label>Business Rules</label>
-                  <button class="btn-text-action" (click)="addArrayItem(req.businessRules)">+ Add</button>
+                  <button type="button" class="btn-text-action" (click)="addArrayItemSafe(req, 'businessRules')">+ Add</button>
                 </div>
                 <div class="array-item" *ngFor="let br of req.businessRules; let j = index; trackBy: trackByIndex">
                   <input type="text"
                     [ngModel]="getItemText(req.businessRules[j])"
-                    (ngModelChange)="req.businessRules[j] = { text: $event, grounding: 'DERIVED', source: [] }">
-                  <button class="btn-remove-item" (click)="removeArrayItem(req.businessRules, j)">✕</button>
+                    (ngModelChange)="onArrayItemChange(req.businessRules, j, $event)">
+                  <button type="button" class="btn-remove-item" (click)="removeArrayItem(req.businessRules, j)">✕</button>
                 </div>
               </div>
 
@@ -308,26 +471,26 @@
                 <div class="form-group">
                   <div class="label-with-action">
                     <label>Assumptions</label>
-                    <button class="btn-text-action" (click)="addArrayItem(req.assumptions)">+ Add</button>
+                    <button type="button" class="btn-text-action" (click)="addArrayItemSafe(req, 'assumptions')">+ Add</button>
                   </div>
                   <div class="array-item" *ngFor="let as of req.assumptions; let j = index; trackBy: trackByIndex">
                     <input type="text"
                       [ngModel]="getItemText(req.assumptions[j])"
-                      (ngModelChange)="req.assumptions[j] = { text: $event, grounding: 'DERIVED', source: [] }">
-                    <button class="btn-remove-item" (click)="removeArrayItem(req.assumptions, j)">✕</button>
+                      (ngModelChange)="onArrayItemChange(req.assumptions, j, $event)">
+                    <button type="button" class="btn-remove-item" (click)="removeArrayItem(req.assumptions, j)">✕</button>
                   </div>
                 </div>
 
                 <div class="form-group">
                   <div class="label-with-action">
                     <label>Dependencies</label>
-                    <button class="btn-text-action" (click)="addArrayItem(req.dependencies)">+ Add</button>
+                    <button type="button" class="btn-text-action" (click)="addArrayItemSafe(req, 'dependencies')">+ Add</button>
                   </div>
                   <div class="array-item" *ngFor="let dp of req.dependencies; let j = index; trackBy: trackByIndex">
                     <input type="text"
                       [ngModel]="getItemText(req.dependencies[j])"
-                      (ngModelChange)="req.dependencies[j] = { text: $event, grounding: 'DERIVED', source: [] }">
-                    <button class="btn-remove-item" (click)="removeArrayItem(req.dependencies, j)">✕</button>
+                      (ngModelChange)="onArrayItemChange(req.dependencies, j, $event)">
+                    <button type="button" class="btn-remove-item" (click)="removeArrayItem(req.dependencies, j)">✕</button>
                   </div>
                 </div>
               </div>
@@ -335,13 +498,13 @@
               <div class="form-group">
                 <div class="label-with-action">
                   <label>Edge Cases</label>
-                  <button class="btn-text-action" (click)="addArrayItem(req.edgeCases)">+ Add</button>
+                  <button type="button" class="btn-text-action" (click)="addArrayItemSafe(req, 'edgeCases')">+ Add</button>
                 </div>
                 <div class="array-item" *ngFor="let ec of req.edgeCases; let j = index; trackBy: trackByIndex">
                   <input type="text"
                     [ngModel]="getItemText(req.edgeCases[j])"
-                    (ngModelChange)="req.edgeCases[j] = { text: $event, grounding: 'DERIVED', source: [] }">
-                  <button class="btn-remove-item" (click)="removeArrayItem(req.edgeCases, j)">✕</button>
+                    (ngModelChange)="onArrayItemChange(req.edgeCases, j, $event)">
+                  <button type="button" class="btn-remove-item" (click)="removeArrayItem(req.edgeCases, j)">✕</button>
                 </div>
               </div>
 
@@ -359,169 +522,406 @@
           <!-- Title Banner -->
           <div class="req-title-banner">
             <span class="req-id-badge" style="background: #F36F21;">FD-001</span>
-            <h3>{{ fd.title || 'Functional Design Specification' }}</h3>
+            <h3 *ngIf="!isEditingSection(fd, 'title')">{{ fd.title || 'Functional Design Specification' }}</h3>
+            <input *ngIf="isEditingSection(fd, 'title')" [(ngModel)]="sectionDraft" class="inline-input" aria-label="Functional design title">
+            <button *ngIf="fd.title && !isEditingSection(fd, 'title')" class="section-action" type="button" (click)="editSection(fd, 'title')" title="Edit" aria-label="Edit functional design title">✏️</button>
+            <button *ngIf="isEditingSection(fd, 'title')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save functional design title">💾</button>
           </div>
 
           <!-- Objective -->
-          <div class="section-card" *ngIf="fd.objective">
-            <h3>Objective</h3>
-            <p>{{ fd.objective }}</p>
+          <div class="section-card" *ngIf="fd.objective || true">
+            <div class="section-heading">
+              <h3>Objective</h3>
+              <button *ngIf="!isEditingSection(fd, 'objective')" class="section-action" type="button" (click)="editSection(fd, 'objective')" title="Edit" aria-label="Edit objective">✏️</button>
+              <button *ngIf="isEditingSection(fd, 'objective')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save objective">💾</button>
+            </div>
+            <p *ngIf="!isEditingSection(fd, 'objective')">{{ fd.objective || 'Not specified' }}</p>
+            <textarea *ngIf="isEditingSection(fd, 'objective')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="4"></textarea>
           </div>
 
           <!-- Scope -->
-          <div class="section-card" *ngIf="fd.scope?.length">
-            <h3>Scope</h3>
-            <ul class="dot-list">
-              <li *ngFor="let item of fd.scope">{{ item }}</li>
-            </ul>
-          </div>
-
-          <!-- Actors -->
-          <div class="section-card" *ngIf="fd.actors?.length">
-            <h3>Actors</h3>
-            <div class="grid-2-col">
-              <div *ngFor="let actor of fd.actors" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-                <strong style="color: #0f172a; font-size: 0.95rem;">👤 {{ actor.name }}</strong>
-                <p style="margin-top: 4px; font-size: 0.85rem; color: #475569;">{{ actor.description }}</p>
-                <span class="grounding-badge grounding-explicit" *ngIf="actor.grounding" style="margin-top: 6px; display: inline-block;">{{ actor.grounding }}</span>
-              </div>
+          <div class="section-card" *ngIf="fd.scope?.length || true">
+            <div class="section-heading">
+              <h3>Scope</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(fd, 'scope')" title="Add Scope Item">+ Add</button>
             </div>
-          </div>
-
-          <!-- Preconditions -->
-          <div class="section-card" *ngIf="fd.preconditions?.length">
-            <h3>Preconditions</h3>
-            <ul class="dot-list">
-              <li *ngFor="let item of fd.preconditions">
-                <div class="item-content-wrap">
-                  <span>{{ getItemText(item) }}</span>
-                  <div class="grounding-tags-row" *ngIf="getItemGrounding(item) !== 'EXPLICIT' || getItemSource(item).length">
-                    <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(item).toLowerCase()">{{ getItemGrounding(item) }}</span>
-                    <span class="source-pill" *ngFor="let src of getItemSource(item)">{{ src }}</span>
+            <ul class="dot-list" *ngIf="fd.scope?.length">
+              <li *ngFor="let item of fd.scope; let scIdx = index">
+                <div class="item-view-row" *ngIf="!isEditingSection(fd.scope, scIdx)">
+                  <span class="item-text">{{ getItemText(item) }}</span>
+                  <div class="item-actions">
+                    <button class="section-action" type="button" (click)="editExistingListItem(fd, 'scope', scIdx)" title="Edit">✏️</button>
+                    <button class="section-action delete-action" type="button" (click)="deleteListItem(fd, 'scope', scIdx)" title="Delete">✕</button>
+                  </div>
+                </div>
+                <div class="criterion-editor-box" *ngIf="isEditingSection(fd.scope, scIdx)">
+                  <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2" placeholder="Scope description..."></textarea>
+                  <div class="criterion-editor-actions">
+                    <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(fd, 'scope', scIdx)">💾 Save</button>
+                    <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(fd, 'scope', scIdx)">✕ Cancel</button>
                   </div>
                 </div>
               </li>
             </ul>
+            <p *ngIf="!fd.scope || fd.scope.length === 0" class="empty-list-notice">No scope items added yet. Click "+ Add" to create one.</p>
           </div>
 
-          <!-- Main Flow -->
-          <div class="section-card" *ngIf="fd.mainFlow?.length">
-            <h3>Main Flow</h3>
-            <div class="testcases-table-wrap">
+          <!-- Actors -->
+          <div class="section-card" *ngIf="fd.actors?.length || true">
+            <div class="section-heading">
+              <h3>Actors</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewActor(fd)" title="Add Actor">+ Add Actor</button>
+            </div>
+            <div class="grid-2-col" *ngIf="fd.actors?.length">
+              <div *ngFor="let actor of fd.actors; let aIdx = index" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; position: relative;">
+                <button class="section-action delete-action" style="position: absolute; top: 8px; right: 8px;" type="button" (click)="deleteActor(fd, aIdx)" title="Delete Actor">✕</button>
+                <div style="display: flex; align-items: center; gap: 6px; padding-right: 28px;">
+                  <strong style="color: #0f172a; font-size: 0.95rem;" *ngIf="!isEditingSection(actor, 'name')">👤 {{ actor.name }}</strong>
+                  <input *ngIf="isEditingSection(actor, 'name')" [(ngModel)]="sectionDraft" class="inline-input">
+                  <button *ngIf="!isEditingSection(actor, 'name')" class="section-action" type="button" (click)="editSection(actor, 'name')" title="Edit name">✏️</button>
+                  <button *ngIf="isEditingSection(actor, 'name')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                </div>
+                <div style="margin-top: 6px;">
+                  <p *ngIf="!isEditingSection(actor, 'description')" style="font-size: 0.85rem; color: #475569;">{{ actor.description }}</p>
+                  <textarea *ngIf="isEditingSection(actor, 'description')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                  <button *ngIf="!isEditingSection(actor, 'description')" class="section-action" type="button" (click)="editSection(actor, 'description')" title="Edit description">✏️</button>
+                  <button *ngIf="isEditingSection(actor, 'description')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                </div>
+                <span class="grounding-badge grounding-explicit" *ngIf="actor.grounding" style="margin-top: 6px; display: inline-block;">{{ actor.grounding }}</span>
+              </div>
+            </div>
+            <p *ngIf="!fd.actors || fd.actors.length === 0" class="empty-list-notice">No actors added yet. Click "+ Add Actor" to create one.</p>
+          </div>
+
+          <!-- Preconditions -->
+          <div class="section-card" *ngIf="fd.preconditions?.length || true">
+            <div class="section-heading">
+              <h3>Preconditions</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(fd, 'preconditions')" title="Add Precondition">+ Add</button>
+            </div>
+            <ul class="dot-list" *ngIf="fd.preconditions?.length">
+              <li *ngFor="let item of fd.preconditions; let pIdx = index">
+                <div class="item-view-row" *ngIf="!isEditingSection(fd.preconditions, pIdx)">
+                  <span class="item-text">{{ getItemText(item) }}</span>
+                  <div class="item-actions">
+                    <button class="section-action" type="button" (click)="editExistingListItem(fd, 'preconditions', pIdx)" title="Edit">✏️</button>
+                    <button class="section-action delete-action" type="button" (click)="deleteListItem(fd, 'preconditions', pIdx)" title="Delete">✕</button>
+                  </div>
+                </div>
+                <div class="criterion-editor-box" *ngIf="isEditingSection(fd.preconditions, pIdx)">
+                  <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2" placeholder="Precondition text..."></textarea>
+                  <div class="criterion-editor-actions">
+                    <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(fd, 'preconditions', pIdx)">💾 Save</button>
+                    <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(fd, 'preconditions', pIdx)">✕ Cancel</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+            <p *ngIf="!fd.preconditions || fd.preconditions.length === 0" class="empty-list-notice">No preconditions added yet. Click "+ Add" to create one.</p>
+          </div>
+
+          <!-- Main Flow (EVERY COLUMN EDITABLE) -->
+          <div class="section-card">
+            <div class="section-heading">
+              <h3>Main Flow</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewMainFlowStep(fd)" title="Add Step">+ Add Step</button>
+            </div>
+            <div class="testcases-table-wrap" *ngIf="fd.mainFlow?.length">
               <table class="modal-table">
                 <thead>
                   <tr>
-                    <th style="width: 60px;">Step</th>
-                    <th style="width: 120px;">Actor</th>
+                    <th style="width: 75px;">Step</th>
+                    <th style="width: 130px;">Actor</th>
                     <th>Action</th>
                     <th>System Response</th>
+                    <th style="width: 45px;"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let step of fd.mainFlow">
-                    <td><strong>{{ step.step }}</strong></td>
-                    <td><span class="pill pill-type">{{ step.actor }}</span></td>
-                    <td>{{ step.action }}</td>
-                    <td>{{ step.systemResponse }}</td>
+                  <tr *ngFor="let step of fd.mainFlow; let sIdx = index">
+                    <!-- Column 1: Step -->
+                    <td style="vertical-align: top;">
+                      <span *ngIf="!isEditingSection(step, 'step')"><strong>{{ step.step }}</strong></span>
+                      <input *ngIf="isEditingSection(step, 'step')" [(ngModel)]="sectionDraft" class="inline-input" style="width: 45px;">
+                      <button *ngIf="!isEditingSection(step, 'step')" class="section-action" type="button" (click)="editSection(step, 'step')" title="Edit step">✏️</button>
+                      <button *ngIf="isEditingSection(step, 'step')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <!-- Column 2: Actor -->
+                    <td style="vertical-align: top;">
+                      <span *ngIf="!isEditingSection(step, 'actor')" class="pill pill-type">{{ step.actor }}</span>
+                      <input *ngIf="isEditingSection(step, 'actor')" [(ngModel)]="sectionDraft" class="inline-input" style="width: 100px;">
+                      <button *ngIf="!isEditingSection(step, 'actor')" class="section-action" type="button" (click)="editSection(step, 'actor')" title="Edit actor">✏️</button>
+                      <button *ngIf="isEditingSection(step, 'actor')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <!-- Column 3: Action -->
+                    <td style="vertical-align: top;">
+                      <div *ngIf="!isEditingSection(step, 'action')">{{ step.action }}</div>
+                      <textarea *ngIf="isEditingSection(step, 'action')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <div style="margin-top: 4px;">
+                        <button *ngIf="!isEditingSection(step, 'action')" class="section-action" type="button" (click)="editSection(step, 'action')" title="Edit action">✏️</button>
+                        <button *ngIf="isEditingSection(step, 'action')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                      </div>
+                    </td>
+                    <!-- Column 4: System Response -->
+                    <td style="vertical-align: top;">
+                      <div *ngIf="!isEditingSection(step, 'systemResponse')">{{ step.systemResponse }}</div>
+                      <textarea *ngIf="isEditingSection(step, 'systemResponse')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <div style="margin-top: 4px;">
+                        <button *ngIf="!isEditingSection(step, 'systemResponse')" class="section-action" type="button" (click)="editSection(step, 'systemResponse')" title="Edit response">✏️</button>
+                        <button *ngIf="isEditingSection(step, 'systemResponse')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                      </div>
+                    </td>
+                    <!-- Delete Step -->
+                    <td style="vertical-align: top; text-align: center;">
+                      <button class="section-action delete-action" type="button" (click)="deleteMainFlowStep(fd, sIdx)" title="Delete Step">✕</button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            <p *ngIf="!fd.mainFlow || fd.mainFlow.length === 0" class="empty-list-notice">No main flow steps added yet. Click "+ Add Step" to create one.</p>
           </div>
 
           <!-- Alternate Flows -->
-          <div class="section-card" *ngIf="fd.alternateFlows?.length">
-            <h3>Alternate Flows</h3>
-            <div *ngFor="let af of fd.alternateFlows" style="margin-bottom: 12px;">
-              <strong style="color: #2563eb;">🔀 {{ af.name }}</strong>
-              <ul class="dot-list" style="margin-top: 6px;">
-                <li *ngFor="let s of af.steps">{{ s }}</li>
-              </ul>
+          <div class="section-card" *ngIf="fd.alternateFlows?.length || true">
+            <div class="section-heading">
+              <h3>Alternate Flows</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewAlternateFlow(fd)" title="Add Alternate Flow">+ Add Flow</button>
             </div>
+            <div *ngIf="fd.alternateFlows?.length">
+              <div *ngFor="let af of fd.alternateFlows; let afIdx = index" style="margin-bottom: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; position: relative;">
+                <button class="section-action delete-action" style="position: absolute; top: 8px; right: 8px;" type="button" (click)="deleteAlternateFlow(fd, afIdx)" title="Delete Flow">✕</button>
+                <div style="display: flex; align-items: center; gap: 6px; padding-right: 28px;">
+                  <strong style="color: #2563eb;" *ngIf="!isEditingSection(af, 'name')">🔀 {{ af.name }}</strong>
+                  <input *ngIf="isEditingSection(af, 'name')" [(ngModel)]="sectionDraft" class="inline-input">
+                  <button *ngIf="!isEditingSection(af, 'name')" class="section-action" type="button" (click)="editSection(af, 'name')" title="Edit name">✏️</button>
+                  <button *ngIf="isEditingSection(af, 'name')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                </div>
+                <div style="margin-top: 8px;">
+                  <div class="item-view-row" *ngIf="!isEditingSection(af, 'steps')">
+                    <ul class="dot-list" style="margin: 0; flex: 1;">
+                      <li *ngFor="let s of af.steps">{{ s }}</li>
+                    </ul>
+                    <button class="section-action" type="button" (click)="editSection(af, 'steps')" title="Edit steps">✏️</button>
+                  </div>
+                  <div *ngIf="isEditingSection(af, 'steps')">
+                    <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="3" placeholder="Enter steps (one per line)..."></textarea>
+                    <div style="margin-top: 4px;">
+                      <button class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾 Save</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="!fd.alternateFlows || fd.alternateFlows.length === 0" class="empty-list-notice">No alternate flows added yet. Click "+ Add Flow" to create one.</p>
           </div>
 
           <!-- Validations -->
-          <div class="section-card" *ngIf="fd.validations?.length">
-            <h3>Validations</h3>
-            <ul class="styled-list">
-              <li *ngFor="let v of fd.validations">
+          <div class="section-card" *ngIf="fd.validations?.length || true">
+            <div class="section-heading">
+              <h3>Validations</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewValidation(fd)" title="Add Validation">+ Add</button>
+            </div>
+            <ul class="styled-list" *ngIf="fd.validations?.length">
+              <li *ngFor="let v of fd.validations; let vIdx = index">
                 <span class="bullet-check">✓</span>
                 <div class="item-content-wrap">
-                  <span><strong>{{ v.field }}:</strong> {{ v.rule }}</span>
-                  <div class="grounding-tags-row">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="flex: 1;">
+                      <span *ngIf="!isEditingSection(v, 'rule')"><strong>{{ v.field }}:</strong> {{ v.rule }}</span>
+                      <div *ngIf="isEditingSection(v, 'rule')" style="display: flex; gap: 6px;">
+                        <input [(ngModel)]="v.field" class="inline-input" style="width: 140px;" placeholder="Field">
+                        <input [(ngModel)]="sectionDraft" class="inline-input" style="flex: 1;" placeholder="Rule description">
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                      <button *ngIf="!isEditingSection(v, 'rule')" class="section-action" type="button" (click)="editSection(v, 'rule')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(v, 'rule')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                      <button class="section-action delete-action" type="button" (click)="deleteValidation(fd, vIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
+                  <div class="grounding-tags-row" *ngIf="!isEditingSection(v, 'rule') && (getItemGrounding(v) || getItemSource(v).length)">
                     <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(v).toLowerCase()">{{ getItemGrounding(v) }}</span>
                     <span class="source-pill" *ngFor="let src of getItemSource(v)">📌 {{ src }}</span>
                   </div>
                 </div>
               </li>
             </ul>
+            <p *ngIf="!fd.validations || fd.validations.length === 0" class="empty-list-notice">No validations added yet. Click "+ Add" to create one.</p>
           </div>
 
           <!-- Business Rules -->
-          <div class="section-card" *ngIf="fd.businessRules?.length">
-            <h3>Business Rules</h3>
-            <ul class="styled-list">
-              <li *ngFor="let br of fd.businessRules">
+          <div class="section-card" *ngIf="fd.businessRules?.length || true">
+            <div class="section-heading">
+              <h3>Business Rules</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(fd, 'businessRules')" title="Add Business Rule">+ Add</button>
+            </div>
+            <ul class="styled-list" *ngIf="fd.businessRules?.length">
+              <li *ngFor="let br of fd.businessRules; let brIdx = index">
                 <span class="bullet-check" style="color: #F36F21;">⚖️</span>
                 <div class="item-content-wrap">
-                  <span>{{ getItemText(br) }}</span>
-                  <div class="grounding-tags-row">
+                  <div class="item-view-row" *ngIf="!isEditingSection(fd.businessRules, brIdx)">
+                    <span class="item-text">{{ getItemText(br) }}</span>
+                    <div class="item-actions">
+                      <button class="section-action" type="button" (click)="editExistingListItem(fd, 'businessRules', brIdx)" title="Edit">✏️</button>
+                      <button class="section-action delete-action" type="button" (click)="deleteListItem(fd, 'businessRules', brIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
+                  <div class="criterion-editor-box" *ngIf="isEditingSection(fd.businessRules, brIdx)">
+                    <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2" placeholder="Business rule..."></textarea>
+                    <div class="criterion-editor-actions">
+                      <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(fd, 'businessRules', brIdx)">💾 Save</button>
+                      <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(fd, 'businessRules', brIdx)">✕ Cancel</button>
+                    </div>
+                  </div>
+                  <div class="grounding-tags-row" *ngIf="!isEditingSection(fd.businessRules, brIdx) && (getItemGrounding(br) || getItemSource(br).length)">
                     <span class="grounding-badge" [ngClass]="'grounding-' + getItemGrounding(br).toLowerCase()">{{ getItemGrounding(br) }}</span>
                     <span class="source-pill" *ngFor="let src of getItemSource(br)">📌 {{ src }}</span>
                   </div>
                 </div>
               </li>
             </ul>
+            <p *ngIf="!fd.businessRules || fd.businessRules.length === 0" class="empty-list-notice">No business rules added yet. Click "+ Add" to create one.</p>
           </div>
 
           <!-- Inputs & Outputs -->
           <div class="grid-2-col">
-            <div class="section-card" *ngIf="fd.inputs?.length">
-              <h3>Inputs</h3>
-              <ul class="dot-list">
-                <li *ngFor="let inp of fd.inputs">
-                  <strong>{{ inp.name }}</strong> ({{ inp.required ? 'Required' : 'Optional' }}, format: {{ inp.format }}): {{ inp.description }}
+            <div class="section-card">
+              <div class="section-heading">
+                <h3>Inputs</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewInput(fd)" title="Add Input">+ Add</button>
+              </div>
+              <ul class="dot-list" *ngIf="fd.inputs?.length">
+                <li *ngFor="let inp of fd.inputs; let inIdx = index">
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+                    <div style="flex: 1;">
+                      <span *ngIf="!isEditingSection(inp, 'description')">
+                        <strong>{{ inp.name }}</strong> ({{ inp.required ? 'Required' : 'Optional' }}, format: {{ inp.format }}): {{ inp.description }}
+                      </span>
+                      <div *ngIf="isEditingSection(inp, 'description')" style="display: flex; flex-direction: column; gap: 4px;">
+                        <input [(ngModel)]="inp.name" class="inline-input" placeholder="Input Name">
+                        <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2" placeholder="Description..."></textarea>
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                      <button *ngIf="!isEditingSection(inp, 'description')" class="section-action" type="button" (click)="editSection(inp, 'description')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(inp, 'description')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                      <button class="section-action delete-action" type="button" (click)="deleteInput(fd, inIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
                 </li>
               </ul>
+              <p *ngIf="!fd.inputs || fd.inputs.length === 0" class="empty-list-notice">No inputs specified.</p>
             </div>
 
-            <div class="section-card" *ngIf="fd.outputs?.length">
-              <h3>Outputs</h3>
-              <ul class="dot-list">
-                <li *ngFor="let out of fd.outputs">
-                  {{ out.description }}
+            <div class="section-card">
+              <div class="section-heading">
+                <h3>Outputs</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewOutput(fd)" title="Add Output">+ Add</button>
+              </div>
+              <ul class="dot-list" *ngIf="fd.outputs?.length">
+                <li *ngFor="let out of fd.outputs; let outIdx = index">
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+                    <div style="flex: 1;">
+                      <span *ngIf="!isEditingSection(out, 'description')">{{ out.description }}</span>
+                      <textarea *ngIf="isEditingSection(out, 'description')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                      <button *ngIf="!isEditingSection(out, 'description')" class="section-action" type="button" (click)="editSection(out, 'description')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(out, 'description')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                      <button class="section-action delete-action" type="button" (click)="deleteOutput(fd, outIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
                 </li>
               </ul>
+              <p *ngIf="!fd.outputs || fd.outputs.length === 0" class="empty-list-notice">No outputs specified.</p>
             </div>
           </div>
 
           <!-- Error Handling -->
-          <div class="section-card" *ngIf="fd.errorHandling?.length">
-            <h3>Error Handling</h3>
-            <ul class="styled-list">
-              <li *ngFor="let eh of fd.errorHandling">
+          <div class="section-card">
+            <div class="section-heading">
+              <h3>Error Handling</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewErrorHandling(fd)" title="Add Scenario">+ Add</button>
+            </div>
+            <ul class="styled-list" *ngIf="fd.errorHandling?.length">
+              <li *ngFor="let eh of fd.errorHandling; let ehIdx = index">
                 <span class="bullet-check" style="color: #dc2626;">⚠️</span>
-                <div>
-                  <strong>{{ eh.scenario }}:</strong> {{ eh.expectedBehavior }}
+                <div class="item-content-wrap">
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                    <div style="flex: 1;">
+                      <div *ngIf="!isEditingSection(eh, 'expectedBehavior')">
+                        <strong>{{ eh.scenario }}:</strong> {{ eh.expectedBehavior }}
+                      </div>
+                      <div *ngIf="isEditingSection(eh, 'expectedBehavior')" style="display: flex; flex-direction: column; gap: 4px;">
+                        <input [(ngModel)]="eh.scenario" class="inline-input" placeholder="Scenario">
+                        <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2" placeholder="Expected behavior..."></textarea>
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                      <button *ngIf="!isEditingSection(eh, 'expectedBehavior')" class="section-action" type="button" (click)="editSection(eh, 'expectedBehavior')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(eh, 'expectedBehavior')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                      <button class="section-action delete-action" type="button" (click)="deleteErrorHandling(fd, ehIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
                 </div>
               </li>
             </ul>
+            <p *ngIf="!fd.errorHandling || fd.errorHandling.length === 0" class="empty-list-notice">No error handling scenarios added yet.</p>
           </div>
 
           <!-- Dependencies & Assumptions -->
           <div class="grid-2-col">
-            <div class="section-card" *ngIf="fd.dependencies?.length">
-              <h3>Dependencies</h3>
-              <ul class="dot-list">
-                <li *ngFor="let d of fd.dependencies">{{ getItemText(d) }}</li>
+            <div class="section-card">
+              <div class="section-heading">
+                <h3>Dependencies</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(fd, 'dependencies')" title="Add Dependency">+ Add</button>
+              </div>
+              <ul class="dot-list" *ngIf="fd.dependencies?.length">
+                <li *ngFor="let d of fd.dependencies; let dIdx = index">
+                  <div class="item-view-row" *ngIf="!isEditingSection(fd.dependencies, dIdx)">
+                    <span class="item-text">{{ getItemText(d) }}</span>
+                    <div class="item-actions">
+                      <button class="section-action" type="button" (click)="editExistingListItem(fd, 'dependencies', dIdx)" title="Edit">✏️</button>
+                      <button class="section-action delete-action" type="button" (click)="deleteListItem(fd, 'dependencies', dIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
+                  <div class="criterion-editor-box" *ngIf="isEditingSection(fd.dependencies, dIdx)">
+                    <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                    <div class="criterion-editor-actions">
+                      <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(fd, 'dependencies', dIdx)">💾 Save</button>
+                      <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(fd, 'dependencies', dIdx)">✕ Cancel</button>
+                    </div>
+                  </div>
+                </li>
               </ul>
+              <p *ngIf="!fd.dependencies || fd.dependencies.length === 0" class="empty-list-notice">No dependencies.</p>
             </div>
 
-            <div class="section-card" *ngIf="fd.assumptions?.length">
-              <h3>Assumptions</h3>
-              <ul class="dot-list">
-                <li *ngFor="let a of fd.assumptions">{{ getItemText(a) }}</li>
+            <div class="section-card">
+              <div class="section-heading">
+                <h3>Assumptions</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(fd, 'assumptions')" title="Add Assumption">+ Add</button>
+              </div>
+              <ul class="dot-list" *ngIf="fd.assumptions?.length">
+                <li *ngFor="let a of fd.assumptions; let aIdx = index">
+                  <div class="item-view-row" *ngIf="!isEditingSection(fd.assumptions, aIdx)">
+                    <span class="item-text">{{ getItemText(a) }}</span>
+                    <div class="item-actions">
+                      <button class="section-action" type="button" (click)="editExistingListItem(fd, 'assumptions', aIdx)" title="Edit">✏️</button>
+                      <button class="section-action delete-action" type="button" (click)="deleteListItem(fd, 'assumptions', aIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
+                  <div class="criterion-editor-box" *ngIf="isEditingSection(fd.assumptions, aIdx)">
+                    <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                    <div class="criterion-editor-actions">
+                      <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(fd, 'assumptions', aIdx)">💾 Save</button>
+                      <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(fd, 'assumptions', aIdx)">✕ Cancel</button>
+                    </div>
+                  </div>
+                </li>
               </ul>
+              <p *ngIf="!fd.assumptions || fd.assumptions.length === 0" class="empty-list-notice">No assumptions.</p>
             </div>
           </div>
 
@@ -534,219 +934,1014 @@
       </div>
 
       <!-- ======================================================= -->
-      <!-- 3. TECHNICAL DESIGN VIEW -->
+      <!-- 3. TECHNICAL DESIGN VIEW (DETAILED & STRUCTURED) -->
       <!-- ======================================================= -->
       <div *ngIf="type === 'technicaldesign' && (technicalDesignData || currentRequirement)">
         <div class="view-content" *ngIf="(technicalDesignData || currentRequirement) as td">
           <!-- Title Banner -->
           <div class="req-title-banner">
             <span class="req-id-badge" style="background: #10b981;">TD-001</span>
-            <h3>{{ td.title || 'Technical Design Specification' }}</h3>
+            <h3 *ngIf="!isEditingSection(td, 'title')">{{ td.title || 'Technical Design Specification' }}</h3>
+            <input *ngIf="isEditingSection(td, 'title')" [(ngModel)]="sectionDraft" class="inline-input" aria-label="Technical design title">
+            <button *ngIf="td.title && !isEditingSection(td, 'title')" class="section-action" type="button" (click)="editSection(td, 'title')" title="Edit" aria-label="Edit technical design title">✏️</button>
+            <button *ngIf="isEditingSection(td, 'title')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save technical design title">💾</button>
           </div>
 
-          <!-- Technical Objective -->
-          <div class="section-card" *ngIf="td.objective">
-            <h3>Technical Objective</h3>
-            <p>{{ td.objective }}</p>
-          </div>
+          <!-- 1. TECHNICAL OVERVIEW -->
+          <div class="section-card" *ngIf="td.technicalOverview || td.objective || td.requirementSummary">
+            <div class="section-heading">
+              <h3>1. Technical Overview</h3>
+              <button *ngIf="!isEditingSection(td, 'objective')" class="section-action" type="button" (click)="editSection(td, 'objective')" title="Edit Objective">✏️</button>
+              <button *ngIf="isEditingSection(td, 'objective')" class="section-action save-action" type="button" (click)="saveSection()" title="Save Objective">💾</button>
+            </div>
 
-          <!-- Requirement Summary -->
-          <div class="section-card" *ngIf="td.requirementSummary">
-            <h3>Requirement Summary</h3>
-            <p>{{ td.requirementSummary }}</p>
-          </div>
-
-          <!-- Components -->
-          <div class="section-card" *ngIf="td.components?.length">
-            <h3>Components</h3>
-            <div class="grid-2-col">
-              <div *ngFor="let comp of td.components" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-                <strong style="color: #0f172a; font-size: 0.95rem;">⚙️ {{ comp.name }}</strong>
-                <p style="margin-top: 4px; font-size: 0.85rem; color: #475569;">{{ comp.responsibility }}</p>
+            <div *ngIf="td.technicalOverview as to">
+              <div style="margin-bottom: 12px;" *ngIf="to.whatIsBeingImplemented">
+                <strong style="color: #0f172a; font-size: 0.9rem;">What is Being Implemented:</strong>
+                <p style="margin-top: 4px;">{{ to.whatIsBeingImplemented }}</p>
               </div>
+              <div style="margin-bottom: 12px;" *ngIf="to.technicalObjective || td.objective">
+                <strong style="color: #0f172a; font-size: 0.9rem;">Technical Objective:</strong>
+                <p style="margin-top: 4px;" *ngIf="!isEditingSection(td, 'objective')">{{ to.technicalObjective || td.objective }}</p>
+                <textarea *ngIf="isEditingSection(td, 'objective')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="3"></textarea>
+              </div>
+              <div style="margin-bottom: 12px;" *ngIf="to.highLevelApproach">
+                <strong style="color: #0f172a; font-size: 0.9rem;">High-Level Implementation Approach:</strong>
+                <p style="margin-top: 4px;">{{ to.highLevelApproach }}</p>
+              </div>
+              <div style="margin-bottom: 12px;" *ngIf="to.relationshipToUserStory">
+                <strong style="color: #0f172a; font-size: 0.9rem;">Relationship to Requirement / User Story:</strong>
+                <p style="margin-top: 4px;">{{ to.relationshipToUserStory }}</p>
+              </div>
+              <div class="grid-2-col" style="margin-top: 10px;">
+                <div *ngIf="to.scopeOfImplementation?.length">
+                  <strong style="color: #15803d; font-size: 0.85rem;">In-Scope Deliverables:</strong>
+                  <ul class="dot-list" style="margin-top: 4px;">
+                    <li *ngFor="let s of to.scopeOfImplementation">{{ s }}</li>
+                  </ul>
+                </div>
+                <div *ngIf="to.outOfScope?.length">
+                  <strong style="color: #b45309; font-size: 0.85rem;">Out of Scope:</strong>
+                  <ul class="dot-list" style="margin-top: 4px;">
+                    <li *ngFor="let o of to.outOfScope">{{ o }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="!td.technicalOverview && (td.objective || td.requirementSummary)">
+              <p *ngIf="td.objective && !isEditingSection(td, 'objective')">{{ td.objective }}</p>
+              <textarea *ngIf="isEditingSection(td, 'objective')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="3"></textarea>
+              <p *ngIf="td.requirementSummary" style="margin-top: 8px; color: #64748b;">{{ td.requirementSummary }}</p>
             </div>
           </div>
 
-          <!-- Architecture Flow -->
-          <div class="section-card" *ngIf="td.architectureFlow?.length">
-            <h3>Architecture Flow</h3>
-            <div class="testcases-table-wrap">
+          <!-- 2. ARCHITECTURE & COMPONENT OVERVIEW -->
+          <div class="section-card" *ngIf="td.architectureOverview || td.architectureFlow?.length">
+            <div class="section-heading">
+              <h3>2. Architecture / Component Overview</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewArchitectureStep(td)" title="Add Architecture Step">+ Add Step</button>
+            </div>
+
+            <!-- Text-Based Flow Diagram -->
+            <div *ngIf="td.architectureOverview?.textFlowDiagram" style="margin-bottom: 14px;">
+              <strong style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 6px;">Architecture Flow Diagram:</strong>
+              <div class="arch-diagram-box">
+                <code>{{ td.architectureOverview.textFlowDiagram }}</code>
+              </div>
+            </div>
+
+            <!-- Architecture overview details -->
+            <div *ngIf="td.architectureOverview as ao" style="margin-bottom: 14px;">
+              <div class="grid-2-col" style="gap: 12px; margin-bottom: 10px;">
+                <div *ngIf="ao.frontendComponents?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #2563eb;">🖥️ Frontend Components Involved:</strong>
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                    <span class="pill pill-type" *ngFor="let fc of ao.frontendComponents">{{ fc }}</span>
+                  </div>
+                </div>
+                <div *ngIf="ao.backendServices?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #15803d;">⚙️ Backend Services Involved:</strong>
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                    <span class="pill pill-priority" *ngFor="let bs of ao.backendServices">{{ bs }}</span>
+                  </div>
+                </div>
+              </div>
+              <p *ngIf="ao.communicationFlow" style="font-size: 0.875rem; color: #475569;">
+                <strong>Communication:</strong> {{ ao.communicationFlow }}
+              </p>
+            </div>
+
+            <!-- Architecture Flow Table -->
+            <div class="testcases-table-wrap" *ngIf="td.architectureFlow?.length">
               <table class="modal-table">
                 <thead>
                   <tr>
-                    <th style="width: 60px;">Step</th>
-                    <th style="width: 160px;">Component</th>
+                    <th style="width: 70px;">Step</th>
+                    <th style="width: 170px;">Component</th>
                     <th>Technical Action</th>
+                    <th style="width: 45px;"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let step of td.architectureFlow">
-                    <td><strong>{{ step.step }}</strong></td>
-                    <td><span class="pill pill-type">{{ step.component }}</span></td>
-                    <td>{{ step.action }}</td>
+                  <tr *ngFor="let step of td.architectureFlow; let afIdx = index">
+                    <td>
+                      <span *ngIf="!isEditingSection(step, 'step')"><strong>{{ step.step }}</strong></span>
+                      <input *ngIf="isEditingSection(step, 'step')" [(ngModel)]="sectionDraft" class="inline-input" style="width: 45px;">
+                      <button *ngIf="!isEditingSection(step, 'step')" class="section-action" type="button" (click)="editSection(step, 'step')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(step, 'step')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td>
+                      <span *ngIf="!isEditingSection(step, 'component')" class="pill pill-type">{{ step.component }}</span>
+                      <input *ngIf="isEditingSection(step, 'component')" [(ngModel)]="sectionDraft" class="inline-input">
+                      <button *ngIf="!isEditingSection(step, 'component')" class="section-action" type="button" (click)="editSection(step, 'component')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(step, 'component')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td>
+                      <span *ngIf="!isEditingSection(step, 'action')">{{ step.action }}</span>
+                      <textarea *ngIf="isEditingSection(step, 'action')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <button *ngIf="!isEditingSection(step, 'action')" class="section-action" type="button" (click)="editSection(step, 'action')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(step, 'action')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td style="text-align: center;">
+                      <button class="section-action delete-action" type="button" (click)="deleteArchitectureStep(td, afIdx)" title="Delete">✕</button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- APIs -->
-          <div class="section-card" *ngIf="td.apis?.length">
-            <h3>APIs</h3>
-            <div class="testcases-table-wrap">
+          <!-- 3. COMPONENT-LEVEL DESIGN -->
+          <div class="section-card" *ngIf="td.components?.length || true">
+            <div class="section-heading">
+              <h3>3. Component-Level Design</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewComponent(td)" title="Add Component">+ Add Component</button>
+            </div>
+            <div class="grid-2-col" *ngIf="td.components?.length">
+              <div *ngFor="let comp of td.components; let cIdx = index" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; position: relative;">
+                <button class="section-action delete-action" style="position: absolute; top: 8px; right: 8px;" type="button" (click)="deleteComponent(td, cIdx)" title="Delete Component">✕</button>
+                <div style="display: flex; align-items: center; gap: 6px; padding-right: 28px;">
+                  <strong style="color: #0f172a; font-size: 0.95rem;" *ngIf="!isEditingSection(comp, 'name')">⚙️ {{ comp.name }}</strong>
+                  <input *ngIf="isEditingSection(comp, 'name')" [(ngModel)]="sectionDraft" class="inline-input">
+                  <button *ngIf="!isEditingSection(comp, 'name')" class="section-action" type="button" (click)="editSection(comp, 'name')" title="Edit">✏️</button>
+                  <button *ngIf="isEditingSection(comp, 'name')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                </div>
+                <div style="margin-top: 6px;">
+                  <p *ngIf="!isEditingSection(comp, 'responsibility')" style="font-size: 0.85rem; color: #475569;">{{ comp.responsibility }}</p>
+                  <textarea *ngIf="isEditingSection(comp, 'responsibility')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                  <button *ngIf="!isEditingSection(comp, 'responsibility')" class="section-action" type="button" (click)="editSection(comp, 'responsibility')" title="Edit">✏️</button>
+                  <button *ngIf="isEditingSection(comp, 'responsibility')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                </div>
+                <div *ngIf="comp.importantMethods?.length" style="margin-top: 8px;">
+                  <strong style="font-size: 0.8rem; color: #1e293b;">Methods:</strong>
+                  <ul class="dot-list" style="margin-top: 2px;">
+                    <li *ngFor="let m of comp.importantMethods" style="font-size: 0.8rem; font-family: monospace;">{{ m }}</li>
+                  </ul>
+                </div>
+                <div *ngIf="comp.dependencies?.length" style="margin-top: 6px;">
+                  <strong style="font-size: 0.8rem; color: #64748b;">Dependencies:</strong>
+                  <span class="source-pill" *ngFor="let d of comp.dependencies" style="margin-left: 4px;">{{ d }}</span>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="!td.components || td.components.length === 0" class="empty-list-notice">No components defined. Click "+ Add Component" to add one.</p>
+          </div>
+
+          <!-- 4. FRONTEND TECHNICAL DESIGN -->
+          <div class="section-card" *ngIf="td.frontendDesign">
+            <div class="section-heading">
+              <h3>4. Frontend Technical Design</h3>
+            </div>
+            <div *ngIf="td.frontendDesign as fd">
+              <div class="grid-2-col" style="gap: 12px; margin-bottom: 12px;">
+                <div *ngIf="fd.angularComponents?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #2563eb;">Angular Components:</strong>
+                  <ul class="dot-list" style="margin-top: 4px;">
+                    <li *ngFor="let ac of fd.angularComponents">{{ ac }}</li>
+                  </ul>
+                </div>
+                <div *ngIf="fd.services?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #15803d;">Services & HTTP Integration:</strong>
+                  <ul class="dot-list" style="margin-top: 4px;">
+                    <li *ngFor="let s of fd.services">{{ s }}</li>
+                  </ul>
+                </div>
+              </div>
+              <div *ngIf="fd.models?.length" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">TypeScript Models & Interfaces:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let m of fd.models">{{ m }}</li>
+                </ul>
+              </div>
+              <div *ngIf="fd.formsAndState" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Forms & State Management:</strong>
+                <p style="margin-top: 2px;">{{ fd.formsAndState }}</p>
+              </div>
+              <div *ngIf="fd.editModeBehavior" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Inline Edit Mode Behavior:</strong>
+                <p style="margin-top: 2px;">{{ fd.editModeBehavior }}</p>
+              </div>
+              <div *ngIf="fd.validation?.length" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Frontend Validation Rules:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let v of fd.validation">{{ v }}</li>
+                </ul>
+              </div>
+              <div *ngIf="fd.loadingAndErrorStates" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Loading & Error States:</strong>
+                <p style="margin-top: 2px;">{{ fd.loadingAndErrorStates }}</p>
+              </div>
+              <div *ngIf="fd.uiStateTransitions">
+                <strong style="font-size: 0.85rem; color: #0f172a;">UI State Transitions:</strong>
+                <p style="margin-top: 2px;">{{ fd.uiStateTransitions }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. BACKEND TECHNICAL DESIGN -->
+          <div class="section-card" *ngIf="td.backendDesign">
+            <div class="section-heading">
+              <h3>5. Backend Technical Design</h3>
+            </div>
+            <div *ngIf="td.backendDesign as bd">
+              <div class="grid-2-col" style="gap: 12px; margin-bottom: 12px;">
+                <div *ngIf="bd.controllers?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #2563eb;">Controllers & Endpoints:</strong>
+                  <ul class="dot-list" style="margin-top: 4px;">
+                    <li *ngFor="let c of bd.controllers">{{ c }}</li>
+                  </ul>
+                </div>
+                <div *ngIf="bd.businessServices?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #15803d;">Business Services & Logic:</strong>
+                  <ul class="dot-list" style="margin-top: 4px;">
+                    <li *ngFor="let s of bd.businessServices">{{ s }}</li>
+                  </ul>
+                </div>
+              </div>
+              <div *ngIf="bd.repositoryLayer?.length" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Repository & Data Access Layer:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let r of bd.repositoryLayer">{{ r }}</li>
+                </ul>
+              </div>
+              <div *ngIf="bd.validation?.length" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Server-Side Validation:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let v of bd.validation">{{ v }}</li>
+                </ul>
+              </div>
+              <div *ngIf="bd.errorHandling?.length" style="margin-bottom: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Backend Error Handling:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let eh of bd.errorHandling">{{ eh }}</li>
+                </ul>
+              </div>
+              <div *ngIf="bd.security?.length">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Authentication & Authorization:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let sec of bd.security">{{ sec }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. APIS & API CONTRACT -->
+          <div class="section-card" *ngIf="td.apis?.length || true">
+            <div class="section-heading">
+              <h3>6. API Contract</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewApi(td)" title="Add API">+ Add API</button>
+            </div>
+
+            <!-- API Summary Table -->
+            <div class="testcases-table-wrap" *ngIf="td.apis?.length">
               <table class="modal-table">
                 <thead>
                   <tr>
                     <th>API Name</th>
-                    <th style="width: 90px;">Method</th>
+                    <th style="width: 85px;">Method</th>
                     <th>Endpoint</th>
                     <th>Purpose</th>
                     <th style="width: 120px;">Status Codes</th>
+                    <th style="width: 45px;"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let api of td.apis">
-                    <td><strong>{{ api.name }}</strong></td>
-                    <td><span class="pill pill-priority">{{ api.method }}</span></td>
-                    <td><code>{{ api.endpoint }}</code></td>
-                    <td>{{ api.purpose }}</td>
-                    <td><span *ngFor="let sc of api.statusCodes" class="pill pill-type" style="margin-right: 4px;">{{ sc }}</span></td>
+                  <tr *ngFor="let api of td.apis; let aIdx = index">
+                    <td>
+                      <span *ngIf="!isEditingSection(api, 'name')"><strong>{{ api.name }}</strong></span>
+                      <input *ngIf="isEditingSection(api, 'name')" [(ngModel)]="sectionDraft" class="inline-input">
+                      <button *ngIf="!isEditingSection(api, 'name')" class="section-action" type="button" (click)="editSection(api, 'name')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(api, 'name')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td>
+                      <span *ngIf="!isEditingSection(api, 'method')" class="pill pill-priority">{{ api.method }}</span>
+                      <input *ngIf="isEditingSection(api, 'method')" [(ngModel)]="sectionDraft" class="inline-input" style="width: 60px;">
+                      <button *ngIf="!isEditingSection(api, 'method')" class="section-action" type="button" (click)="editSection(api, 'method')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(api, 'method')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td>
+                      <code *ngIf="!isEditingSection(api, 'endpoint')">{{ api.endpoint }}</code>
+                      <input *ngIf="isEditingSection(api, 'endpoint')" [(ngModel)]="sectionDraft" class="inline-input">
+                      <button *ngIf="!isEditingSection(api, 'endpoint')" class="section-action" type="button" (click)="editSection(api, 'endpoint')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(api, 'endpoint')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td>
+                      <span *ngIf="!isEditingSection(api, 'purpose')">{{ api.purpose }}</span>
+                      <input *ngIf="isEditingSection(api, 'purpose')" [(ngModel)]="sectionDraft" class="inline-input">
+                      <button *ngIf="!isEditingSection(api, 'purpose')" class="section-action" type="button" (click)="editSection(api, 'purpose')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(api, 'purpose')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td>
+                      <span *ngFor="let sc of asArray(api.statusCodes)" class="pill pill-type" style="margin-right: 3px; font-size: 0.7rem;">{{ sc }}</span>
+                    </td>
+                    <td style="text-align: center;">
+                      <button class="section-action delete-action" type="button" (click)="deleteApi(td, aIdx)" title="Delete API">✕</button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          </div>
 
-          <!-- Data Model -->
-          <div class="section-card" *ngIf="td.dataModel?.length">
-            <h3>Data Model</h3>
-            <div *ngFor="let dm of td.dataModel" style="margin-bottom: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-              <strong style="color: #0f172a; font-size: 0.95rem;">🗄️ Entity: {{ dm.entity }}</strong>
-              <div class="testcases-table-wrap" style="margin-top: 8px;" *ngIf="dm.fields?.length">
-                <table class="modal-table">
-                  <thead>
-                    <tr>
-                      <th>Field</th>
-                      <th>Type</th>
-                      <th>Required</th>
-                      <th>Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let f of dm.fields">
-                      <td><code>{{ f.name }}</code></td>
-                      <td>{{ f.type }}</td>
-                      <td>{{ f.required ? 'Yes' : 'No' }}</td>
-                      <td>{{ f.description }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div *ngIf="dm.relationships?.length" style="margin-top: 8px; font-size: 0.85rem; color: #64748b;">
-                <strong>Relationships:</strong> {{ dm.relationships.join(', ') }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Business Logic & Validation -->
-          <div class="grid-2-col">
-            <div class="section-card" *ngIf="td.businessLogic?.length">
-              <h3>Business Logic</h3>
-              <ul class="dot-list">
-                <li *ngFor="let bl of td.businessLogic">{{ bl.rule || getItemText(bl) }}</li>
-              </ul>
-            </div>
-
-            <div class="section-card" *ngIf="td.validation?.length">
-              <h3>Validation</h3>
-              <ul class="dot-list">
-                <li *ngFor="let val of td.validation">{{ val.validation || getItemText(val) }}</li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Error Handling & Security -->
-          <div class="grid-2-col">
-            <div class="section-card" *ngIf="td.errorHandling?.length">
-              <h3>Error Handling</h3>
-              <ul class="styled-list">
-                <li *ngFor="let eh of td.errorHandling">
-                  <span class="bullet-check" style="color: #ef4444;">⚠️</span>
+            <!-- Detailed Contract Blocks (Request & Response JSON schemas) -->
+            <div *ngIf="td.apis?.length" style="margin-top: 16px;">
+              <div *ngFor="let api of td.apis" class="contract-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                   <div>
-                    <strong>{{ eh.scenario }}:</strong> {{ eh.handling }}
+                    <span class="pill pill-priority" style="margin-right: 6px;">{{ api.method }}</span>
+                    <code style="font-weight: 700; font-size: 0.95rem; color: #0f172a;">{{ api.endpoint }}</code>
+                    <span style="color: #64748b; font-size: 0.85rem; margin-left: 8px;">({{ api.name }})</span>
+                  </div>
+                </div>
+
+                <div class="grid-2-col" style="gap: 12px; margin-top: 8px;">
+                  <!-- Request Payload -->
+                  <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                      <strong style="font-size: 0.8rem; color: #475569;">Request Payload Schema / Example:</strong>
+                      <button *ngIf="!isEditingSection(api, 'request')" class="section-action" type="button" (click)="editSection(api, 'request')" title="Edit Request">✏️</button>
+                      <button *ngIf="isEditingSection(api, 'request')" class="section-action save-action" type="button" (click)="saveSection()" title="Save Request">💾</button>
+                    </div>
+                    <pre class="code-block-wrap" *ngIf="!isEditingSection(api, 'request')"><code>{{ api.request || 'None' }}</code></pre>
+                    <textarea *ngIf="isEditingSection(api, 'request')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="6"></textarea>
+                  </div>
+
+                  <!-- Response Payload -->
+                  <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                      <strong style="font-size: 0.8rem; color: #475569;">Response Payload Schema / Example:</strong>
+                      <button *ngIf="!isEditingSection(api, 'response')" class="section-action" type="button" (click)="editSection(api, 'response')" title="Edit Response">✏️</button>
+                      <button *ngIf="isEditingSection(api, 'response')" class="section-action save-action" type="button" (click)="saveSection()" title="Save Response">💾</button>
+                    </div>
+                    <pre class="code-block-wrap" *ngIf="!isEditingSection(api, 'response')"><code>{{ api.response || 'None' }}</code></pre>
+                    <textarea *ngIf="isEditingSection(api, 'response')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="6"></textarea>
+                  </div>
+                </div>
+
+                <!-- Validation & Error Scenarios -->
+                <div class="grid-2-col" style="gap: 12px; margin-top: 10px;" *ngIf="api.validationRules?.length || api.errorScenarios?.length">
+                  <div *ngIf="api.validationRules?.length">
+                    <strong style="font-size: 0.8rem; color: #b45309;">Validation Rules:</strong>
+                    <ul class="dot-list" style="margin-top: 2px;">
+                      <li *ngFor="let vr of asArray(api.validationRules)" style="font-size: 0.8rem;">{{ vr }}</li>
+                    </ul>
+                  </div>
+                  <div *ngIf="api.errorScenarios?.length">
+                    <strong style="font-size: 0.8rem; color: #dc2626;">Error Scenarios:</strong>
+                    <ul class="dot-list" style="margin-top: 2px;">
+                      <li *ngFor="let es of asArray(api.errorScenarios)" style="font-size: 0.8rem;">{{ es }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="!td.apis || td.apis.length === 0" class="empty-list-notice">No APIs defined. Click "+ Add API" to add one.</p>
+          </div>
+
+          <!-- 7. DATA MODEL / DATABASE DESIGN -->
+          <div class="section-card" *ngIf="td.dataModel?.length || true">
+            <div class="section-heading">
+              <h3>7. Data Model / Database Design</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewDataModelEntity(td)" title="Add Entity">+ Add Entity</button>
+            </div>
+
+            <div *ngIf="td.dataModel?.length">
+              <div *ngFor="let dm of td.dataModel; let dmIdx = index" style="margin-bottom: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; position: relative;">
+                <button class="section-action delete-action" style="position: absolute; top: 10px; right: 10px;" type="button" (click)="deleteDataModelEntity(td, dmIdx)" title="Delete Entity">✕</button>
+
+                <div style="display: flex; align-items: center; gap: 8px; padding-right: 32px;">
+                  <strong style="color: #0f172a; font-size: 0.95rem;" *ngIf="!isEditingSection(dm, 'entity')">🗄️ Entity / Table: {{ dm.entity }}</strong>
+                  <input *ngIf="isEditingSection(dm, 'entity')" [(ngModel)]="sectionDraft" class="inline-input">
+                  <button *ngIf="!isEditingSection(dm, 'entity')" class="section-action" type="button" (click)="editSection(dm, 'entity')" title="Edit entity name">✏️</button>
+                  <button *ngIf="isEditingSection(dm, 'entity')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+
+                  <span *ngIf="dm.databaseChangesSummary" class="source-pill" style="margin-left: 8px;">{{ dm.databaseChangesSummary }}</span>
+                </div>
+
+                <!-- Fields Table -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                  <strong style="font-size: 0.85rem; color: #475569;">Fields Schema:</strong>
+                  <button type="button" class="btn-text-action" (click)="addNewDataModelField(dm)" title="Add Field">+ Add Field</button>
+                </div>
+
+                <div class="testcases-table-wrap" style="margin-top: 6px;" *ngIf="dm.fields?.length">
+                  <table class="modal-table">
+                    <thead>
+                      <tr>
+                        <th>Field Name</th>
+                        <th>Type</th>
+                        <th style="width: 70px;">Key</th>
+                        <th style="width: 80px;">Required</th>
+                        <th>Description</th>
+                        <th style="width: 40px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let f of dm.fields; let fIdx = index">
+                        <td>
+                          <code *ngIf="!isEditingSection(f, 'name')">{{ f.name }}</code>
+                          <input *ngIf="isEditingSection(f, 'name')" [(ngModel)]="sectionDraft" class="inline-input">
+                          <button *ngIf="!isEditingSection(f, 'name')" class="section-action" type="button" (click)="editSection(f, 'name')" title="Edit">✏️</button>
+                          <button *ngIf="isEditingSection(f, 'name')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                        </td>
+                        <td>
+                          <span *ngIf="!isEditingSection(f, 'type')">{{ f.type }}</span>
+                          <input *ngIf="isEditingSection(f, 'type')" [(ngModel)]="sectionDraft" class="inline-input" style="width: 90px;">
+                          <button *ngIf="!isEditingSection(f, 'type')" class="section-action" type="button" (click)="editSection(f, 'type')" title="Edit">✏️</button>
+                          <button *ngIf="isEditingSection(f, 'type')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                        </td>
+                        <td>{{ f.primaryKey ? 'PK' : (f.foreignKey ? 'FK' : '-') }}</td>
+                        <td>{{ f.required ? 'Yes' : 'No' }}</td>
+                        <td>
+                          <span *ngIf="!isEditingSection(f, 'description')">{{ f.description }}</span>
+                          <input *ngIf="isEditingSection(f, 'description')" [(ngModel)]="sectionDraft" class="inline-input">
+                          <button *ngIf="!isEditingSection(f, 'description')" class="section-action" type="button" (click)="editSection(f, 'description')" title="Edit">✏️</button>
+                          <button *ngIf="isEditingSection(f, 'description')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                        </td>
+                        <td style="text-align: center;">
+                          <button class="section-action delete-action" type="button" (click)="deleteDataModelField(dm, fIdx)" title="Delete Field">✕</button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div *ngIf="dm.relationships?.length" style="margin-top: 8px; font-size: 0.85rem; color: #64748b;">
+                  <strong>Relationships:</strong> {{ asArray(dm.relationships).join(', ') }}
+                </div>
+                <div *ngIf="dm.persistenceBehavior" style="margin-top: 4px; font-size: 0.85rem; color: #64748b;">
+                  <strong>Persistence:</strong> {{ dm.persistenceBehavior }}
+                </div>
+              </div>
+            </div>
+            <p *ngIf="!td.dataModel || td.dataModel.length === 0" class="empty-list-notice">Database changes: None required.</p>
+          </div>
+
+          <!-- 8. DATA FLOW -->
+          <div class="section-card" *ngIf="td.dataFlow?.length || true">
+            <div class="section-heading">
+              <h3>8. End-to-End Data Flow</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewDataFlowStep(td)" title="Add Data Flow Step">+ Add Step</button>
+            </div>
+            <div class="testcases-table-wrap" *ngIf="td.dataFlow?.length">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">Step</th>
+                    <th style="width: 140px;">Source</th>
+                    <th style="width: 140px;">Target</th>
+                    <th>Action</th>
+                    <th>Data Transferred / Payload</th>
+                    <th style="width: 45px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let df of td.dataFlow; let dfIdx = index">
+                    <td><strong>{{ df.step }}</strong></td>
+                    <td><span class="pill pill-type">{{ df.source }}</span></td>
+                    <td><span class="pill pill-priority">{{ df.target }}</span></td>
+                    <td>
+                      <span *ngIf="!isEditingSection(df, 'action')">{{ df.action }}</span>
+                      <textarea *ngIf="isEditingSection(df, 'action')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <button *ngIf="!isEditingSection(df, 'action')" class="section-action" type="button" (click)="editSection(df, 'action')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(df, 'action')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td>
+                      <span *ngIf="!isEditingSection(df, 'payload')">{{ df.payload }}</span>
+                      <textarea *ngIf="isEditingSection(df, 'payload')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <button *ngIf="!isEditingSection(df, 'payload')" class="section-action" type="button" (click)="editSection(df, 'payload')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(df, 'payload')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td style="text-align: center;">
+                      <button class="section-action delete-action" type="button" (click)="deleteDataFlowStep(td, dfIdx)" title="Delete Step">✕</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p *ngIf="!td.dataFlow || td.dataFlow.length === 0" class="empty-list-notice">No data flow steps added yet. Click "+ Add Step" to create one.</p>
+          </div>
+
+          <!-- 9. AI / LLM INTEGRATION -->
+          <div class="section-card" *ngIf="td.aiLlmIntegration">
+            <div class="section-heading">
+              <h3>9. AI / LLM Integration</h3>
+            </div>
+            <div *ngIf="td.aiLlmIntegration as ai">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <span class="pill pill-priority" style="font-size: 0.8rem;">🤖 Model: {{ ai.modelUsed || 'Gemini 3.7 Flash' }}</span>
+              </div>
+              <div class="grid-2-col" style="gap: 12px; margin-bottom: 10px;">
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #0f172a;">Prompt Construction:</strong>
+                  <p style="font-size: 0.85rem; margin-top: 4px; color: #475569;">{{ ai.promptConstruction }}</p>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #0f172a;">Input Context & Retrieval:</strong>
+                  <p style="font-size: 0.85rem; margin-top: 4px; color: #475569;">{{ ai.inputContext }}</p>
+                </div>
+              </div>
+              <div class="grid-2-col" style="gap: 12px; margin-bottom: 10px;">
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #0f172a;">Response Parsing:</strong>
+                  <p style="font-size: 0.85rem; margin-top: 4px; color: #475569;">{{ ai.responseParsing }}</p>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #0f172a;">Validation & Sanitization:</strong>
+                  <p style="font-size: 0.85rem; margin-top: 4px; color: #475569;">{{ ai.validationAndSanitization }}</p>
+                </div>
+              </div>
+              <div class="grid-2-col" style="gap: 12px;">
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #0f172a;">Retry & Error Handling:</strong>
+                  <p style="font-size: 0.85rem; margin-top: 4px; color: #475569;">{{ ai.errorAndRetryHandling }}</p>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #0f172a;">Fallback Behavior:</strong>
+                  <p style="font-size: 0.85rem; margin-top: 4px; color: #475569;">{{ ai.fallbackBehavior }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 10. SECURITY DESIGN -->
+          <div class="section-card" *ngIf="td.securityDesign || td.security?.length">
+            <div class="section-heading">
+              <h3>10. Security Design</h3>
+            </div>
+            <div *ngIf="td.securityDesign as sec">
+              <div class="grid-2-col" style="gap: 12px; margin-bottom: 12px;">
+                <div *ngIf="sec.existingControls?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #15803d;">Existing Security Controls:</strong>
+                  <ul class="styled-list" style="margin-top: 4px;">
+                    <li *ngFor="let c of sec.existingControls">
+                      <span class="bullet-check" style="color: #15803d;">🛡️</span>
+                      <div class="item-content-wrap"><span style="font-size: 0.85rem;">{{ c }}</span></div>
+                    </li>
+                  </ul>
+                </div>
+                <div *ngIf="sec.recommendedControls?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="font-size: 0.85rem; color: #2563eb;">Recommended Security Controls:</strong>
+                  <ul class="styled-list" style="margin-top: 4px;">
+                    <li *ngFor="let rc of sec.recommendedControls">
+                      <span class="bullet-check" style="color: #2563eb;">🔒</span>
+                      <div class="item-content-wrap"><span style="font-size: 0.85rem;">{{ rc }}</span></div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div *ngIf="sec.inputValidation" style="margin-bottom: 8px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Input Validation:</strong>
+                <p style="margin-top: 2px;">{{ sec.inputValidation }}</p>
+              </div>
+              <div *ngIf="sec.secretsManagement" style="margin-bottom: 8px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Secrets Management:</strong>
+                <p style="margin-top: 2px;">{{ sec.secretsManagement }}</p>
+              </div>
+              <div *ngIf="sec.loggingSecurity">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Logging Security:</strong>
+                <p style="margin-top: 2px;">{{ sec.loggingSecurity }}</p>
+              </div>
+            </div>
+
+            <!-- Legacy security list fallback -->
+            <ul class="styled-list" *ngIf="!td.securityDesign && td.security?.length">
+              <li *ngFor="let s of td.security">
+                <span class="bullet-check" style="color: #3b82f6;">🔒</span>
+                <div class="item-content-wrap"><span>{{ s.consideration || getItemText(s) }}</span></div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 11. VALIDATION RULES -->
+          <div class="section-card" *ngIf="td.validationRules">
+            <div class="section-heading">
+              <h3>11. Validation Rules</h3>
+            </div>
+            <div *ngIf="td.validationRules as vr">
+              <div *ngIf="vr.frontend?.length" style="margin-bottom: 12px;">
+                <strong style="font-size: 0.85rem; color: #2563eb;">Frontend Validation:</strong>
+                <div class="testcases-table-wrap" style="margin-top: 4px;">
+                  <table class="modal-table">
+                    <thead><tr><th>Field</th><th>Validation Rule</th><th>User Error Message</th></tr></thead>
+                    <tbody>
+                      <tr *ngFor="let fv of vr.frontend">
+                        <td><code>{{ fv.field }}</code></td>
+                        <td>{{ fv.rule }}</td>
+                        <td><span style="color: #dc2626;">{{ fv.errorMsg }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div *ngIf="vr.backend?.length" style="margin-bottom: 12px;">
+                <strong style="font-size: 0.85rem; color: #15803d;">Backend Validation:</strong>
+                <div class="testcases-table-wrap" style="margin-top: 4px;">
+                  <table class="modal-table">
+                    <thead><tr><th>Field</th><th>Validation Rule</th><th>API Error Response</th></tr></thead>
+                    <tbody>
+                      <tr *ngFor="let bv of vr.backend">
+                        <td><code>{{ bv.field }}</code></td>
+                        <td>{{ bv.rule }}</td>
+                        <td><span style="color: #dc2626;">{{ bv.errorMsg }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div *ngIf="vr.database?.length">
+                <strong style="font-size: 0.85rem; color: #64748b;">Database Constraints:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let dc of vr.database"><strong>{{ dc.constraint }}:</strong> {{ dc.description }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 12. ERROR HANDLING -->
+          <div class="section-card" *ngIf="td.errorHandling?.length || true">
+            <div class="section-heading">
+              <h3>12. Error Handling</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewErrorHandling(td)" title="Add Error Scenario">+ Add Scenario</button>
+            </div>
+            <div class="testcases-table-wrap" *ngIf="td.errorHandling?.length">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Scenario</th>
+                    <th style="width: 130px;">Where It Occurs</th>
+                    <th>Handling Logic</th>
+                    <th>Response Returned</th>
+                    <th>User Experience</th>
+                    <th style="width: 40px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let eh of td.errorHandling; let ehIdx = index">
+                    <td>
+                      <span *ngIf="!isEditingSection(eh, 'scenario')"><strong>{{ eh.scenario }}</strong></span>
+                      <input *ngIf="isEditingSection(eh, 'scenario')" [(ngModel)]="sectionDraft" class="inline-input">
+                      <button *ngIf="!isEditingSection(eh, 'scenario')" class="section-action" type="button" (click)="editSection(eh, 'scenario')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(eh, 'scenario')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td><span class="pill pill-type">{{ eh.whereItOccurs || 'Backend' }}</span></td>
+                    <td>{{ eh.handling }}</td>
+                    <td><code>{{ eh.responseReturned || 'HTTP 500' }}</code></td>
+                    <td>{{ eh.userExperience || 'Toast alert' }}</td>
+                    <td style="text-align: center;">
+                      <button class="section-action delete-action" type="button" (click)="deleteErrorHandling(td, ehIdx)" title="Delete">✕</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p *ngIf="!td.errorHandling || td.errorHandling.length === 0" class="empty-list-notice">No error handling scenarios added yet.</p>
+          </div>
+
+          <!-- 13. EDGE CASES -->
+          <div class="section-card" *ngIf="td.edgeCases?.length || true">
+            <div class="section-heading">
+              <h3>13. Edge Cases</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewEdgeCase(td)" title="Add Edge Case">+ Add Edge Case</button>
+            </div>
+            <div class="testcases-table-wrap" *ngIf="td.edgeCases?.length">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Scenario</th>
+                    <th style="width: 140px;">Potential Impact</th>
+                    <th>Technical Mitigation & Handling</th>
+                    <th style="width: 40px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let ec of td.edgeCases; let ecIdx = index">
+                    <td>
+                      <span *ngIf="!isEditingSection(ec, 'scenario')"><strong>{{ ec.scenario }}</strong></span>
+                      <input *ngIf="isEditingSection(ec, 'scenario')" [(ngModel)]="sectionDraft" class="inline-input">
+                      <button *ngIf="!isEditingSection(ec, 'scenario')" class="section-action" type="button" (click)="editSection(ec, 'scenario')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(ec, 'scenario')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td><span class="pill pill-priority">{{ ec.impact || 'Medium' }}</span></td>
+                    <td>
+                      <span *ngIf="!isEditingSection(ec, 'handling')">{{ ec.handling }}</span>
+                      <textarea *ngIf="isEditingSection(ec, 'handling')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <button *ngIf="!isEditingSection(ec, 'handling')" class="section-action" type="button" (click)="editSection(ec, 'handling')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(ec, 'handling')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td style="text-align: center;">
+                      <button class="section-action delete-action" type="button" (click)="deleteEdgeCase(td, ecIdx)" title="Delete">✕</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p *ngIf="!td.edgeCases || td.edgeCases.length === 0" class="empty-list-notice">No edge cases defined. Click "+ Add Edge Case" to add one.</p>
+          </div>
+
+          <!-- 14. BUSINESS RULE & ACCEPTANCE CRITERIA MAPPINGS -->
+          <div class="grid-2-col">
+            <!-- Business Rule Mapping -->
+            <div class="section-card">
+              <div class="section-heading">
+                <h3>14. Business Rule → Technical Mapping</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewBusinessRuleMapping(td)" title="Add Mapping">+ Add</button>
+              </div>
+              <ul class="styled-list" *ngIf="td.businessRuleMappings?.length">
+                <li *ngFor="let brm of td.businessRuleMappings; let brmIdx = index">
+                  <span class="bullet-check" style="color: #F36F21;">⚖️</span>
+                  <div class="item-content-wrap">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+                      <div style="flex: 1;">
+                        <strong style="color: #0f172a; font-size: 0.85rem;">{{ brm.businessRule }}</strong>
+                        <p style="margin-top: 2px; font-size: 0.85rem; color: #475569;">↳ {{ brm.technicalImplementation }}</p>
+                      </div>
+                      <button class="section-action delete-action" type="button" (click)="deleteBusinessRuleMapping(td, brmIdx)" title="Delete">✕</button>
+                    </div>
                   </div>
                 </li>
               </ul>
+              <p *ngIf="!td.businessRuleMappings || td.businessRuleMappings.length === 0" class="empty-list-notice">No business rule mappings.</p>
             </div>
 
-            <div class="section-card" *ngIf="td.security?.length">
-              <h3>Security</h3>
-              <ul class="styled-list">
-                <li *ngFor="let sec of td.security">
-                  <span class="bullet-check" style="color: #3b82f6;">🔒</span>
-                  <div>{{ sec.consideration || getItemText(sec) }}</div>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Database Changes & Integrations -->
-          <div class="grid-2-col">
-            <div class="section-card" *ngIf="td.databaseChanges?.length">
-              <h3>Database Changes</h3>
-              <ul class="dot-list">
-                <li *ngFor="let dbc of td.databaseChanges">{{ dbc.change || getItemText(dbc) }}</li>
-              </ul>
-            </div>
-
-            <div class="section-card" *ngIf="td.integrations?.length">
-              <h3>Integrations</h3>
-              <ul class="styled-list">
-                <li *ngFor="let int of td.integrations">
-                  <span class="bullet-check" style="color: #10b981;">🔌</span>
-                  <div>
-                    <strong>{{ int.system }}:</strong> {{ int.purpose }}
+            <!-- Acceptance Criteria Mapping -->
+            <div class="section-card">
+              <div class="section-heading">
+                <h3>15. Acceptance Criteria → Technical Mapping</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewAcceptanceCriteriaMapping(td)" title="Add Mapping">+ Add</button>
+              </div>
+              <ul class="styled-list" *ngIf="td.acceptanceCriteriaMappings?.length">
+                <li *ngFor="let acm of td.acceptanceCriteriaMappings; let acmIdx = index">
+                  <span class="bullet-check" style="color: #15803d;">✓</span>
+                  <div class="item-content-wrap">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+                      <div style="flex: 1;">
+                        <strong style="color: #0f172a; font-size: 0.85rem;">{{ acm.acceptanceCriterion }}</strong>
+                        <p style="margin-top: 2px; font-size: 0.85rem; color: #475569;">↳ {{ acm.technicalImplementation }}</p>
+                      </div>
+                      <button class="section-action delete-action" type="button" (click)="deleteAcceptanceCriteriaMapping(td, acmIdx)" title="Delete">✕</button>
+                    </div>
                   </div>
                 </li>
               </ul>
+              <p *ngIf="!td.acceptanceCriteriaMappings || td.acceptanceCriteriaMappings.length === 0" class="empty-list-notice">No acceptance criteria mappings.</p>
             </div>
           </div>
 
-          <!-- Performance Considerations & Implementation Notes -->
+          <!-- 16. DEPENDENCIES & ASSUMPTIONS -->
           <div class="grid-2-col">
-            <div class="section-card" *ngIf="td.performanceConsiderations?.length">
-              <h3>Performance Considerations</h3>
-              <ul class="dot-list">
-                <li *ngFor="let pc of td.performanceConsiderations">{{ pc.consideration || getItemText(pc) }}</li>
-              </ul>
-            </div>
-
-            <div class="section-card" *ngIf="td.implementationNotes?.length">
-              <h3>Implementation Notes</h3>
-              <ul class="dot-list">
-                <li *ngFor="let inote of td.implementationNotes">{{ inote.note || getItemText(inote) }}</li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Dependencies & Assumptions -->
-          <div class="grid-2-col">
-            <div class="section-card" *ngIf="td.dependencies?.length">
-              <h3>Dependencies</h3>
-              <ul class="dot-list">
+            <!-- Dependencies -->
+            <div class="section-card" *ngIf="td.dependencies">
+              <div class="section-heading">
+                <h3>16. Dependencies</h3>
+              </div>
+              <div *ngIf="isObject(td.dependencies)">
+                <div *ngFor="let entry of td.dependencies | keyvalue" style="margin-bottom: 8px;">
+                  <strong style="font-size: 0.8rem; color: #2563eb; text-transform: capitalize;">{{ entry.key }}:</strong>
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px;">
+                    <span class="source-pill" *ngFor="let dep of asArray(entry.value)">{{ dep }}</span>
+                  </div>
+                </div>
+              </div>
+              <ul class="dot-list" *ngIf="!isObject(td.dependencies) && td.dependencies?.length">
                 <li *ngFor="let d of td.dependencies">{{ d.dependency || getItemText(d) }}</li>
               </ul>
             </div>
 
-            <div class="section-card" *ngIf="td.assumptions?.length">
-              <h3>Assumptions</h3>
-              <ul class="dot-list">
-                <li *ngFor="let a of td.assumptions">{{ a.text || getItemText(a) }}</li>
+            <!-- Assumptions -->
+            <div class="section-card" *ngIf="td.assumptions?.length || true">
+              <div class="section-heading">
+                <h3>17. Assumptions</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(td, 'assumptions')" title="Add Assumption">+ Add</button>
+              </div>
+              <ul class="styled-list" *ngIf="td.assumptions?.length">
+                <li *ngFor="let a of td.assumptions; let aIdx = index">
+                  <span class="bullet-check" style="color: #64748b;">ℹ️</span>
+                  <div class="item-content-wrap">
+                    <div class="item-view-row" *ngIf="!isEditingSection(td.assumptions, aIdx)">
+                      <span class="item-text">{{ a.assumption || a.text || getItemText(a) }}</span>
+                      <span class="pill pill-type" style="margin-left: 6px; font-size: 0.7rem;">{{ a.status || 'CONFIRMED' }}</span>
+                      <div class="item-actions">
+                        <button class="section-action" type="button" (click)="editExistingListItem(td, 'assumptions', aIdx)" title="Edit">✏️</button>
+                        <button class="section-action delete-action" type="button" (click)="deleteListItem(td, 'assumptions', aIdx)" title="Delete">✕</button>
+                      </div>
+                    </div>
+                    <div class="criterion-editor-box" *ngIf="isEditingSection(td.assumptions, aIdx)">
+                      <textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <div class="criterion-editor-actions">
+                        <button class="btn btn-sm btn-success" type="button" (click)="saveListItem(td, 'assumptions', aIdx)">💾 Save</button>
+                        <button class="btn btn-sm btn-secondary" type="button" (click)="cancelListItem(td, 'assumptions', aIdx)">✕ Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
               </ul>
+              <p *ngIf="!td.assumptions || td.assumptions.length === 0" class="empty-list-notice">No assumptions recorded.</p>
             </div>
           </div>
 
-          <!-- Fallback summary if simple model returned -->
+          <!-- 18. IMPLEMENTATION PLAN -->
+          <div class="section-card" *ngIf="td.implementationPlan?.length || true">
+            <div class="section-heading">
+              <h3>18. Implementation Plan</h3>
+              <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewImplementationStep(td)" title="Add Step">+ Add Step</button>
+            </div>
+            <div class="testcases-table-wrap" *ngIf="td.implementationPlan?.length">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">Step</th>
+                    <th style="width: 160px;">Phase</th>
+                    <th>Action</th>
+                    <th>Target Deliverable</th>
+                    <th>Verification</th>
+                    <th style="width: 40px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let ip of td.implementationPlan; let ipIdx = index">
+                    <td><strong>{{ ip.step }}</strong></td>
+                    <td><span class="pill pill-type">{{ ip.phase }}</span></td>
+                    <td>
+                      <span *ngIf="!isEditingSection(ip, 'action')">{{ ip.action }}</span>
+                      <textarea *ngIf="isEditingSection(ip, 'action')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea>
+                      <button *ngIf="!isEditingSection(ip, 'action')" class="section-action" type="button" (click)="editSection(ip, 'action')" title="Edit">✏️</button>
+                      <button *ngIf="isEditingSection(ip, 'action')" class="section-action save-action" type="button" (click)="saveSection()" title="Save">💾</button>
+                    </td>
+                    <td><code>{{ ip.deliverable }}</code></td>
+                    <td>{{ ip.verification }}</td>
+                    <td style="text-align: center;">
+                      <button class="section-action delete-action" type="button" (click)="deleteImplementationStep(td, ipIdx)" title="Delete">✕</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p *ngIf="!td.implementationPlan || td.implementationPlan.length === 0" class="empty-list-notice">No implementation steps recorded.</p>
+          </div>
+
+          <!-- 19. TESTING STRATEGY -->
+          <div class="section-card" *ngIf="td.testingStrategy">
+            <div class="section-heading">
+              <h3>19. Testing Strategy</h3>
+            </div>
+            <div *ngIf="td.testingStrategy as ts" class="grid-2-col" style="gap: 12px;">
+              <div *ngIf="ts.unitTesting?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                <strong style="font-size: 0.85rem; color: #2563eb;">Unit Testing:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let ut of ts.unitTesting">{{ ut }}</li>
+                </ul>
+              </div>
+              <div *ngIf="ts.integrationTesting?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                <strong style="font-size: 0.85rem; color: #15803d;">Integration Testing:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let it of ts.integrationTesting">{{ it }}</li>
+                </ul>
+              </div>
+              <div *ngIf="ts.functionalTesting?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                <strong style="font-size: 0.85rem; color: #F36F21;">Functional E2E Testing:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let ft of ts.functionalTesting">{{ ft }}</li>
+                </ul>
+              </div>
+              <div *ngIf="ts.negativeTesting?.length" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                <strong style="font-size: 0.85rem; color: #dc2626;">Negative & Error Testing:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let nt of ts.negativeTesting">{{ nt }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 20. PERFORMANCE, LOGGING & CONFIGURATION -->
+          <div class="grid-2-col">
+            <!-- Performance & Logging -->
+            <div class="section-card">
+              <h3>20. Performance & Logging</h3>
+              <div *ngIf="td.performanceConsiderations?.length">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Performance Considerations:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let pc of td.performanceConsiderations">
+                    <strong>{{ pc.area || 'General' }}:</strong> {{ pc.consideration || getItemText(pc) }}
+                  </li>
+                </ul>
+              </div>
+              <div *ngIf="td.loggingAndMonitoring?.length" style="margin-top: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Logging & Monitoring:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let lm of td.loggingAndMonitoring">
+                    <span class="pill pill-type" style="font-size: 0.7rem; margin-right: 4px;">{{ lm.level || 'INFO' }}</span>
+                    <strong>{{ lm.event }}:</strong> {{ lm.details }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Configuration & File Impact -->
+            <div class="section-card">
+              <h3>21. Configuration & File Impact</h3>
+              <div *ngIf="td.configuration?.length">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Configuration Variables:</strong>
+                <ul class="dot-list" style="margin-top: 4px;">
+                  <li *ngFor="let c of td.configuration">
+                    <code>{{ c.name }}</code>: {{ c.purpose }}
+                  </li>
+                </ul>
+              </div>
+              <div *ngIf="td.fileImpact" style="margin-top: 10px;">
+                <strong style="font-size: 0.85rem; color: #0f172a;">Code Impact:</strong>
+                <div *ngIf="td.fileImpact.frontend?.length" style="margin-top: 4px;">
+                  <span style="font-size: 0.8rem; color: #2563eb; font-weight: 600;">Frontend:</span>
+                  <ul class="dot-list" style="margin: 2px 0;">
+                    <li *ngFor="let f of td.fileImpact.frontend" style="font-size: 0.8rem; font-family: monospace;">{{ f }}</li>
+                  </ul>
+                </div>
+                <div *ngIf="td.fileImpact.backend?.length" style="margin-top: 4px;">
+                  <span style="font-size: 0.8rem; color: #15803d; font-weight: 600;">Backend:</span>
+                  <ul class="dot-list" style="margin: 2px 0;">
+                    <li *ngFor="let b of td.fileImpact.backend" style="font-size: 0.8rem; font-family: monospace;">{{ b }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 22. TECHNICAL RISKS & DECISIONS -->
+          <div class="grid-2-col">
+            <!-- Technical Risks -->
+            <div class="section-card" *ngIf="td.technicalRisks?.length || true">
+              <div class="section-heading">
+                <h3>22. Technical Risks</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewTechRisk(td)" title="Add Risk">+ Add</button>
+              </div>
+              <ul class="styled-list" *ngIf="td.technicalRisks?.length">
+                <li *ngFor="let r of td.technicalRisks; let rIdx = index">
+                  <span class="bullet-check" style="color: #dc2626;">⚠️</span>
+                  <div class="item-content-wrap">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+                      <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <strong style="font-size: 0.85rem; color: #0f172a;">{{ r.risk }}</strong>
+                          <span class="pill pill-priority" style="font-size: 0.7rem;">{{ r.impact }}</span>
+                        </div>
+                        <p style="margin-top: 2px; font-size: 0.85rem; color: #475569;">↳ Mitigation: {{ r.mitigation }}</p>
+                      </div>
+                      <button class="section-action delete-action" type="button" (click)="deleteTechRisk(td, rIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              <p *ngIf="!td.technicalRisks || td.technicalRisks.length === 0" class="empty-list-notice">No technical risks identified.</p>
+            </div>
+
+            <!-- Technical Decisions -->
+            <div class="section-card" *ngIf="td.technicalDecisions?.length || true">
+              <div class="section-heading">
+                <h3>23. Technical Decisions</h3>
+                <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewTechDecision(td)" title="Add Decision">+ Add</button>
+              </div>
+              <ul class="styled-list" *ngIf="td.technicalDecisions?.length">
+                <li *ngFor="let tdDec of td.technicalDecisions; let decIdx = index">
+                  <span class="bullet-check" style="color: #2563eb;">💡</span>
+                  <div class="item-content-wrap">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+                      <div style="flex: 1;">
+                        <strong style="font-size: 0.85rem; color: #0f172a;">{{ tdDec.decision }}</strong>
+                        <p style="margin-top: 2px; font-size: 0.85rem; color: #475569;">Rationale: {{ tdDec.reason }}</p>
+                        <p style="margin-top: 1px; font-size: 0.8rem; color: #64748b;">Alternative: {{ tdDec.alternativeConsidered }} | Selection: {{ tdDec.whySelected }}</p>
+                      </div>
+                      <button class="section-action delete-action" type="button" (click)="deleteTechDecision(td, decIdx)" title="Delete">✕</button>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              <p *ngIf="!td.technicalDecisions || td.technicalDecisions.length === 0" class="empty-list-notice">No technical decisions recorded.</p>
+            </div>
+          </div>
+
+          <!-- Fallback overview if simple model returned -->
           <div class="section-card" *ngIf="!td.objective && currentRequirement?.summary">
             <h3>Overview</h3>
             <p>{{ currentRequirement.summary }}</p>
@@ -797,18 +1992,12 @@
               <tbody>
                 <tr *ngFor="let tc of (data.items || data); let i = index">
                   <td><strong>{{ tc.tcId || ('TC-' + (i + 1)) }}</strong></td>
-                  <td class="scenario-cell">{{ tc.scenario }}</td>
-                  <td><span class="pill pill-type">{{ tc.type }}</span></td>
-                  <td><span class="pill pill-priority">{{ tc.priority }}</span></td>
-                  <td style="font-size: 0.85rem;">
-                    <span *ngIf="tc.preconditions">{{ tc.preconditions }}</span>
-                  </td>
-                  <td style="font-size: 0.85rem;">
-                    <div *ngIf="tc.steps">
-                      <div *ngFor="let step of (tc.steps | slice:0:3); let s = index">{{ s + 1 }}. {{ step }}</div>
-                    </div>
-                  </td>
-                  <td style="font-size: 0.85rem;">{{ tc.expectedResult }}</td>
+                  <td class="scenario-cell"><span *ngIf="!isEditingSection(tc, 'scenario')">{{ tc.scenario }}</span><input *ngIf="isEditingSection(tc, 'scenario')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'scenario')" class="section-action" type="button" (click)="editSection(tc, 'scenario')" title="Edit" aria-label="Edit scenario">✏️</button><button *ngIf="isEditingSection(tc, 'scenario')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save scenario">💾</button></td>
+                  <td><span *ngIf="!isEditingSection(tc, 'type')" class="pill pill-type">{{ tc.type }}</span><input *ngIf="isEditingSection(tc, 'type')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'type')" class="section-action" type="button" (click)="editSection(tc, 'type')" title="Edit" aria-label="Edit type">✏️</button><button *ngIf="isEditingSection(tc, 'type')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save type">💾</button></td>
+                  <td><span *ngIf="!isEditingSection(tc, 'priority')" class="pill pill-priority">{{ tc.priority }}</span><input *ngIf="isEditingSection(tc, 'priority')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'priority')" class="section-action" type="button" (click)="editSection(tc, 'priority')" title="Edit" aria-label="Edit priority">✏️</button><button *ngIf="isEditingSection(tc, 'priority')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save priority">💾</button></td>
+                  <td style="font-size: 0.85rem;"><span *ngIf="!isEditingSection(tc, 'preconditions')">{{ tc.preconditions }}</span><textarea *ngIf="isEditingSection(tc, 'preconditions')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea><button *ngIf="!isEditingSection(tc, 'preconditions')" class="section-action" type="button" (click)="editSection(tc, 'preconditions')" title="Edit" aria-label="Edit preconditions">✏️</button><button *ngIf="isEditingSection(tc, 'preconditions')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save preconditions">💾</button></td>
+                  <td style="font-size: 0.85rem;"><div *ngIf="!isEditingSection(tc, 'steps')"><div *ngFor="let step of (tc.steps | slice:0:3); let s = index">{{ s + 1 }}. {{ step }}</div></div><textarea *ngIf="isEditingSection(tc, 'steps')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="3"></textarea><button *ngIf="!isEditingSection(tc, 'steps')" class="section-action" type="button" (click)="editSection(tc, 'steps')" title="Edit" aria-label="Edit steps">✏️</button><button *ngIf="isEditingSection(tc, 'steps')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save steps">💾</button></td>
+                  <td style="font-size: 0.85rem;"><span *ngIf="!isEditingSection(tc, 'expectedResult')">{{ tc.expectedResult }}</span><textarea *ngIf="isEditingSection(tc, 'expectedResult')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea><button *ngIf="!isEditingSection(tc, 'expectedResult')" class="section-action" type="button" (click)="editSection(tc, 'expectedResult')" title="Edit" aria-label="Edit expected result">✏️</button><button *ngIf="isEditingSection(tc, 'expectedResult')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save expected result">💾</button></td>
                 </tr>
               </tbody>
             </table>
@@ -886,31 +2075,52 @@
             <div class="section-card defect-card" *ngFor="let defect of data.defects">
               <div class="triage-status-banner">
                 <div>
-                  <h3>{{ defect.defectId }}: {{ defect.title || 'Identified Defect' }}</h3>
+                  <div class="editable-heading">
+                    <h3>{{ defect.defectId }}: {{ defect.title || 'Identified Defect' }}</h3>
+                    <button *ngIf="!isEditingSection(defect, 'title')" class="section-action" type="button" (click)="editSection(defect, 'title')" title="Edit" aria-label="Edit title">✏️</button>
+                    <ng-container *ngIf="isEditingSection(defect, 'title')">
+                      <input [(ngModel)]="sectionDraft" class="inline-input" aria-label="Title">
+                      <button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save title">💾</button>
+                    </ng-container>
+                  </div>
                   <span class="badge badge-severity">Severity: {{ defect.severity || 'MEDIUM' }}</span>
+                  <button *ngIf="!isEditingSection(defect, 'severity')" class="section-action badge-action" type="button" (click)="editSection(defect, 'severity')" title="Edit" aria-label="Edit severity">✏️</button>
+                  <ng-container *ngIf="isEditingSection(defect, 'severity')">
+                    <select [(ngModel)]="sectionDraft" class="inline-select" aria-label="Severity">
+                      <option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option>
+                    </select>
+                    <button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save severity">💾</button>
+                  </ng-container>
                   <span class="badge badge-priority">Priority: {{ defect.priority || 'P2' }}</span>
+                  <button *ngIf="!isEditingSection(defect, 'priority')" class="section-action badge-action" type="button" (click)="editSection(defect, 'priority')" title="Edit" aria-label="Edit priority">✏️</button>
+                  <ng-container *ngIf="isEditingSection(defect, 'priority')">
+                    <select [(ngModel)]="sectionDraft" class="inline-select" aria-label="Priority">
+                      <option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
+                    </select>
+                    <button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save priority">💾</button>
+                  </ng-container>
                   <span class="badge badge-confidence">{{ defect.status || 'CONFIRMED' }} / {{ defect.confidence || 'MEDIUM' }}</span>
                 </div>
               </div>
-              <p *ngIf="defect.component"><strong>Component:</strong> {{ defect.component }}</p>
-              <p *ngIf="defect.location"><strong>Location:</strong> {{ defect.location }}</p>
-              <p *ngIf="defect.trigger"><strong>Trigger:</strong> {{ defect.trigger }}</p>
+              <p *ngIf="defect.component"><strong>Component:</strong> {{ defect.component }} <button *ngIf="!isEditingSection(defect, 'component')" class="section-action" type="button" (click)="editSection(defect, 'component')" title="Edit" aria-label="Edit component">✏️</button><ng-container *ngIf="isEditingSection(defect, 'component')"><input [(ngModel)]="sectionDraft" class="inline-input"><button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save component">💾</button></ng-container></p>
+              <p *ngIf="defect.location"><strong>Location:</strong> {{ defect.location }} <button *ngIf="!isEditingSection(defect, 'location')" class="section-action" type="button" (click)="editSection(defect, 'location')" title="Edit" aria-label="Edit location">✏️</button><ng-container *ngIf="isEditingSection(defect, 'location')"><input [(ngModel)]="sectionDraft" class="inline-input"><button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save location">💾</button></ng-container></p>
+              <p *ngIf="defect.trigger"><strong>Trigger:</strong> {{ defect.trigger }} <button *ngIf="!isEditingSection(defect, 'trigger')" class="section-action" type="button" (click)="editSection(defect, 'trigger')" title="Edit" aria-label="Edit trigger">✏️</button><ng-container *ngIf="isEditingSection(defect, 'trigger')"><input [(ngModel)]="sectionDraft" class="inline-input"><button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save trigger">💾</button></ng-container></p>
               <div class="section-card alert-danger-card" *ngIf="defect.rootCause">
-                <h3>Root Cause</h3>
-                <p>{{ defect.rootCause }}</p>
+                <div class="section-heading"><h3>Root Cause</h3><button *ngIf="!isEditingSection(defect, 'rootCause')" class="section-action" type="button" (click)="editSection(defect, 'rootCause')" title="Edit" aria-label="Edit root cause">✏️</button><button *ngIf="isEditingSection(defect, 'rootCause')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save root cause">💾</button></div>
+                <p *ngIf="!isEditingSection(defect, 'rootCause')">{{ defect.rootCause }}</p><textarea *ngIf="isEditingSection(defect, 'rootCause')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
               </div>
-              <p *ngIf="defect.impact"><strong>Impact:</strong> {{ defect.impact }}</p>
+              <p *ngIf="defect.impact"><strong>Impact:</strong> {{ defect.impact }} <button *ngIf="!isEditingSection(defect, 'impact')" class="section-action" type="button" (click)="editSection(defect, 'impact')" title="Edit" aria-label="Edit impact">✏️</button><ng-container *ngIf="isEditingSection(defect, 'impact')"><textarea [(ngModel)]="sectionDraft" class="inline-textarea" rows="4"></textarea><button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save impact">💾</button></ng-container></p>
               <div class="section-card" *ngIf="defect.evidence">
-                <h3>Evidence</h3>
-                <p>{{ defect.evidence }}</p>
+                <div class="section-heading"><h3>Evidence</h3><button *ngIf="!isEditingSection(defect, 'evidence')" class="section-action" type="button" (click)="editSection(defect, 'evidence')" title="Edit" aria-label="Edit evidence">✏️</button><button *ngIf="isEditingSection(defect, 'evidence')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save evidence">💾</button></div>
+                <p *ngIf="!isEditingSection(defect, 'evidence')">{{ defect.evidence }}</p><textarea *ngIf="isEditingSection(defect, 'evidence')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
               </div>
               <div class="section-card" *ngIf="defect.investigation">
-                <h3>Investigation</h3>
-                <p>{{ defect.investigation }}</p>
+                <div class="section-heading"><h3>Investigation</h3><button *ngIf="!isEditingSection(defect, 'investigation')" class="section-action" type="button" (click)="editSection(defect, 'investigation')" title="Edit" aria-label="Edit investigation">✏️</button><button *ngIf="isEditingSection(defect, 'investigation')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save investigation">💾</button></div>
+                <p *ngIf="!isEditingSection(defect, 'investigation')">{{ defect.investigation }}</p><textarea *ngIf="isEditingSection(defect, 'investigation')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
               </div>
               <div class="section-card alert-success-card" *ngIf="defect.fix">
-                <h3>Suggested Fix</h3>
-                <pre class="code-block">{{ defect.fix }}</pre>
+                <div class="section-heading"><h3>Suggested Fix</h3><button *ngIf="!isEditingSection(defect, 'fix')" class="section-action" type="button" (click)="editSection(defect, 'fix')" title="Edit" aria-label="Edit suggested fix">✏️</button><button *ngIf="isEditingSection(defect, 'fix')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save suggested fix">💾</button></div>
+                <pre *ngIf="!isEditingSection(defect, 'fix')" class="code-block">{{ defect.fix }}</pre><textarea *ngIf="isEditingSection(defect, 'fix')" [(ngModel)]="sectionDraft" class="inline-textarea code-inline-textarea" rows="6"></textarea>
               </div>
             </div>
           </div>
@@ -931,23 +2141,23 @@
           </div>
 
           <div class="section-card alert-danger-card" *ngIf="data.probableRootCause">
-            <h3>Probable Root Cause</h3>
-            <p>{{ data.probableRootCause }}</p>
+            <div class="section-heading"><h3>Probable Root Cause</h3><button *ngIf="!isEditingSection(data, 'probableRootCause')" class="section-action" type="button" (click)="editSection(data, 'probableRootCause')" title="Edit" aria-label="Edit probable root cause">✏️</button><button *ngIf="isEditingSection(data, 'probableRootCause')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save probable root cause">💾</button></div>
+            <p *ngIf="!isEditingSection(data, 'probableRootCause')">{{ data.probableRootCause }}</p><textarea *ngIf="isEditingSection(data, 'probableRootCause')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
           </div>
 
           <div class="section-card alert-success-card" *ngIf="data.suggestedFix">
-            <h3>Suggested Fix</h3>
-            <pre class="code-block">{{ data.suggestedFix }}</pre>
+            <div class="section-heading"><h3>Suggested Fix</h3><button *ngIf="!isEditingSection(data, 'suggestedFix')" class="section-action" type="button" (click)="editSection(data, 'suggestedFix')" title="Edit" aria-label="Edit suggested fix">✏️</button><button *ngIf="isEditingSection(data, 'suggestedFix')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save suggested fix">💾</button></div>
+            <pre *ngIf="!isEditingSection(data, 'suggestedFix')" class="code-block">{{ data.suggestedFix }}</pre><textarea *ngIf="isEditingSection(data, 'suggestedFix')" [(ngModel)]="sectionDraft" class="inline-textarea code-inline-textarea" rows="6"></textarea>
           </div>
 
           <div class="section-card" *ngIf="data.evidence">
-            <h3>Evidence & Stack Trace Analysis</h3>
-            <p>{{ data.evidence }}</p>
+            <div class="section-heading"><h3>Evidence & Stack Trace Analysis</h3><button *ngIf="!isEditingSection(data, 'evidence')" class="section-action" type="button" (click)="editSection(data, 'evidence')" title="Edit" aria-label="Edit evidence">✏️</button><button *ngIf="isEditingSection(data, 'evidence')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save evidence">💾</button></div>
+            <p *ngIf="!isEditingSection(data, 'evidence')">{{ data.evidence }}</p><textarea *ngIf="isEditingSection(data, 'evidence')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
           </div>
 
           <div class="section-card" *ngIf="data.suggestedInvestigation">
-            <h3>Suggested Investigation Steps</h3>
-            <p>{{ data.suggestedInvestigation }}</p>
+            <div class="section-heading"><h3>Suggested Investigation Steps</h3><button *ngIf="!isEditingSection(data, 'suggestedInvestigation')" class="section-action" type="button" (click)="editSection(data, 'suggestedInvestigation')" title="Edit" aria-label="Edit investigation steps">✏️</button><button *ngIf="isEditingSection(data, 'suggestedInvestigation')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save investigation steps">💾</button></div>
+            <p *ngIf="!isEditingSection(data, 'suggestedInvestigation')">{{ data.suggestedInvestigation }}</p><textarea *ngIf="isEditingSection(data, 'suggestedInvestigation')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
           </div>
 
           <!-- Retrieved Knowledge Sources Table -->
@@ -1030,77 +2240,37 @@
         <!-- VIEW MODE -->
         <div *ngIf="mode === 'VIEW'" class="view-content">
           <div class="version-banner" *ngIf="data.version">
-            <h3>Release Version {{ data.version }}</h3>
+            <h3 *ngIf="!isEditingSection(data, 'version')">Release Version {{ data.version }}</h3>
+            <input *ngIf="isEditingSection(data, 'version')" [(ngModel)]="sectionDraft" class="inline-input" aria-label="Version">
+            <button *ngIf="!isEditingSection(data, 'version')" class="section-action" type="button" (click)="editSection(data, 'version')" title="Edit" aria-label="Edit version">✏️</button>
+            <button *ngIf="isEditingSection(data, 'version')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save version">💾</button>
           </div>
 
           <div class="section-card" *ngIf="data.summary">
-            <h3>Summary</h3>
-            <p>{{ data.summary }}</p>
+            <div class="section-heading"><h3>Summary</h3><button *ngIf="!isEditingSection(data, 'summary')" class="section-action" type="button" (click)="editSection(data, 'summary')" title="Edit" aria-label="Edit summary">✏️</button><button *ngIf="isEditingSection(data, 'summary')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save summary">💾</button></div>
+            <p *ngIf="!isEditingSection(data, 'summary')">{{ data.summary }}</p><textarea *ngIf="isEditingSection(data, 'summary')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
           </div>
 
-          <div class="section-card" *ngIf="data.newFeatures !== undefined">
-            <div class="card-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <h3 style="color: #10b981; margin: 0;">New Features</h3>
-              <button type="button" class="btn-sm btn-outline-success" (click)="showAddFeatureInput = !showAddFeatureInput">
-                {{ showAddFeatureInput ? '✕ Cancel' : '+ Add Feature' }}
-              </button>
+          <div class="section-card" *ngFor="let releaseList of releaseNoteLists">
+            <div class="section-heading">
+              <h3 [style.color]="releaseList.color">{{ releaseList.label }}</h3>
+              <button type="button" class="section-action" (click)="addReleaseNoteItem(releaseList.key)" title="Add {{ releaseList.label }}" aria-label="Add {{ releaseList.label }}">✏️</button>
             </div>
-
-            <!-- Inline Add Feature with Loader -->
-            <div *ngIf="showAddFeatureInput" class="add-feature-inline-box" style="margin: 12px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <input type="text" [(ngModel)]="newFeatureText" placeholder="Enter new feature description..." class="inline-input" style="flex: 1;" [disabled]="addingFeature">
-                <button type="button" class="btn btn-success btn-sm" (click)="submitNewFeature()" [disabled]="addingFeature || !newFeatureText.trim()" style="display: inline-flex; align-items: center; gap: 6px;">
-                  <span *ngIf="addingFeature" class="spinner-sm" style="width: 14px; height: 14px;"></span>
-                  <span>{{ addingFeature ? 'Adding Feature...' : 'Save Feature' }}</span>
-                </button>
-              </div>
-              <div *ngIf="addFeatureStatus === 'SUCCESS'" style="color: #059669; font-size: 0.85rem; font-weight: 600; margin-top: 6px;">
-                ✓ Feature Added Successfully
-              </div>
-              <div *ngIf="addFeatureStatus === 'ERROR'" style="color: #dc2626; font-size: 0.85rem; font-weight: 600; margin-top: 6px;">
-                ⚠️ Unable to Add Feature
-              </div>
-            </div>
-
-            <ul class="styled-list" *ngIf="data.newFeatures?.length">
-              <li *ngFor="let f of data.newFeatures">
-                <span class="bullet-check" style="background: #10b981;">+</span> {{ f }}
+            <ul class="styled-list" *ngIf="data[releaseList.key]?.length">
+              <li *ngFor="let item of data[releaseList.key]; let i = index">
+                <span class="bullet-check" [style.background]="releaseList.color">{{ releaseList.key === 'newFeatures' ? '+' : '•' }}</span>
+                <span *ngIf="!isEditingSection(data[releaseList.key], i)">{{ item }}</span>
+                <input *ngIf="isEditingSection(data[releaseList.key], i)" [(ngModel)]="sectionDraft" class="inline-input">
+                <button *ngIf="!isEditingSection(data[releaseList.key], i)" type="button" class="section-action" (click)="editSection(data[releaseList.key], i)" title="Edit item" aria-label="Edit item">✏️</button>
+                <button *ngIf="isEditingSection(data[releaseList.key], i)" type="button" class="section-action save-action" (click)="saveSection()" title="Save item" aria-label="Save item">💾</button>
               </li>
             </ul>
-          </div>
-
-          <div class="section-card" *ngIf="data.improvements?.length">
-            <h3 style="color: #3b82f6;">Improvements</h3>
-            <ul class="dot-list">
-              <li *ngFor="let imp of data.improvements">{{ imp }}</li>
-            </ul>
-          </div>
-
-          <div class="section-card" *ngIf="data.bugFixes?.length">
-            <h3 style="color: #f59e0b;">Bug Fixes</h3>
-            <ul class="dot-list">
-              <li *ngFor="let bf of data.bugFixes">{{ bf }}</li>
-            </ul>
-          </div>
-
-          <div class="section-card" *ngIf="data.breakingChanges?.length">
-            <h3 style="color: #ef4444;">Breaking Changes</h3>
-            <ul class="dot-list">
-              <li *ngFor="let bc of data.breakingChanges">{{ bc }}</li>
-            </ul>
-          </div>
-
-          <div class="section-card" *ngIf="data.knownIssues?.length">
-            <h3 style="color: #8b5cf6;">Known Issues</h3>
-            <ul class="dot-list">
-              <li *ngFor="let ki of data.knownIssues">{{ ki }}</li>
-            </ul>
+            <p *ngIf="!data[releaseList.key]?.length" class="empty-list-notice">No {{ releaseList.label.toLowerCase() }} added yet. Click the pencil to add one.</p>
           </div>
 
           <div class="section-card" *ngIf="data.technicalNotes">
-            <h3>Technical Notes</h3>
-            <p>{{ data.technicalNotes }}</p>
+            <div class="section-heading"><h3>Technical Notes</h3><button *ngIf="!isEditingSection(data, 'technicalNotes')" class="section-action" type="button" (click)="editSection(data, 'technicalNotes')" title="Edit" aria-label="Edit technical notes">✏️</button><button *ngIf="isEditingSection(data, 'technicalNotes')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save technical notes">💾</button></div>
+            <p *ngIf="!isEditingSection(data, 'technicalNotes')">{{ data.technicalNotes }}</p><textarea *ngIf="isEditingSection(data, 'technicalNotes')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
           </div>
         </div>
 
@@ -1116,34 +2286,14 @@
             <textarea [(ngModel)]="editableData.summary" rows="3"></textarea>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" *ngFor="let releaseList of releaseNoteLists">
             <div class="label-with-action">
-              <label>New Features</label>
-              <button type="button" class="btn-text-action" (click)="triggerAddFeatureInEdit()" [disabled]="addingFeature" style="display: inline-flex; align-items: center; gap: 6px;">
-                <span *ngIf="addingFeature" class="spinner-sm" style="width: 12px; height: 12px;"></span>
-                <span>{{ addingFeature ? 'Adding Feature...' : '+ Add Feature' }}</span>
-              </button>
+              <label>{{ releaseList.label }}</label>
+              <button type="button" class="section-action" (click)="addStringItemSafe(editableData, releaseList.key)" title="Add {{ releaseList.label }}" aria-label="Add {{ releaseList.label }}">✏️</button>
             </div>
-            <div *ngIf="addFeatureStatus === 'SUCCESS'" style="color: #059669; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">
-              ✓ Feature Added Successfully
-            </div>
-            <div *ngIf="addFeatureStatus === 'ERROR'" style="color: #dc2626; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">
-              ⚠️ Unable to Add Feature
-            </div>
-            <div class="array-item" *ngFor="let f of editableData.newFeatures; let i = index; trackBy: trackByIndex">
-              <input type="text" [(ngModel)]="editableData.newFeatures[i]">
-              <button class="btn-remove-item" (click)="removeArrayItem(editableData.newFeatures, i)">✕</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <div class="label-with-action">
-              <label>Bug Fixes</label>
-              <button class="btn-text-action" (click)="addArrayItem(editableData.bugFixes)">+ Add Bug Fix</button>
-            </div>
-            <div class="array-item" *ngFor="let bf of editableData.bugFixes; let i = index; trackBy: trackByIndex">
-              <input type="text" [(ngModel)]="editableData.bugFixes[i]">
-              <button class="btn-remove-item" (click)="removeArrayItem(editableData.bugFixes, i)">✕</button>
+            <div class="array-item" *ngFor="let item of editableData[releaseList.key]; let i = index; trackBy: trackByIndex">
+              <input type="text" [(ngModel)]="editableData[releaseList.key][i]">
+              <button type="button" class="btn-remove-item" (click)="removeArrayItem(editableData[releaseList.key], i)">✕</button>
             </div>
           </div>
         </div>
@@ -1163,7 +2313,15 @@
             📄
           </button>
         </ng-container>
-        <ng-container *ngIf="type !== 'testcase'">
+        <ng-container *ngIf="type === 'defect'">
+          <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadDefectExcel()" [disabled]="saving" title="Excel" aria-label="Excel" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+            📊
+          </button>
+          <button type="button" class="btn btn-secondary btn-icon-action" (click)="downloadDefectCsv()" [disabled]="saving" title="CSV" aria-label="CSV" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+            📄
+          </button>
+        </ng-container>
+        <ng-container *ngIf="type !== 'testcase' && type !== 'defect'">
           <button type="button" class="btn btn-primary btn-icon-action" (click)="download()" [disabled]="saving" title="Download as PDF" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
             📥
           </button>
@@ -1245,7 +2403,15 @@
           📥 Download CSV
         </button>
       </ng-container>
-      <ng-container *ngIf="type !== 'testcase'">
+      <ng-container *ngIf="type === 'defect'">
+        <button type="button" class="btn btn-primary btn-download" (click)="downloadDefectExcel()">
+          📥 Download Excel
+        </button>
+        <button type="button" class="btn btn-secondary btn-download" (click)="downloadDefectCsv()">
+          📥 Download CSV
+        </button>
+      </ng-container>
+      <ng-container *ngIf="type !== 'testcase' && type !== 'defect'">
         <button type="button" class="btn btn-primary btn-download" (click)="download()">
           📥 Download PDF
         </button>

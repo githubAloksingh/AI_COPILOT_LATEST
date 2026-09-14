@@ -232,13 +232,14 @@ export class ProjectDetails implements OnInit, OnDestroy {
   }
 
   downloadDocument(doc: any) {
-    if (!doc || !doc.id) return;
-    this.api.downloadDocument(doc.id).subscribe({
+    const docId = this.resolveDocumentId(doc);
+    if (!docId) return;
+    this.api.downloadDocument(docId).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = doc.fileName || 'document';
+        a.download = doc?.fileName || `document-${docId}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -260,6 +261,20 @@ export class ProjectDetails implements OnInit, OnDestroy {
     }
   }
 
+  private resolveDocumentId(doc: any): number | null {
+    if (!doc) return null;
+    const id = doc.id ?? doc.documentId ?? doc.fileId ?? doc.document_id ?? doc.file_id;
+    if (id === null || id === undefined || id === '') return null;
+    return Number(id);
+  }
+
+  canViewDocument(doc: any): boolean {
+    if (!doc) return false;
+    const id = this.resolveDocumentId(doc);
+    if (!id || id <= 0) return false;
+    return !!(doc.fileName || '').trim();
+  }
+
   isBrd(fileName: string): boolean {
     if (!fileName) return false;
     return !fileName.toLowerCase().endsWith('.zip');
@@ -274,11 +289,25 @@ export class ProjectDetails implements OnInit, OnDestroy {
   }
 
   openPreview(doc: any) {
-    if (!doc || !doc.id) return;
-    if (!this.isBrd(doc.fileName)) return;
+    const docId = this.resolveDocumentId(doc);
+    if (!docId) return;
+
+    const fileName = (doc?.fileName || '').toLowerCase();
+    if (fileName.endsWith('.zip')) {
+      this.api.getDocumentFile(docId).subscribe({
+        next: (blob: Blob) => {
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank', 'noopener,noreferrer');
+        },
+        error: () => {
+          alert('Unable to open the ZIP file from the server.');
+        }
+      });
+      return;
+    }
 
     this.selectedDocName = doc.fileName;
-    this.selectedDocId = doc.id;
+    this.selectedDocId = docId;
     this.previewError = '';
     this.loadingPreview = true;
     this.showPreviewModal = true;
@@ -286,18 +315,19 @@ export class ProjectDetails implements OnInit, OnDestroy {
     this.previewPdfUrl = null;
     this.cdr.markForCheck();
 
-    this.api.getDocumentFile(doc.id).subscribe({
+    this.api.getDocumentFile(docId).subscribe({
       next: (blob: Blob) => {
-        // Create a blob URL of type application/pdf with original uploaded binary
-        const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+        const contentType = (blob?.type || '').toLowerCase();
+        const mimeType = contentType.includes('pdf') ? 'application/pdf' : contentType || 'application/pdf';
+        const pdfBlob = new Blob([blob], { type: mimeType });
         this.previewBlobUrl = URL.createObjectURL(pdfBlob);
         this.previewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.previewBlobUrl);
         this.loadingPreview = false;
         this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         this.loadingPreview = false;
-        this.previewError = 'Unable to retrieve original PDF file from server. The original uploaded binary could not be found.';
+        this.previewError = 'Unable to retrieve the original file from the server.';
         this.cdr.markForCheck();
       }
     });

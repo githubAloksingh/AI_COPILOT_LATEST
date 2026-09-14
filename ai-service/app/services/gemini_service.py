@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from typing import Any, Dict, List, Optional, Type, TypeVar
 import httpx
 from json_repair import repair_json
@@ -38,7 +39,8 @@ class GeminiService:
                 }
             ],
             "generationConfig": {
-                "responseMimeType": "application/json"
+                "responseMimeType": "application/json",
+                "maxOutputTokens": 8192
             }
         }
 
@@ -50,16 +52,74 @@ class GeminiService:
                     f"?key={api_key.strip()}"
                 )
                 try:
-                    resp = client.post(url, json=request_body)
+                    resp = None
+                    for attempt in range(2):
+                        try:
+                            resp = client.post(url, json=request_body)
+                            break
+                        except httpx.RequestError as e:
+                            last_error = e
+                            if attempt == 0:
+                                logger.warning(
+                                    "Gemini network request failed for %s; retrying once: %s",
+                                    model_name,
+                                    e,
+                                )
+                                time.sleep(1)
+                            else:
+                                logger.error(
+                                    "Gemini API is unreachable at generativelanguage.googleapis.com: %s",
+                                    e,
+                                )
+                                raise RuntimeError(
+                                    "Gemini API is unreachable. Check DNS, internet access, or firewall settings. "
+                                    f"Cause: {e}"
+                                ) from e
+
+                    if resp is None:
+                        continue
                     if resp.status_code == 200:
                         data = resp.json()
                         candidates = data.get("candidates", [])
                         if candidates:
-                            content = candidates[0].get("content", {})
+                            candidate = candidates[0]
+                            content = candidate.get("content", {})
                             parts = content.get("parts", [])
                             if parts and "text" in parts[0]:
                                 return parts[0]["text"]
+                            finish_reason = candidate.get("finishReason", "UNKNOWN")
+                            prompt_feedback = data.get("promptFeedback", {})
+                            block_reason = prompt_feedback.get("blockReason", "none")
+                            last_error = RuntimeError(
+                                "Gemini returned no text. "
+                                f"finishReason={finish_reason}, blockReason={block_reason}"
+                            )
+                            logger.warning("Gemini model %s returned no text: %s", model_name, last_error)
+                        else:
+                            prompt_feedback = data.get("promptFeedback", {})
+                            last_error = RuntimeError(
+                                "Gemini returned no candidates. "
+                                f"blockReason={prompt_feedback.get('blockReason', 'none')}"
+                            )
+                            logger.warning("Gemini model %s returned no candidates: %s", model_name, last_error)
                     else:
+                        if resp.status_code == 429:
+                            retry_match = re.search(
+                                r"(?:retry in|retryDelay[\"']?\s*:\s*[\"']?)([0-9]+(?:\.[0-9]+)?)",
+                                resp.text,
+                                re.IGNORECASE,
+                            )
+                            retry_seconds = int(float(retry_match.group(1))) if retry_match else 60
+                            message = (
+                                "RESOURCE_EXHAUSTED: Gemini quota is exhausted for the configured project/model. "
+                                f"Retry after approximately {retry_seconds} seconds, or configure a billed project/API key."
+                            )
+                            logger.warning(
+                                "Gemini model %s returned HTTP 429; trying the next model without delay",
+                                model_name,
+                            )
+                            last_error = RuntimeError(message)
+                            continue
                         logger.warning(
                             "Gemini model %s returned HTTP %s: %s",
                             model_name,
@@ -67,12 +127,15 @@ class GeminiService:
                             resp.text
                         )
                         last_error = RuntimeError(f"HTTP {resp.status_code}: {resp.text}")
+                except RuntimeError:
+                    raise
                 except Exception as e:
                     last_error = e
                     logger.warning("Gemini model %s call failed: %s", model_name, e)
 
         raise RuntimeError(
-            f"Failed to generate content with Gemini API. Check GEMINI_API_KEY. Cause: {last_error}"
+            f"Failed to generate content with Gemini API. Check GEMINI_API_KEY and Gemini model availability. "
+            f"Cause: {last_error}"
         )
 
     def generate_dict(self, prompt_text: str) -> Dict[str, Any]:
@@ -90,17 +153,31 @@ class GeminiService:
             raise RuntimeError(f"Invalid JSON from Gemini: {e}")
 
     def generate_structured(self, prompt_text: str, schema_cls: Type[T]) -> T:
-        raw_output = self.generate_content(prompt_text)
-        cleaned_json = self.clean_json(raw_output)
-        try:
-            parsed = self.parse_json(cleaned_json)
-            if isinstance(parsed, list):
-                # When root is list, Pydantic type adapter or direct validation
-                raise ValueError("Expected JSON object, got list")
-            return schema_cls.model_validate(parsed)
-        except Exception as e:
-            logger.error("Failed to parse Gemini response as %s: %s | Raw: %s", schema_cls.__name__, e, raw_output)
-            raise RuntimeError(f"Invalid structured JSON response from Gemini: {e}")
+        recovery_prompt = (
+            "\n\nIMPORTANT RESPONSE RECOVERY: Return only one complete valid JSON object. "
+            "Do not use markdown fences, explanations, or trailing text. "
+            "Keep every required field concise so the JSON is complete."
+        )
+        last_error = None
+        for attempt in range(2):
+            raw_output = self.generate_content(prompt_text if attempt == 0 else prompt_text + recovery_prompt)
+            cleaned_json = self.clean_json(raw_output)
+            try:
+                parsed = self.parse_json(cleaned_json)
+                if isinstance(parsed, list):
+                    raise ValueError("Expected JSON object, got list")
+                return schema_cls.model_validate(parsed)
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "Gemini returned invalid %s JSON on attempt %s: %s; response prefix=%r",
+                    schema_cls.__name__,
+                    attempt + 1,
+                    e,
+                    (raw_output or "")[:300],
+                )
+
+        raise RuntimeError(f"Invalid structured JSON response from Gemini: {last_error}")
 
     def generate_structured_list(self, prompt_text: str, item_schema_cls: Type[T]) -> List[T]:
         raw_output = self.generate_content(prompt_text)

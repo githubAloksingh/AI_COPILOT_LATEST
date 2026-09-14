@@ -1,7 +1,7 @@
 spring:
   application:
     name: ai-work-copilot
-  
+
   datasource:
     url: ${DATABASE_URL:jdbc:mysql://localhost:3306/ai_work_copilot?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DATABASE_USERNAME:root}
@@ -31,6 +31,8 @@ server:
   port: 8080
   tomcat:
     connection-timeout: 30m
+    max-swallow-size: -1
+    max-http-form-post-size: 1153433600
 
 logging:
   level:

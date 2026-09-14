@@ -49,37 +49,47 @@
 
     <!-- When Project is Selected: Step 2 & Step 3 -->
     <div *ngIf="selectedProjectId" style="margin-top: 16px;">
-      <!-- Step 2: Select Artifact Type (READ ONLY) -->
+      <!-- Step 2: Select Artifact Type -->
       <div class="form-group">
         <label class="field-label">2. Select Artifact Type <span class="required">*</span></label>
         <div class="kb-select-wrap">
-          <select class="form-control" disabled style="background-color: #f8fafc; color: #1e293b; font-weight: 500; cursor: not-allowed; border: 1px solid #cbd5e1;">
-            <option value="BRD" selected>BRD</option>
+          <select [(ngModel)]="selectedInputType" (ngModelChange)="onArtifactTypeChange()" class="form-control" [disabled]="loading || loadingDocs">
+            <option value="BRD">BRD / Requirements Document</option>
+            <option value="Codebase">Project Codebase (ZIP Archive)</option>
+            <option value="BRD + Codebase">BRD + Codebase (Full Scope)</option>
           </select>
         </div>
       </div>
 
-      <!-- Step 3: Select BRD -->
-      <div class="form-group" style="margin-top: 16px;">
-        <label class="field-label">3. Select BRD <span class="required">*</span></label>
+      <!-- Step 3: Select source document(s) -->
+      <div *ngIf="selectedInputType !== 'BRD + Codebase'" class="form-group" style="margin-top: 16px;">
+        <label class="field-label">3. Select {{ selectedInputType === 'Codebase' ? 'Codebase ZIP' : 'BRD' }} <span class="required">*</span></label>
         <div class="kb-select-wrap">
-          <select 
-            [ngModel]="selectedDocumentId" 
-            (ngModelChange)="onBrdSelect($event)" 
-            class="form-control"
-            [disabled]="loading || loadingDocs || availableBrds.length === 0">
-            <option [ngValue]="null">Select BRD</option>
-            <option *ngFor="let doc of availableBrds" [value]="doc.id">
-              {{ doc.fileName }}
-            </option>
+          <select [ngModel]="selectedDocumentId" (ngModelChange)="onArtifactSelect($event)" class="form-control" [disabled]="loading || loadingDocs || (selectedInputType === 'Codebase' ? availableCodebases.length === 0 : availableBrds.length === 0)">
+            <option [ngValue]="null">Select {{ selectedInputType === 'Codebase' ? 'Codebase ZIP' : 'BRD' }}</option>
+            <option *ngFor="let doc of (selectedInputType === 'Codebase' ? availableCodebases : availableBrds)" [value]="doc.id">{{ doc.fileName }}</option>
           </select>
         </div>
-        <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingDocs" style="color: #ef4444; margin-top: 4px; display: block;">
-          No BRD documents are available for this project.
-        </small>
-        <small class="helper-text" *ngIf="loadingDocs" style="color: #64748b; margin-top: 4px; display: block;">
-          Loading BRD documents...
-        </small>
+        <small class="helper-text error-text" *ngIf="(selectedInputType === 'Codebase' ? availableCodebases.length : availableBrds.length) === 0 && !loadingDocs" style="color: #ef4444; margin-top: 4px; display: block;">No {{ selectedInputType === 'Codebase' ? 'Codebase ZIP' : 'BRD' }} documents are available for this project.</small>
+      </div>
+
+      <div *ngIf="selectedInputType === 'BRD + Codebase'" class="brd-codebase-row" style="margin-top: 16px; display: flex; gap: 24px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="field-label">3. Select BRD <span class="required">*</span></label>
+          <select [ngModel]="selectedBrdId" (ngModelChange)="onBrdArtifactSelect($event)" class="form-control" [disabled]="loading || loadingDocs || availableBrds.length === 0">
+            <option [ngValue]="null">Select BRD</option>
+            <option *ngFor="let doc of availableBrds" [value]="doc.id">{{ doc.fileName }}</option>
+          </select>
+          <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingDocs" style="color: #ef4444; display: block;">No BRD documents are available.</small>
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="field-label">Codebase <span class="required">*</span></label>
+          <select [ngModel]="selectedCodebaseId" (ngModelChange)="onCodebaseArtifactSelect($event)" class="form-control" [disabled]="loading || loadingDocs || availableCodebases.length === 0">
+            <option [ngValue]="null">Select Codebase ZIP</option>
+            <option *ngFor="let doc of availableCodebases" [value]="doc.id">{{ doc.fileName }}</option>
+          </select>
+          <small class="helper-text error-text" *ngIf="availableCodebases.length === 0 && !loadingDocs" style="color: #ef4444; display: block;">No Codebase ZIP documents are available.</small>
+        </div>
       </div>
 
       <!-- Release Version -->

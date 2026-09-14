@@ -20,10 +20,19 @@ export class ApiService {
   private baseUrl = this.resolveBaseUrl();
 
   private resolveBaseUrl(): string {
-    if (typeof window !== 'undefined' && localStorage.getItem('BACKEND_URL')) {
-      return localStorage.getItem('BACKEND_URL')!;
+    const defaultUrl = (environment && environment.apiUrl) ? environment.apiUrl : 'http://localhost:8080/api';
+    if (typeof window !== 'undefined') {
+      const configuredUrl = localStorage.getItem('BACKEND_URL')?.trim();
+      // Port 8000 is the internal AI service. Browser calls must go through
+      // Spring Boot so its long-running request timeout and error mapping apply.
+      if (configuredUrl && !/^https?:\/\/localhost:8000(?:\/|$)/i.test(configuredUrl)) {
+        return configuredUrl;
+      }
+      if (configuredUrl) {
+        localStorage.removeItem('BACKEND_URL');
+      }
     }
-    return (environment && environment.apiUrl) ? environment.apiUrl : 'http://localhost:8080/api';
+    return defaultUrl;
   }
 
   currentUser = 'User A';

@@ -1,5 +1,6 @@
 import logging
 import re
+import zipfile
 from typing import Optional
 from app.parsers import ALL_PARSERS
 from app.parsers.zip_parser import ZipParser
@@ -33,7 +34,13 @@ class DocumentService:
     def extract_text_from_file(self, file_object, file_name: str = "", file_type: str = "") -> str:
         """Extract ZIP content from its upload stream; other parsers use their byte API."""
         if file_name.lower().endswith(".zip") or "zip" in (file_type or "").lower():
-            raw_text = ZipParser.extract_zip_file(file_object)[1]
+            try:
+                raw_text = ZipParser.extract_zip_file(file_object)[1]
+            except zipfile.BadZipFile as exc:
+                raise ValueError(
+                    "The uploaded file has a .zip name but is incomplete or corrupted. "
+                    "Please create the ZIP again and upload the valid archive."
+                ) from exc
             return self.clean_text(raw_text)
         return self.extract_text(file_object.read(), file_name=file_name, file_type=file_type)
 

@@ -7,9 +7,12 @@ import lombok.Data;
 public class ReleaseNoteRequest {
     private String version;
     private String sprintInformation;
-    
+
     @JsonProperty("document_id")
     private String documentId;
+
+    @JsonProperty("zip_document_id")
+    private String zipDocumentId;
 
     private Long projectId;
     private String projectName;

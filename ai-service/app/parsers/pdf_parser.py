@@ -11,11 +11,19 @@ class PdfParser(DocumentParser):
         return False
 
     def parse(self, content_bytes: bytes) -> str:
-        doc = fitz.open(stream=content_bytes, filetype="pdf")
-        text_parts = []
-        for page in doc:
-            page_text = page.get_text()
-            if page_text:
-                text_parts.append(page_text)
-        doc.close()
-        return "\n".join(text_parts).strip()
+        if not content_bytes:
+            raise ValueError("The uploaded PDF is empty")
+
+        try:
+            with fitz.open(stream=content_bytes, filetype="pdf") as doc:
+                text_parts = []
+                for page in doc:
+                    page_text = page.get_text()
+                    if page_text:
+                        text_parts.append(page_text)
+                return "\n".join(text_parts).strip()
+        except fitz.FileDataError as exc:
+            raise ValueError(
+                "The uploaded PDF is empty, incomplete, or corrupted. "
+                "Please export the PDF again and upload the valid file."
+            ) from exc

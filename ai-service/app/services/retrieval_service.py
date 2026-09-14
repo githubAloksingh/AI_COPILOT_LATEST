@@ -40,6 +40,34 @@ class RetrievalService:
                 logger.error("Could not initialize local ChromaDB client: %s", e)
         return self._local_collection
 
+    def _ensure_local_collection_dimension(self, dimension: int):
+        """Recreate a local collection if its persisted vectors use another dimension."""
+        local_col = self._get_local_collection()
+        if not local_col or not self._local_client or local_col.count() == 0:
+            return local_col
+
+        sample = local_col.peek(limit=1)
+        stored_embeddings = sample.get("embeddings") if sample else None
+        stored_dimension = (
+            len(stored_embeddings[0])
+            if stored_embeddings is not None and len(stored_embeddings) > 0
+            else None
+        )
+        if stored_dimension == dimension:
+            return local_col
+
+        logger.warning(
+            "Recreating Chroma collection %s: stored dimension is %s, active dimension is %s.",
+            self.collection_name,
+            stored_dimension,
+            dimension,
+        )
+        self._local_client.delete_collection(name=self.collection_name)
+        self._local_collection = self._local_client.get_or_create_collection(
+            name=self.collection_name
+        )
+        return self._local_collection
+
     def ensure_collection(self):
         """Initialize ChromaDB connection. Try remote if configured on non-conflicting port, else local."""
         if self._initialized:
@@ -103,7 +131,7 @@ class RetrievalService:
             return 0
 
         self.ensure_collection()
-        batch_size = 50
+        batch_size = settings.ingestion_batch_size
         total_stored = 0
 
         for start_idx in range(0, len(chunks), batch_size):
@@ -111,6 +139,8 @@ class RetrievalService:
             chunk_batch = chunks[start_idx:end_idx]
 
             batch_embeddings = embedding_service.embed_texts(chunk_batch)
+            if batch_embeddings and self._use_local:
+                self._ensure_local_collection_dimension(len(batch_embeddings[0]))
 
             ids = []
             metadatas = []
@@ -161,6 +191,8 @@ class RetrievalService:
         self.ensure_collection()
         k = top_k or self.top_k
         query_embedding = embedding_service.embed_text(query)
+        if self._use_local:
+            self._ensure_local_collection_dimension(len(query_embedding))
 
         # Build where filter for single or multiple document IDs
         where_clause = None

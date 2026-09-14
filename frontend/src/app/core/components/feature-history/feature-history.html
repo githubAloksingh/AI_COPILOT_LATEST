@@ -57,25 +57,23 @@
             </td>
             <td class="col-view">
               <button 
-                *ngIf="item.canView" 
                 type="button" 
                 class="btn-action-icon btn-view" 
                 (click)="viewDocument(item)" 
-                title="View Original PDF">
+                title="View"
+                aria-label="View">
                 👁
               </button>
-              <span *ngIf="!item.canView" class="view-disabled">—</span>
             </td>
             <td class="col-download">
               <button 
-                *ngIf="item.downloadUrl" 
                 type="button" 
                 class="btn-action-icon btn-download" 
                 (click)="downloadDocument(item)" 
-                title="Download">
+                title="Download"
+                aria-label="Download">
                 ⬇
               </button>
-              <span *ngIf="!item.downloadUrl" class="download-disabled">—</span>
             </td>
           </tr>
         </tbody>
