@@ -55,7 +55,13 @@ Output strictly as a valid JSON array matching this schema for each object:
 
 def build_testcase_prompt(requirement: str, acceptance_criteria: str, test_types: List[str], context: str) -> str:
     ctx = context.strip() if context and context.strip() else "No document context available. Ground solely on provided requirement without inventing external details."
-    test_types_str = ", ".join(test_types) if test_types else "POSITIVE, NEGATIVE, EDGE, SECURITY, PERFORMANCE"
+    resolved_types = test_types or [
+        "Functional Tests",
+        "Edge & Boundary Cases",
+        "Security & Validation",
+        "Performance & Load"
+    ]
+    test_types_str = ", ".join(resolved_types)
     return TESTCASE_PROMPT_TEMPLATE.format(
         guardrails=GUARDRAILS,
         requirement=requirement,
@@ -107,8 +113,13 @@ def build_testcase_from_files_prompt(
     zip_summary: str = "",
     test_types: List[str] = None
 ) -> str:
-    types_list = test_types or ["Functional Tests", "Edge & Boundary Cases", "Security & Validation"]
-    test_types_str = ", ".join(types_list)
+    resolved_types = test_types or [
+        "Functional Tests",
+        "Edge & Boundary Cases",
+        "Security & Validation",
+        "Performance & Load"
+    ]
+    test_types_str = ", ".join(resolved_types)
 
     content_parts = []
     if brd_text and brd_text.strip():

@@ -45,14 +45,6 @@ export class TestGenerator implements OnInit {
   manualDescription = '';
   manualAcceptanceCriteria = '';
 
-  // Test Coverage Types
-  testTypes = {
-    functional: true,
-    edgeCases: true,
-    security: false,
-    performance: false
-  };
-
   // UI State
   loading = false;
   saving = false;
@@ -185,13 +177,7 @@ export class TestGenerator implements OnInit {
     this.cdr.markForCheck();
   }
 
-  hasCoverageType(): boolean {
-    return Object.values(this.testTypes).some(Boolean);
-  }
-
   isInputValid(): boolean {
-    if (!this.hasCoverageType()) return false;
-
     if (this.mainOption === 'kb') {
       if (!this.selectedProjectId) return false;
       if (!this.selectedInputType) return false;
@@ -240,10 +226,6 @@ export class TestGenerator implements OnInit {
       }
     }
 
-    if (!this.hasCoverageType()) {
-      return 'Please select at least one test coverage type.';
-    }
-
     return null;
   }
 
@@ -260,10 +242,6 @@ export class TestGenerator implements OnInit {
     this.cdr.markForCheck();
 
     const selectedTypes: string[] = [];
-    if (this.testTypes.functional) selectedTypes.push('Functional Tests');
-    if (this.testTypes.edgeCases) selectedTypes.push('Edge & Boundary Cases');
-    if (this.testTypes.security) selectedTypes.push('Security & Validation');
-    if (this.testTypes.performance) selectedTypes.push('Performance & Load');
 
     let title = 'Test Cases';
     let acceptanceCriteria = '';
