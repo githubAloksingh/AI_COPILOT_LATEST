@@ -57,6 +57,7 @@
             </td>
             <td class="col-view">
               <button 
+                *ngIf="item.fileType !== 'ZIP'"
                 type="button" 
                 class="btn-action-icon btn-view" 
                 (click)="viewDocument(item)" 

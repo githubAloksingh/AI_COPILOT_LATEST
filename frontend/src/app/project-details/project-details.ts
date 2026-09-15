@@ -263,7 +263,8 @@ export class ProjectDetails implements OnInit, OnDestroy {
     if (!doc) return false;
     const id = this.resolveDocumentId(doc);
     if (!id || id <= 0) return false;
-    return !!(doc.fileName || '').trim();
+    const fileName = (doc.fileName || '').trim().toLowerCase();
+    return !!fileName && !fileName.endsWith('.zip');
   }
 
   isBrd(fileName: string): boolean {
