@@ -285,7 +285,9 @@ export class ResponseModal implements OnInit, OnChanges {
   saveListItem(req: any, fieldKey: string, index: number) {
     const text = (this.sectionDraft || '').trim();
     if (!text) {
-      this.criterionValidationError = 'This field cannot be empty.';
+      this.criterionValidationError = fieldKey === 'acceptanceCriteria'
+        ? 'Acceptance criterion cannot be empty.'
+        : 'This field cannot be empty.';
       this.cdr.markForCheck();
       return;
     }
@@ -908,6 +910,16 @@ export class ResponseModal implements OnInit, OnChanges {
   }
 
   // ── Download ───────────────────────────────────────────────────────────────
+  /** Collects live project/work/version metadata for PDF headers */
+  private getPdfMeta(): any {
+    return {
+      documentName: this.title || '',
+      project:      this.meta?.project   || '',
+      work:         this.meta?.inputType || '',
+      version:      this.meta?.brd       || ''
+    };
+  }
+
   downloadExcel() {
     const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
     const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
@@ -920,29 +932,36 @@ export class ResponseModal implements OnInit, OnChanges {
     this.exportService.downloadTestCaseCsv(items, 'test-cases');
   }
 
+  downloadTestCasePdf() {
+    const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
+    const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
+    this.exportService.downloadTestCasePdf(items, this.getPdfMeta());
+  }
+
   download() {
     const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
+    const pdfMeta  = this.getPdfMeta();
 
     if (this.type === 'testcase') {
       this.downloadCsv();
     } else if (this.type === 'userstory') {
       const allReqs = this.mode === 'EDIT_ALL' ? this.editableRequirements : this.requirementList;
-      this.exportService.downloadUserStoryPdf(allReqs);
+      this.exportService.downloadUserStoryPdf(allReqs, pdfMeta);
     } else if (this.type === 'functionaldesign') {
       const fd = this.functionalDesignData || finalData;
-      this.exportService.downloadFunctionalDesignPdf(fd);
+      this.exportService.downloadFunctionalDesignPdf(fd, pdfMeta);
     } else if (this.type === 'technicaldesign') {
       const td = this.technicalDesignData || finalData;
-      this.exportService.downloadTechnicalDesignPdf(td);
+      this.exportService.downloadTechnicalDesignPdf(td, pdfMeta);
     } else if (this.type === 'requirement') {
       // Export ALL requirements into one PDF
       const allReqs = this.mode === 'EDIT_ALL' ? this.editableRequirements : this.requirementList;
-      const cleanReqs = allReqs.map(req => this.cleanRequirementForExport(req));
-      this.exportService.downloadAllRequirementsPdf(cleanReqs, 'requirements');
+      const cleanReqs = allReqs.map((req: any) => this.cleanRequirementForExport(req));
+      this.exportService.downloadAllRequirementsPdf(cleanReqs, 'requirements', pdfMeta);
     } else if (this.type === 'defect') {
-      this.exportService.downloadDefectPdf(finalData, 'defect-triage');
+      this.exportService.downloadDefectPdf(finalData, 'defect-triage', pdfMeta);
     } else if (this.type === 'releasenote') {
-      this.exportService.downloadReleaseNotePdf(finalData, 'release-notes');
+      this.exportService.downloadReleaseNotePdf(finalData, 'release-notes', pdfMeta);
     }
   }
 
@@ -954,6 +973,11 @@ export class ResponseModal implements OnInit, OnChanges {
   downloadDefectCsv() {
     const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
     this.exportService.downloadDefectCsv(finalData, 'defect-triage');
+  }
+
+  downloadDefectPdf() {
+    const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
+    this.exportService.downloadDefectPdf(finalData, 'defect-triage', this.getPdfMeta());
   }
 
   private cleanRequirementForExport(req: any): any {

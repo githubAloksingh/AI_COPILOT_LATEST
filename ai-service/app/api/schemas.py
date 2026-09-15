@@ -122,6 +122,8 @@ class TestCaseGenerateRequest(BaseModel):
 
 class TestCaseItem(BaseModel):
     __test__ = False
+    tcId: Optional[str] = None
+    requirementId: Optional[str] = None
     scenario: str
     type: str = "POSITIVE"
     priority: str = "MEDIUM"

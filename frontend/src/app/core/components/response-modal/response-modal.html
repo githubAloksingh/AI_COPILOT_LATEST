@@ -2307,10 +2307,13 @@
       <div class="footer-left" style="display: flex; gap: 10px; align-items: center;">
         <ng-container *ngIf="type === 'testcase'">
           <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadExcel()" [disabled]="saving" title="Download Excel (.xlsx)" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
-            📥
+            📊
           </button>
           <button type="button" class="btn btn-secondary btn-icon-action" (click)="downloadCsv()" [disabled]="saving" title="Download CSV (.csv)" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
             📄
+          </button>
+          <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadTestCasePdf()" [disabled]="saving" title="Download PDF" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+            📥
           </button>
         </ng-container>
         <ng-container *ngIf="type === 'defect'">
@@ -2319,6 +2322,9 @@
           </button>
           <button type="button" class="btn btn-secondary btn-icon-action" (click)="downloadDefectCsv()" [disabled]="saving" title="CSV" aria-label="CSV" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
             📄
+          </button>
+          <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadDefectPdf()" [disabled]="saving" title="Download PDF" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
+            📥
           </button>
         </ng-container>
         <ng-container *ngIf="type !== 'testcase' && type !== 'defect'">
@@ -2397,18 +2403,24 @@
     <div class="popup-actions success-actions">
       <ng-container *ngIf="type === 'testcase'">
         <button type="button" class="btn btn-primary btn-download" (click)="downloadExcel()">
-          📥 Download Excel
+          📊 Download Excel
         </button>
         <button type="button" class="btn btn-secondary btn-download" (click)="downloadCsv()">
-          📥 Download CSV
+          📄 Download CSV
+        </button>
+        <button type="button" class="btn btn-primary btn-download" (click)="downloadTestCasePdf()">
+          📥 Download PDF
         </button>
       </ng-container>
       <ng-container *ngIf="type === 'defect'">
         <button type="button" class="btn btn-primary btn-download" (click)="downloadDefectExcel()">
-          📥 Download Excel
+          📊 Download Excel
         </button>
         <button type="button" class="btn btn-secondary btn-download" (click)="downloadDefectCsv()">
-          📥 Download CSV
+          📄 Download CSV
+        </button>
+        <button type="button" class="btn btn-primary btn-download" (click)="downloadDefectPdf()">
+          📥 Download PDF
         </button>
       </ng-container>
       <ng-container *ngIf="type !== 'testcase' && type !== 'defect'">

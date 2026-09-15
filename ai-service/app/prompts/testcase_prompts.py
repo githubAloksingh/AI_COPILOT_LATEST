@@ -36,6 +36,8 @@ RETRIEVED CONTEXT (AUTHORITATIVE KNOWLEDGE BASE):
 Output strictly as a valid JSON array matching this schema for each object:
 [
   {{
+    "tcId": "TC-001",
+    "requirementId": "BRD §4.3.1.1 / AC-001",
     "scenario": "Descriptive, unique test scenario name (e.g. [AC-001] Verify successful order placement with valid card)",
     "type": "POSITIVE or NEGATIVE or EDGE or SECURITY or PERFORMANCE",
     "priority": "HIGH or MEDIUM or LOW",
@@ -43,9 +45,9 @@ Output strictly as a valid JSON array matching this schema for each object:
       "Exact precondition 1 (e.g. User account exists with verified email)"
     ],
     "steps": [
-      "Step 1: Navigate to checkout page",
-      "Step 2: Enter valid 16-digit card number and future expiry",
-      "Step 3: Click 'Pay Now'"
+      "1. Navigate to checkout page",
+      "2. Enter valid 16-digit card number and future expiry",
+      "3. Click 'Pay Now'"
     ],
     "expectedResult": "Detailed assertion (e.g. HTTP 200 returned, order status updated to CONFIRMED, email notification triggered)"
   }}
@@ -80,7 +82,7 @@ CRITICAL FIDELITY RULES:
 3. If both BRD and Project Source Code are provided, cross-reference the business specifications against the actual code implementation. Identify test cases that confirm adherence or uncover discrepancies/gaps.
 4. If only Project ZIP code is provided, inspect controller endpoints, service methods, error handlers, and business logic to derive realistic test scenarios.
 5. If only BRD is provided, extract all business rules, workflows, validations, and edge cases.
-6. Provide specific, clear preconditions and step-by-step instructions for execution.
+6. Provide specific, clear preconditions and numbered step-by-step instructions for execution.
 
 INPUT MODE: {mode}
 REQUESTED TEST COVERAGE TYPES: {test_types}
@@ -90,11 +92,13 @@ REQUESTED TEST COVERAGE TYPES: {test_types}
 Output strictly as a valid JSON array matching this schema for each object:
 [
   {{
+    "tcId": "TC-001",
+    "requirementId": "BRD §4.3.1.1 / AC-001",
     "scenario": "Descriptive test scenario title",
     "type": "POSITIVE or NEGATIVE or EDGE or SECURITY or PERFORMANCE",
     "priority": "HIGH or MEDIUM or LOW",
     "preconditions": ["condition 1", "condition 2"],
-    "steps": ["Step 1 description", "Step 2 description", "Step 3 description"],
+    "steps": ["1. Step 1 description", "2. Step 2 description", "3. Step 3 description"],
     "expectedResult": "Detailed expected outcome"
   }}
 ]

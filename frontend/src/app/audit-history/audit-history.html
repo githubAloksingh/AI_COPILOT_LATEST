@@ -30,6 +30,21 @@
         <option *ngFor="let u of availableUsers" [value]="u">{{ u }}</option>
       </select>
     </div>
+
+    <button 
+      type="button"
+      class="btn btn-outline" 
+      (click)="exportPdf()" 
+      [disabled]="loading || filteredLogs.length === 0"
+      title="Export Audit History as client-ready PDF"
+      style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 0.85rem; font-weight: 600; border-radius: 6px; border: 1px solid #0284c7; color: #0284c7; background: #f0f9ff; cursor: pointer; transition: all 0.2s;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Export PDF
+    </button>
   </div>
 
   <div *ngIf="loading" class="loading-indicator">

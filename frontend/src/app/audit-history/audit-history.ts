@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api';
+import { ExportService } from '../core/services/export.service';
 
 @Component({
   selector: 'app-audit-history',
@@ -18,7 +19,11 @@ export class AuditHistory implements OnInit {
   availableUsers: string[] = [];
   availableProjects: string[] = [];
 
-  constructor(public api: ApiService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    public api: ApiService,
+    private cdr: ChangeDetectorRef,
+    private exportService: ExportService
+  ) {}
 
   ngOnInit() {
     this.loadUsers();
@@ -133,5 +138,18 @@ export class AuditHistory implements OnInit {
   /** Statuses that represent a completed, usable result rather than an execution error. */
   isSuccessfulLog(log: any): boolean {
     return ['SUCCESS', 'ACCEPTED', 'COMPLETED'].includes(log?.status);
+  }
+
+  /** Exports the currently filtered audit logs as a professional document-quality PDF */
+  exportPdf(): void {
+    if (!this.filteredLogs || this.filteredLogs.length === 0) {
+      alert('No audit logs available to export.');
+      return;
+    }
+    this.exportService.downloadAuditHistoryPdf(this.filteredLogs, {
+      projectFilter: this.projectFilter,
+      userFilter: this.userFilter,
+      currentUser: this.currentUser
+    });
   }
 }
