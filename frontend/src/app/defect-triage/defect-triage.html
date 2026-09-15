@@ -81,13 +81,13 @@
       class="btn btn-primary"
       (click)="analyze()"
       [disabled]="loading || !isInputValid()">
-      {{ loading ? 'Triaging Defect with Gemini AI...' : 'Analyze & Triage Defect' }}
+      {{ loading ? 'Triaging Defect...' : 'Analyze & Triage Defect' }}
     </button>
   </div>
 
   <div *ngIf="loading" class="loading-indicator">
     <div class="spinner"></div>
-    <span>Retrieving knowledge context, performing root-cause analysis, and generating code fix diff with Gemini AI...</span>
+    <span>Retrieving knowledge context, performing root-cause analysis, and generating code fix diff with AI...</span>
   </div>
 
   <div *ngIf="error" class="error-message">
