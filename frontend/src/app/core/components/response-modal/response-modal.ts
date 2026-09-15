@@ -15,7 +15,6 @@ export class ResponseModal implements OnInit, OnChanges {
   @Input() type: 'requirement' | 'testcase' | 'defect' | 'releasenote' | 'userstory' | 'functionaldesign' | 'technicaldesign' = 'requirement';
   @Input() title = 'Generated AI Response';
   @Input() data: any = null;
-  @Input() sourceDetails: any[] = [];
   @Input() model = 'gemini-3.7-flash';
   @Input() promptVersion = '';
   @Input() executionTimeMs = 0;

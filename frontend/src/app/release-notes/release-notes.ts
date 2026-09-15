@@ -51,7 +51,6 @@ export class ReleaseNotes implements OnInit {
   // Generated Result for Modal
   isModalOpen = false;
   generatedResult: any = null;
-  sourceDetails: any[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'release-v2';
   executionTimeMs = 0;
@@ -249,7 +248,6 @@ export class ReleaseNotes implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sourceDetails = aiResponse.source_details || [];
           if (this.generatedResult && !this.generatedResult.version) {
             this.generatedResult.version = this.version;
           }

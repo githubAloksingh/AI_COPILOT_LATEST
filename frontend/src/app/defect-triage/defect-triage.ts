@@ -43,7 +43,6 @@ export class DefectTriage implements OnInit {
   // Generated Result for Modal
   isModalOpen = false;
   generatedResult: any = null;
-  sourceDetails: any[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'defect-v3';
   executionTimeMs = 0;
@@ -242,7 +241,6 @@ export class DefectTriage implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sourceDetails = aiResponse.source_details || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'defect-v3';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;

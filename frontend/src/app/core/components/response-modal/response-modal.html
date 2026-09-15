@@ -27,35 +27,6 @@
 
     <!-- Scrollable Modal Body -->
     <div class="modal-body">
-      <div class="section-card sources-card" *ngIf="sourceDetails?.length">
-        <h3>Retrieved Knowledge Sources</h3>
-        <p class="source-context-note">Sources retrieved for the current generation context.</p>
-        <div class="sources-table-wrap">
-          <table class="sources-table">
-            <thead>
-              <tr>
-                <th style="width: 44px;">S.No</th>
-                <th>Source</th>
-                <th>Document</th>
-                <th>Project</th>
-                <th>Version</th>
-                <th>Relevance</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let source of sourceDetails; let sourceIndex = index">
-                <td>{{ sourceIndex + 1 }}</td>
-                <td>Chunk {{ source.chunk_index ?? sourceIndex }}</td>
-                <td>{{ source.file_name || '-' }}</td>
-                <td>{{ meta?.project || '-' }}</td>
-                <td>{{ meta?.version || '-' }}</td>
-                <td>-</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
       <!-- ======================================================= -->
       <!-- 1. REQUIREMENT / USER STORY VIEW & EDIT -->
       <!-- ======================================================= -->

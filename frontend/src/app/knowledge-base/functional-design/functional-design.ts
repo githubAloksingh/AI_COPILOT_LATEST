@@ -46,7 +46,6 @@ export class FunctionalDesignComponent implements OnInit {
   // Generated Response Modal State
   isModalOpen = false;
   generatedResult: any = null;
-  sourceDetails: any[] = [];
   model = 'gemini-3.7-flash';
   executionTimeMs = 0;
 
@@ -187,7 +186,6 @@ export class FunctionalDesignComponent implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sourceDetails = aiResponse.source_details || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
