@@ -60,7 +60,6 @@
         <tr>
           <th>Time</th>
           <th>Feature</th>
-          <th>Model</th>
           <th>Status</th>
           <th>Execution Time</th>
         </tr>
@@ -69,7 +68,6 @@
         <tr *ngFor="let item of recentActivity">
           <td style="white-space: nowrap; font-size: 0.85rem;">{{ formatDate(item.timestamp) }}</td>
           <td><span style="background-color: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">{{ item.feature }}</span></td>
-          <td style="font-size: 0.85rem;">{{ item.model }}</td>
           <td>
             <span [ngStyle]="{
               'color': item.status === 'SUCCESS' ? '#10b981' : '#dc2626',
