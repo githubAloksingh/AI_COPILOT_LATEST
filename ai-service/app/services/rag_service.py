@@ -17,6 +17,8 @@ from app.api.schemas import (
     DefectAnalyzeResponse,
     DefectResult,
     DefectItem,
+    PublicDefectItem,
+    PublicDefectResult,
     ReleaseNoteGenerateRequest,
     ReleaseNoteGenerateResponse,
     ReleaseNoteResult,
@@ -485,8 +487,17 @@ class RagService:
 
         source_strings = [s.snippet or s.file_name or "" for s in sources if s.snippet or s.file_name]
 
+        public_result = PublicDefectResult(
+            defects=[PublicDefectItem(**defect.model_dump()) for defect in result.defects],
+            summary=result.summary,
+            probableRootCause=result.probableRootCause,
+            evidence=result.evidence,
+            suggestedInvestigation=result.suggestedInvestigation,
+            suggestedFix=result.suggestedFix
+        )
+
         return DefectAnalyzeResponse(
-            result=result,
+            result=public_result,
             sources=source_strings,
             source_details=sources,
             model=settings.gemini_model,

@@ -201,8 +201,6 @@
                             <tr>
                               <th>TC ID</th>
                               <th>Scenario</th>
-                              <th>Type</th>
-                              <th>Priority</th>
                               <th>Expected Result</th>
                             </tr>
                           </thead>
@@ -210,10 +208,6 @@
                             <tr *ngFor="let item of log.parsedOutput">
                               <td><strong>{{ item.tcId || 'TC' }}</strong></td>
                               <td>{{ item.scenario }}</td>
-                              <td>
-                                <span class="tag-pill">{{ item.type }}</span>
-                              </td>
-                              <td>{{ item.priority }}</td>
                               <td>{{ item.expectedResult }}</td>
                             </tr>
                           </tbody>

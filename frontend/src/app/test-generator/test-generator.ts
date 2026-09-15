@@ -45,14 +45,6 @@ export class TestGenerator implements OnInit {
   manualDescription = '';
   manualAcceptanceCriteria = '';
 
-  // Test Coverage Types
-  testTypes = {
-    functional: true,
-    edgeCases: true,
-    security: false,
-    performance: false
-  };
-
   // UI State
   loading = false;
   saving = false;
@@ -185,13 +177,7 @@ export class TestGenerator implements OnInit {
     this.cdr.markForCheck();
   }
 
-  hasCoverageType(): boolean {
-    return Object.values(this.testTypes).some(Boolean);
-  }
-
   isInputValid(): boolean {
-    if (!this.hasCoverageType()) return false;
-
     if (this.mainOption === 'kb') {
       if (!this.selectedProjectId) return false;
       if (!this.selectedInputType) return false;
@@ -240,10 +226,6 @@ export class TestGenerator implements OnInit {
       }
     }
 
-    if (!this.hasCoverageType()) {
-      return 'Please select at least one test coverage type.';
-    }
-
     return null;
   }
 
@@ -260,10 +242,6 @@ export class TestGenerator implements OnInit {
     this.cdr.markForCheck();
 
     const selectedTypes: string[] = [];
-    if (this.testTypes.functional) selectedTypes.push('Functional Tests');
-    if (this.testTypes.edgeCases) selectedTypes.push('Edge & Boundary Cases');
-    if (this.testTypes.security) selectedTypes.push('Security & Validation');
-    if (this.testTypes.performance) selectedTypes.push('Performance & Load');
 
     let title = 'Test Cases';
     let acceptanceCriteria = '';
@@ -337,7 +315,13 @@ export class TestGenerator implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           const aiResponse = res.data;
-          this.generatedResult = aiResponse.result || aiResponse;
+          const rawItems = aiResponse.result || aiResponse || [];
+          this.generatedResult = Array.isArray(rawItems)
+            ? rawItems.map((tc: any) => {
+                const { type, priority, ...cleanTc } = tc || {};
+                return cleanTc;
+              })
+            : [];
           this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'testcase-v2';
@@ -390,9 +374,16 @@ export class TestGenerator implements OnInit {
       requirementTitle = this.manualTitle.trim() || 'Manual Requirement';
     }
 
+    const sanitizedItems = Array.isArray(items)
+      ? items.map((item: any) => {
+          const { type, priority, ...cleanItem } = item || {};
+          return cleanItem;
+        })
+      : [];
+
     const acceptPayload = {
       requirement: requirementTitle,
-      testCases: items,
+      testCases: sanitizedItems,
       sources: this.sources,
       model: this.model,
       promptVersion: this.promptVersion,

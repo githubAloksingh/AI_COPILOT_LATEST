@@ -160,8 +160,6 @@ public class TestCaseService {
                         "TC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase() : "TC-001");
                 tc.setRequirementId(request.getRequirementId());
                 tc.setScenario(item.getScenario());
-                tc.setType(item.getType() != null ? item.getType() : "POSITIVE");
-                tc.setPriority(item.getPriority() != null ? item.getPriority() : "MEDIUM");
                 tc.setPreconditions(item.getPreconditions());
                 tc.setSteps(item.getSteps());
                 tc.setExpectedResult(item.getExpectedResult());
