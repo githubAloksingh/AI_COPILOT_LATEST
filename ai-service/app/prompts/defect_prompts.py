@@ -32,10 +32,11 @@ NON-FABRICATION RULES:
 
 OUTPUT ORGANIZATION RULES:
 - Return one object in the "defects" array for EVERY distinct defect. Never collapse multiple defects into one object.
-- Each defect object must contain: defectId, title, status, component, location, trigger, rootCause, impact, evidence, investigation, fix, confidence, severity, and priority.
+- Internally assess status, confidence, severity, and priority for every defect, but never expose those four assessments in the response JSON, any legacy string field, or any other generated output.
+- Each response defect object must contain only: defectId, title, component, location, trigger, rootCause, impact, evidence, investigation, and fix.
 - Use sequential IDs DEFECT-001, DEFECT-002, DEFECT-003, and so on, with no gaps or duplicate IDs.
-- Also populate the legacy string fields for compatibility, using the same defect IDs and ordering.
-- Put a clearly labeled, numbered inventory in EVERY applicable legacy string field using this format: [DEFECT-001] Short defect name (CONFIRMED/PROBABLE/POSSIBLE; severity; priority).
+- Also populate the legacy string fields for compatibility, using the same defect IDs and ordering, without status, confidence, severity, or priority values.
+- Put a clearly labeled, numbered inventory in EVERY applicable legacy string field using this format: [DEFECT-001] Short defect name.
 - Each defect entry must be self-contained and understandable without reading another entry.
 - Do not merge multiple defects into one numbered entry. If there are no confirmed defects, list the strongest probable/possible findings and explain the evidence gap.
 - The final entry in each relevant legacy field must be [COVERAGE] and state the total number of distinct defects and whether every defect has evidence, investigation, and fix coverage.
@@ -44,13 +45,13 @@ OUTPUT ORGANIZATION RULES:
 FIELD REQUIREMENTS:
 - "defects": The authoritative complete list. Include one fully populated object per distinct defect.
 - "summary": State the total number of distinct defects and the overall risk in one paragraph.
-- "probableRootCause": For every DEFECT ID, state status, component/location, trigger, exact technical cause, causal chain, and impact.
-- "evidence": For every DEFECT ID, list the exact supporting log line, stack frame, file/symbol, configuration value, or knowledge-base source. Explain why it supports that defect and identify contradictory or missing evidence.
+- "probableRootCause": For every DEFECT ID, state component/location, trigger, exact technical cause, causal chain, and impact. Keep the internal status, confidence, severity, and priority assessment out of this field.
+- "evidence": For every DEFECT ID, list the exact supporting log line, stack frame, file/symbol, configuration value, or knowledge-base source. Explain why it supports that defect and identify contradictory or missing evidence. Do not include status, confidence, severity, or priority values.
 - "suggestedInvestigation": For every DEFECT ID, give ordered, executable confirmation steps, expected observations, and the owner/tool where useful (logs, trace IDs, SQL, metrics, debugger, test, or reproduction).
 - "suggestedFix": For every DEFECT ID, give the smallest safe code/configuration/data/process remediation, validation test, rollout/rollback consideration, and any prevention measure.
-- "confidence": Use HIGH only when the evidence directly isolates the defect, MEDIUM when evidence strongly supports it but alternatives remain, and LOW when it is mainly a hypothesis.
-- "severity": Use the highest justified impact across the reported defects, and explain the per-defect ratings in the root-cause section.
-- "priority": Use the highest justified urgency across the reported defects, and explain the per-defect priorities in the root-cause section.
+- "confidence": Use HIGH only when the evidence directly isolates the defect, MEDIUM when evidence strongly supports it but alternatives remain, and LOW when it is mainly a hypothesis. This is internal reasoning only and must not be returned.
+- "severity": Use the highest justified impact across the reported defects, and explain the per-defect ratings internally. This is internal reasoning only and must not be returned.
+- "priority": Use the highest justified urgency across the reported defects, and explain the per-defect priorities internally. This is internal reasoning only and must not be returned.
 
 DEFECT TITLE:
 {title}
@@ -79,7 +80,6 @@ Output strictly as a valid JSON object matching this schema:
         {{
             "defectId": "DEFECT-001",
             "title": "Short precise defect name",
-            "status": "CONFIRMED, PROBABLE, or POSSIBLE",
             "component": "Affected component",
             "location": "File/class/method/line/endpoint or evidence gap",
             "trigger": "What triggers the defect",
@@ -87,20 +87,14 @@ Output strictly as a valid JSON object matching this schema:
             "impact": "User, business, data, security, or operational impact",
             "evidence": "Exact supporting evidence",
             "investigation": "Ordered confirmation steps",
-            "fix": "Concrete remediation and validation",
-            "confidence": "HIGH, MEDIUM, or LOW",
-            "severity": "CRITICAL, HIGH, MEDIUM, or LOW",
-            "priority": "P0, P1, P2, or P3"
+            "fix": "Concrete remediation and validation"
         }}
     ],
     "summary": "Found N distinct defects. ...",
     "probableRootCause": "[DEFECT-001] ...\\n\\n[DEFECT-002] ...\\n\\n[COVERAGE] Total distinct defects: N. Every defect is covered in all required sections.",
     "evidence": "[DEFECT-001] Exact supporting evidence and why it proves or supports the finding.\\n\\n[DEFECT-002] ...\\n\\n[COVERAGE] ...",
     "suggestedInvestigation": "[DEFECT-001] Ordered confirmation steps and expected observations.\\n\\n[DEFECT-002] ...\\n\\n[COVERAGE] ...",
-    "suggestedFix": "[DEFECT-001] Concrete remediation and validation plan.\\n\\n[DEFECT-002] ...\\n\\n[COVERAGE] ...",
-  "confidence": "HIGH, MEDIUM, or LOW",
-  "severity": "CRITICAL, HIGH, MEDIUM, or LOW",
-  "priority": "P0, P1, P2, or P3"
+    "suggestedFix": "[DEFECT-001] Concrete remediation and validation plan.\\n\\n[DEFECT-002] ...\\n\\n[COVERAGE] ..."
 }}
 """
 

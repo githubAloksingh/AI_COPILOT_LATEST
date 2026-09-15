@@ -244,7 +244,12 @@ async def generate_test_cases_upload(
             parsed_types = [t.strip() for t in test_types.split(",") if t.strip()]
 
     if not parsed_types:
-        parsed_types = ["Functional Tests", "Edge & Boundary Cases"]
+        parsed_types = [
+            "Functional Tests",
+            "Edge & Boundary Cases",
+            "Security & Validation",
+            "Performance & Load"
+        ]
 
     brd_text = ""
     brd_filename = ""

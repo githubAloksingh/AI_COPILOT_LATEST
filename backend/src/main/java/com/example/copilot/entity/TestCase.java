@@ -25,9 +25,6 @@ public class TestCase extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String scenario;
     
-    private String type;
-    private String priority;
-    
     @JdbcTypeCode(SqlTypes.JSON)
     private List<String> preconditions;
     

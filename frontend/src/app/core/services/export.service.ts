@@ -19,8 +19,6 @@ export class ExportService {
     const rows = items.map((item, index) => {
       const tcId = item.tcId || `TC-${String(index + 1).padStart(3, '0')}`;
       const scenario = item.scenario || '';
-      const type = item.type || 'POSITIVE';
-      const priority = item.priority || 'MEDIUM';
       const preconditions = item.preconditions ? (Array.isArray(item.preconditions) ? item.preconditions.join('\n') : item.preconditions) : '';
       const steps = item.steps ? (Array.isArray(item.steps) ? item.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : item.steps) : '';
       const expectedResult = item.expectedResult || '';
@@ -28,8 +26,6 @@ export class ExportService {
       return {
         'Test Case ID': tcId,
         'Scenario / Title': scenario,
-        'Type': type,
-        'Priority': priority,
         'Preconditions': preconditions,
         'Test Steps': steps,
         'Expected Result': expectedResult
@@ -40,8 +36,6 @@ export class ExportService {
     ws['!cols'] = [
       { wch: 15 },
       { wch: 45 },
-      { wch: 15 },
-      { wch: 12 },
       { wch: 30 },
       { wch: 45 },
       { wch: 35 }
@@ -65,10 +59,6 @@ export class ExportService {
     const rows = defects.map((defect: any, index: number) => ({
       'Defect ID': defect.defectId || `DEF-${String(index + 1).padStart(3, '0')}`,
       'Title': defect.title || '',
-      'Status': defect.status || '',
-      'Severity': defect.severity || '',
-      'Priority': defect.priority || '',
-      'Confidence': defect.confidence || '',
       'Component': defect.component || '',
       'Location': defect.location || '',
       'Trigger': defect.trigger || '',
@@ -81,9 +71,8 @@ export class ExportService {
 
     const ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = [
-      { wch: 16 }, { wch: 36 }, { wch: 16 }, { wch: 12 }, { wch: 12 },
-      { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 28 }, { wch: 48 },
-      { wch: 36 }, { wch: 48 }, { wch: 48 }, { wch: 48 }
+      { wch: 16 }, { wch: 36 }, { wch: 22 }, { wch: 22 }, { wch: 28 },
+      { wch: 48 }, { wch: 36 }, { wch: 48 }, { wch: 48 }, { wch: 48 }
     ];
 
     const wb = XLSX.utils.book_new();
@@ -98,12 +87,11 @@ export class ExportService {
       return;
     }
 
-    const headers = ['Defect ID', 'Title', 'Status', 'Severity', 'Priority', 'Confidence', 'Component', 'Location', 'Trigger', 'Root Cause', 'Impact', 'Evidence', 'Investigation', 'Suggested Fix'];
+    const headers = ['Defect ID', 'Title', 'Component', 'Location', 'Trigger', 'Root Cause', 'Impact', 'Evidence', 'Investigation', 'Suggested Fix'];
     const value = (defect: any, field: string, fallback = ''): string => String(defect[field] ?? fallback);
     const rows = defects.map((defect: any, index: number) => [
       value(defect, 'defectId', `DEF-${String(index + 1).padStart(3, '0')}`),
-      value(defect, 'title'), value(defect, 'status'), value(defect, 'severity'), value(defect, 'priority'), value(defect, 'confidence'),
-      value(defect, 'component'), value(defect, 'location'), value(defect, 'trigger'),
+      value(defect, 'title'), value(defect, 'component'), value(defect, 'location'), value(defect, 'trigger'),
       value(defect, 'rootCause', defect.probableRootCause), value(defect, 'impact'), value(defect, 'evidence'),
       value(defect, 'investigation', defect.suggestedInvestigation), value(defect, 'fix', defect.suggestedFix)
     ]);
@@ -125,8 +113,6 @@ export class ExportService {
     const headers = [
       'Test Case ID',
       'Scenario / Title',
-      'Type',
-      'Priority',
       'Preconditions',
       'Test Steps',
       'Expected Result'
@@ -149,8 +135,6 @@ export class ExportService {
     items.forEach((item, index) => {
       const tcId = item.tcId || `TC-${String(index + 1).padStart(3, '0')}`;
       const scenario = item.scenario || '';
-      const type = item.type || 'POSITIVE';
-      const priority = item.priority || 'MEDIUM';
       const preconditions = item.preconditions ? (Array.isArray(item.preconditions) ? item.preconditions.join('\n') : item.preconditions) : '';
       const steps = item.steps ? (Array.isArray(item.steps) ? item.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : item.steps) : '';
       const expectedResult = item.expectedResult || '';
@@ -158,8 +142,6 @@ export class ExportService {
       const row = [
         escapeCsvCell(tcId),
         escapeCsvCell(scenario),
-        escapeCsvCell(type),
-        escapeCsvCell(priority),
         escapeCsvCell(preconditions),
         escapeCsvCell(steps),
         escapeCsvCell(expectedResult)
@@ -546,9 +528,6 @@ export class ExportService {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text(`Severity: ${data.severity || 'MEDIUM'} | Priority: ${data.priority || 'P2'} | Confidence: ${data.confidence || 'HIGH'}`, margin, y);
-    y += 20;
-
     doc.setDrawColor(226, 232, 240);
     doc.line(margin, y, margin + contentWidth, y);
     y += 18;

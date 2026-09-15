@@ -1982,8 +1982,6 @@
                 <tr>
                   <th style="width: 80px;">TC ID</th>
                   <th class="scenario-th" style="min-width: 320px; max-width: 480px;">Scenario</th>
-                  <th style="width: 100px;">Type</th>
-                  <th style="width: 90px;">Priority</th>
                   <th style="min-width: 140px;">Preconditions</th>
                   <th style="min-width: 160px;">Steps</th>
                   <th style="min-width: 160px;">Expected Result</th>
@@ -1993,8 +1991,6 @@
                 <tr *ngFor="let tc of (data.items || data); let i = index">
                   <td><strong>{{ tc.tcId || ('TC-' + (i + 1)) }}</strong></td>
                   <td class="scenario-cell"><span *ngIf="!isEditingSection(tc, 'scenario')">{{ tc.scenario }}</span><input *ngIf="isEditingSection(tc, 'scenario')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'scenario')" class="section-action" type="button" (click)="editSection(tc, 'scenario')" title="Edit" aria-label="Edit scenario">✏️</button><button *ngIf="isEditingSection(tc, 'scenario')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save scenario">💾</button></td>
-                  <td><span *ngIf="!isEditingSection(tc, 'type')" class="pill pill-type">{{ tc.type }}</span><input *ngIf="isEditingSection(tc, 'type')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'type')" class="section-action" type="button" (click)="editSection(tc, 'type')" title="Edit" aria-label="Edit type">✏️</button><button *ngIf="isEditingSection(tc, 'type')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save type">💾</button></td>
-                  <td><span *ngIf="!isEditingSection(tc, 'priority')" class="pill pill-priority">{{ tc.priority }}</span><input *ngIf="isEditingSection(tc, 'priority')" [(ngModel)]="sectionDraft" class="inline-input"><button *ngIf="!isEditingSection(tc, 'priority')" class="section-action" type="button" (click)="editSection(tc, 'priority')" title="Edit" aria-label="Edit priority">✏️</button><button *ngIf="isEditingSection(tc, 'priority')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save priority">💾</button></td>
                   <td style="font-size: 0.85rem;"><span *ngIf="!isEditingSection(tc, 'preconditions')">{{ tc.preconditions }}</span><textarea *ngIf="isEditingSection(tc, 'preconditions')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea><button *ngIf="!isEditingSection(tc, 'preconditions')" class="section-action" type="button" (click)="editSection(tc, 'preconditions')" title="Edit" aria-label="Edit preconditions">✏️</button><button *ngIf="isEditingSection(tc, 'preconditions')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save preconditions">💾</button></td>
                   <td style="font-size: 0.85rem;"><div *ngIf="!isEditingSection(tc, 'steps')"><div *ngFor="let step of (tc.steps | slice:0:3); let s = index">{{ s + 1 }}. {{ step }}</div></div><textarea *ngIf="isEditingSection(tc, 'steps')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="3"></textarea><button *ngIf="!isEditingSection(tc, 'steps')" class="section-action" type="button" (click)="editSection(tc, 'steps')" title="Edit" aria-label="Edit steps">✏️</button><button *ngIf="isEditingSection(tc, 'steps')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save steps">💾</button></td>
                   <td style="font-size: 0.85rem;"><span *ngIf="!isEditingSection(tc, 'expectedResult')">{{ tc.expectedResult }}</span><textarea *ngIf="isEditingSection(tc, 'expectedResult')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="2"></textarea><button *ngIf="!isEditingSection(tc, 'expectedResult')" class="section-action" type="button" (click)="editSection(tc, 'expectedResult')" title="Edit" aria-label="Edit expected result">✏️</button><button *ngIf="isEditingSection(tc, 'expectedResult')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save expected result">💾</button></td>
@@ -2040,20 +2036,9 @@
               <h4>Test Case #{{ i + 1 }}</h4>
               <button class="btn-remove-item" (click)="removeArrayItem((editableData.items || editableData), i)">Remove</button>
             </div>
-            <div class="grid-2-col">
-              <div class="form-group">
-                <label>Scenario / Title</label>
-                <input type="text" [(ngModel)]="tc.scenario">
-              </div>
-              <div class="form-group">
-                <label>Type</label>
-                <select [(ngModel)]="tc.type">
-                  <option value="POSITIVE">Positive</option>
-                  <option value="NEGATIVE">Negative</option>
-                  <option value="EDGE">Edge Case</option>
-                  <option value="SECURITY">Security</option>
-                </select>
-              </div>
+            <div class="form-group">
+              <label>Scenario / Title</label>
+              <input type="text" [(ngModel)]="tc.scenario">
             </div>
             <div class="form-group">
               <label>Expected Result</label>
@@ -2083,23 +2068,6 @@
                       <button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save title">💾</button>
                     </ng-container>
                   </div>
-                  <span class="badge badge-severity">Severity: {{ defect.severity || 'MEDIUM' }}</span>
-                  <button *ngIf="!isEditingSection(defect, 'severity')" class="section-action badge-action" type="button" (click)="editSection(defect, 'severity')" title="Edit" aria-label="Edit severity">✏️</button>
-                  <ng-container *ngIf="isEditingSection(defect, 'severity')">
-                    <select [(ngModel)]="sectionDraft" class="inline-select" aria-label="Severity">
-                      <option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option>
-                    </select>
-                    <button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save severity">💾</button>
-                  </ng-container>
-                  <span class="badge badge-priority">Priority: {{ defect.priority || 'P2' }}</span>
-                  <button *ngIf="!isEditingSection(defect, 'priority')" class="section-action badge-action" type="button" (click)="editSection(defect, 'priority')" title="Edit" aria-label="Edit priority">✏️</button>
-                  <ng-container *ngIf="isEditingSection(defect, 'priority')">
-                    <select [(ngModel)]="sectionDraft" class="inline-select" aria-label="Priority">
-                      <option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
-                    </select>
-                    <button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save priority">💾</button>
-                  </ng-container>
-                  <span class="badge badge-confidence">{{ defect.status || 'CONFIRMED' }} / {{ defect.confidence || 'MEDIUM' }}</span>
                 </div>
               </div>
               <p *ngIf="defect.component"><strong>Component:</strong> {{ defect.component }} <button *ngIf="!isEditingSection(defect, 'component')" class="section-action" type="button" (click)="editSection(defect, 'component')" title="Edit" aria-label="Edit component">✏️</button><ng-container *ngIf="isEditingSection(defect, 'component')"><input [(ngModel)]="sectionDraft" class="inline-input"><button class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save component">💾</button></ng-container></p>
@@ -2132,14 +2100,6 @@
 
           <!-- Backward-compatible view for responses without a defects array. -->
           <ng-container *ngIf="!data.defects?.length">
-          <div class="triage-status-banner">
-            <div>
-              <span class="badge badge-severity">Severity: {{ data.severity || 'MEDIUM' }}</span>
-              <span class="badge badge-priority">Priority: {{ data.priority || 'P2' }}</span>
-              <span class="badge badge-confidence">Confidence: {{ data.confidence || 'HIGH' }}</span>
-            </div>
-          </div>
-
           <div class="section-card alert-danger-card" *ngIf="data.probableRootCause">
             <div class="section-heading"><h3>Probable Root Cause</h3><button *ngIf="!isEditingSection(data, 'probableRootCause')" class="section-action" type="button" (click)="editSection(data, 'probableRootCause')" title="Edit" aria-label="Edit probable root cause">✏️</button><button *ngIf="isEditingSection(data, 'probableRootCause')" class="section-action save-action" type="button" (click)="saveSection()" title="Save" aria-label="Save probable root cause">💾</button></div>
             <p *ngIf="!isEditingSection(data, 'probableRootCause')">{{ data.probableRootCause }}</p><textarea *ngIf="isEditingSection(data, 'probableRootCause')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
@@ -2193,27 +2153,6 @@
 
         <!-- EDIT MODE -->
         <div *ngIf="mode === 'EDIT_ALL'" class="edit-form">
-          <div class="grid-2-col">
-            <div class="form-group">
-              <label>Severity</label>
-              <select [(ngModel)]="editableData.severity">
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="CRITICAL">Critical</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Priority</label>
-              <select [(ngModel)]="editableData.priority">
-                <option value="P0">P0 - Blocker</option>
-                <option value="P1">P1 - High</option>
-                <option value="P2">P2 - Medium</option>
-                <option value="P3">P3 - Low</option>
-              </select>
-            </div>
-          </div>
-
           <div class="form-group">
             <label>Probable Root Cause</label>
             <textarea [(ngModel)]="editableData.probableRootCause" rows="3"></textarea>

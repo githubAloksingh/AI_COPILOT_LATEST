@@ -3,6 +3,7 @@ from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
 
     # Gemini
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.7-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
     gemini_timeout_seconds: float = 90.0
     transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
