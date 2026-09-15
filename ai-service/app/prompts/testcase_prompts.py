@@ -112,6 +112,8 @@ Output strictly as a valid JSON array matching this schema for each object.
 Use type and priority only for internal reasoning. Do not include `type` or `priority` keys anywhere in the JSON response, and do not replace them with another field.
 [
   {{
+    "tcId": "TC-001",
+    "requirementId": "BRD §4.3.1.1 / AC-001",
     "scenario": "Descriptive test scenario title",
     "preconditions": ["condition 1", "condition 2"],
     "steps": ["Step 1 description", "Step 2 description"],

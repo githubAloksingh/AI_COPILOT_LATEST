@@ -122,6 +122,8 @@ class TestCaseGenerateRequest(BaseModel):
 
 class TestCaseItem(BaseModel):
     __test__ = False
+    tcId: Optional[str] = None
+    requirementId: Optional[str] = None
     scenario: str
     preconditions: List[str] = Field(default_factory=list)
     steps: List[str] = Field(default_factory=list)

@@ -124,7 +124,6 @@ export class ExportService {
         val = val.join('\n');
       }
       const str = String(val);
-      // Double up existing quotes and wrap in quotes
       const escaped = str.replace(/"/g, '""');
       return `"${escaped}"`;
     };
@@ -154,987 +153,603 @@ export class ExportService {
     this.triggerDownload(blob, `${baseFilename}-${this.getTimestampSuffix()}.csv`);
   }
 
-  // ==========================================
-  // PDF EXPORT (REQUIREMENTS)
-  // ==========================================
-  downloadRequirementPdf(data: any, baseFilename = 'requirement'): void {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 40;
-    const contentWidth = pageWidth - (margin * 2);
-    let y = 40;
-
-    const checkPageBreak = (neededHeight: number) => {
-      if (y + neededHeight > doc.internal.pageSize.getHeight() - 40) {
-        doc.addPage();
-        y = 40;
-      }
-    };
-
-    // Header Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Software Requirement Specification', margin, y);
-    y += 24;
-
-    // Subtitle & Priority
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Generated & Accepted: ${new Date().toLocaleString()}`, margin, y);
-    y += 20;
-
-    // Horizontal divider
-    doc.setDrawColor(226, 232, 240);
-    doc.line(margin, y, margin + contentWidth, y);
-    y += 18;
-
-    // Requirement Title
-    if (data.title) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(30, 41, 59);
-      doc.text(data.title, margin, y);
-      y += 20;
-    }
-
-    // Summary Section
-    if (data.summary) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Summary', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      const splitSummary = doc.splitTextToSize(data.summary, contentWidth);
-      doc.text(splitSummary, margin, y);
-      y += (splitSummary.length * 13) + 14;
-    }
-
-
-
-    // Acceptance Criteria
-    if (data.acceptanceCriteria && data.acceptanceCriteria.length > 0) {
-      checkPageBreak(60);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Acceptance Criteria', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.acceptanceCriteria.forEach((ac: string) => {
-        const itemText = `â€¢  ${ac}`;
-        const splitAc = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitAc.length * 13 + 4);
-        doc.text(splitAc, margin + 5, y);
-        y += (splitAc.length * 13) + 4;
-      });
-      y += 10;
-    }
-
-    // Assumptions
-    if (data.assumptions && data.assumptions.length > 0) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Assumptions', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.assumptions.forEach((as: string) => {
-        const itemText = `â€¢  ${as}`;
-        const splitAs = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitAs.length * 13 + 4);
-        doc.text(splitAs, margin + 5, y);
-        y += (splitAs.length * 13) + 4;
-      });
-      y += 10;
-    }
-
-    // Dependencies
-    if (data.dependencies && data.dependencies.length > 0) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Dependencies', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.dependencies.forEach((dp: string) => {
-        const itemText = `â€¢  ${dp}`;
-        const splitDp = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitDp.length * 13 + 4);
-        doc.text(splitDp, margin + 5, y);
-        y += (splitDp.length * 13) + 4;
-      });
-      y += 10;
-    }
-
-    // Edge Cases
-    if (data.edgeCases && data.edgeCases.length > 0) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Edge Cases', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.edgeCases.forEach((ec: string) => {
-        const itemText = `â€¢  ${ec}`;
-        const splitEc = doc.splitTextToSize(itemText, contentWidth - 10);
-        checkPageBreak(splitEc.length * 13 + 4);
-        doc.text(splitEc, margin + 5, y);
-        y += (splitEc.length * 13) + 4;
-      });
-      y += 10;
-    }
-
-    doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
-  }
-
-  // ==========================================
-  // PDF EXPORT (ALL REQUIREMENTS â€” ONE PDF)
-  // ==========================================
-  downloadAllRequirementsPdf(requirements: any[], baseFilename = 'requirements'): void {
-    if (!requirements || requirements.length === 0) {
-      alert('No requirements available to export.');
-      return;
-    }
-
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 40;
-    const contentWidth = pageWidth - (margin * 2);
-    let y = 40;
-
-    const checkPageBreak = (neededHeight: number) => {
-      if (y + neededHeight > doc.internal.pageSize.getHeight() - 40) {
-        doc.addPage();
-        y = 40;
-      }
-    };
-
-    // â”€â”€ Document Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Software Requirement Specification', margin, y);
-    y += 24;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Generated & Accepted: ${new Date().toLocaleString()} | Total Requirements: ${requirements.length}`, margin, y);
-    y += 20;
-
-    doc.setDrawColor(226, 232, 240);
-    doc.line(margin, y, margin + contentWidth, y);
-    y += 24;
-
-    // â”€â”€ Each Requirement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    requirements.forEach((data: any, idx: number) => {
-      // Requirement divider heading
-      checkPageBreak(60);
-
-      // Colored background banner for req ID + title
-      doc.setFillColor(241, 245, 249);
-      doc.roundedRect(margin, y - 14, contentWidth, 26, 4, 4, 'F');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.setTextColor(30, 41, 59);
-      const reqLabel = data.requirementId ? `${data.requirementId}  â€”  ${data.title || ''}` : (data.title || `Requirement ${idx + 1}`);
-      const splitLabel = doc.splitTextToSize(reqLabel, contentWidth - 10);
-      doc.text(splitLabel, margin + 6, y);
-      y += (splitLabel.length * 16) + 10;
-
-      // Priority
-      if (data.priority) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Priority: ${data.priority}`, margin, y);
-        y += 14;
-      }
-
-      // Summary
-      if (data.summary) {
-        checkPageBreak(50);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(30, 41, 59);
-        doc.text('Summary', margin, y);
-        y += 13;
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(51, 65, 85);
-        const splitSummary = doc.splitTextToSize(data.summary, contentWidth);
-        doc.text(splitSummary, margin, y);
-        y += (splitSummary.length * 13) + 12;
-      }
-
-      // Acceptance Criteria
-      if (data.acceptanceCriteria && data.acceptanceCriteria.length > 0) {
-        checkPageBreak(50);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(30, 41, 59);
-        doc.text('Acceptance Criteria', margin, y);
-        y += 13;
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(51, 65, 85);
-        data.acceptanceCriteria.forEach((ac: string) => {
-          const itemText = `â€¢  ${ac}`;
-          const splitAc = doc.splitTextToSize(itemText, contentWidth - 10);
-          checkPageBreak(splitAc.length * 13 + 4);
-          doc.text(splitAc, margin + 5, y);
-          y += (splitAc.length * 13) + 4;
-        });
-        y += 8;
-      }
-
-      // Assumptions
-      if (data.assumptions && data.assumptions.length > 0) {
-        checkPageBreak(40);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(30, 41, 59);
-        doc.text('Assumptions', margin, y);
-        y += 13;
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(51, 65, 85);
-        data.assumptions.forEach((as: string) => {
-          const itemText = `â€¢  ${as}`;
-          const splitAs = doc.splitTextToSize(itemText, contentWidth - 10);
-          checkPageBreak(splitAs.length * 13 + 4);
-          doc.text(splitAs, margin + 5, y);
-          y += (splitAs.length * 13) + 4;
-        });
-        y += 8;
-      }
-
-      // Dependencies
-      if (data.dependencies && data.dependencies.length > 0) {
-        checkPageBreak(40);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(30, 41, 59);
-        doc.text('Dependencies', margin, y);
-        y += 13;
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(51, 65, 85);
-        data.dependencies.forEach((dp: string) => {
-          const itemText = `â€¢  ${dp}`;
-          const splitDp = doc.splitTextToSize(itemText, contentWidth - 10);
-          checkPageBreak(splitDp.length * 13 + 4);
-          doc.text(splitDp, margin + 5, y);
-          y += (splitDp.length * 13) + 4;
-        });
-        y += 8;
-      }
-
-      // Edge Cases
-      if (data.edgeCases && data.edgeCases.length > 0) {
-        checkPageBreak(40);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(30, 41, 59);
-        doc.text('Edge Cases', margin, y);
-        y += 13;
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(51, 65, 85);
-        data.edgeCases.forEach((ec: string) => {
-          const itemText = `â€¢  ${ec}`;
-          const splitEc = doc.splitTextToSize(itemText, contentWidth - 10);
-          checkPageBreak(splitEc.length * 13 + 4);
-          doc.text(splitEc, margin + 5, y);
-          y += (splitEc.length * 13) + 4;
-        });
-        y += 8;
-      }
-
-      // Separator between requirements (not after the last one)
-      if (idx < requirements.length - 1) {
-        checkPageBreak(30);
-        doc.setDrawColor(203, 213, 225);
-        doc.setLineDashPattern([4, 3], 0);
-        doc.line(margin, y + 4, margin + contentWidth, y + 4);
-        doc.setLineDashPattern([], 0);
-        y += 24;
-      }
-    });
-
-    doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
-  }
-
-  // ==========================================
-  // PDF EXPORT (DEFECT TRIAGE)
-  // ==========================================
-  downloadDefectPdf(data: any, baseFilename = 'defect-triage'): void {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 40;
-    const contentWidth = pageWidth - (margin * 2);
-    let y = 40;
-
-    const checkPageBreak = (neededHeight: number) => {
-      if (y + neededHeight > doc.internal.pageSize.getHeight() - 40) {
-        doc.addPage();
-        y = 40;
-      }
-    };
-
-    const drawWrapped = (lines: string[], x: number, lineHeight: number) => {
-      lines.forEach((line: string) => {
-        checkPageBreak(lineHeight);
-        doc.text(line, x, y);
-        y += lineHeight;
-      });
-    };
-
-    // Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Defect Triage Report', margin, y);
-    y += 24;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.setDrawColor(226, 232, 240);
-    doc.line(margin, y, margin + contentWidth, y);
-    y += 18;
-
-    if (data.title) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(30, 41, 59);
-      doc.text(data.title, margin, y);
-      y += 20;
-    }
-
-    // Probable Root Cause
-    if (data.probableRootCause) {
-      checkPageBreak(60);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(185, 28, 28);
-      doc.text('Probable Root Cause', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      const splitRc = doc.splitTextToSize(data.probableRootCause, contentWidth);
-      drawWrapped(splitRc, margin, 13);
-      y += 14;
-    }
-
-    // Suggested Fix
-    if (data.suggestedFix) {
-      checkPageBreak(60);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(16, 185, 129);
-      doc.text('Suggested Fix / Resolution', margin, y);
-      y += 14;
-
-      doc.setFont('courier', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(30, 41, 59);
-      const splitFix = doc.splitTextToSize(data.suggestedFix, contentWidth);
-      drawWrapped(splitFix, margin, 12);
-      y += 14;
-    }
-
-    // Evidence & Stack Trace Analysis
-    if (data.evidence) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Evidence & Technical Analysis', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      const splitEvidence = doc.splitTextToSize(data.evidence, contentWidth);
-      drawWrapped(splitEvidence, margin, 13);
-      y += 14;
-    }
-
-    // Suggested Investigation
-    if (data.suggestedInvestigation) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Suggested Investigation Steps', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      const splitInv = doc.splitTextToSize(data.suggestedInvestigation, contentWidth);
-      drawWrapped(splitInv, margin, 13);
-      y += 14;
-    }
-
-    doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
-  }
-
-  // ==========================================
-  // PDF EXPORT (RELEASE NOTES)
-  // Professional format consistent with User Story PDF
-  // ==========================================
-  downloadReleaseNotePdf(data: any, baseFilename = 'release-notes'): void {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 40;
-    const contentWidth = pageWidth - (margin * 2);
-    let y = 40;
-
-    const checkPageBreak = (neededHeight: number) => {
-      if (y + neededHeight > doc.internal.pageSize.getHeight() - 40) {
-        doc.addPage();
-        y = 40;
-      }
-    };
-
-    const drawWrapped = (lines: string[], x: number, lineHeight: number) => {
-      lines.forEach((line: string) => {
-        checkPageBreak(lineHeight);
-        doc.text(line, x, y);
-        y += lineHeight;
-      });
-    };
-
-    // ── Document Header ──────────────────────────────────────
-    doc.setFillColor(30, 41, 59);
-    doc.rect(margin, y, contentWidth, 36, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`Release Notes — Version ${data.version || '1.0.0'}`, margin + 12, y + 23);
-    y += 46;
-
-    // Metadata Subtitle
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Generated & Approved: ${new Date().toLocaleString()}  |  AI SDLC Copilot`, margin, y);
-    y += 18;
-
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(1);
-    doc.line(margin, y, margin + contentWidth, y);
-    y += 16;
-
-    // Summary Section Card
-    if (data.summary) {
-      checkPageBreak(60);
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      const splitSummary = doc.splitTextToSize(data.summary, contentWidth - 24);
-      const cardHeight = (splitSummary.length * 13) + 36;
-      checkPageBreak(cardHeight);
-      const cardTop = y;
-      doc.roundedRect(margin, cardTop, contentWidth, cardHeight, 4, 4, 'FD');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Executive Summary', margin + 12, cardTop + 18);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(71, 85, 105);
-      y = cardTop + 32;
-      drawWrapped(splitSummary, margin + 12, 13);
-      y = cardTop + cardHeight + 14;
-    }
-
-    // New Features Section
-    if (data.newFeatures && data.newFeatures.length > 0) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(16, 185, 129);
-      doc.text('New Features', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.newFeatures.forEach((f: string) => {
-        const itemText = `•  ${f}`;
-        const splitF = doc.splitTextToSize(itemText, contentWidth - 10);
-        drawWrapped(splitF, margin + 5, 13);
-        y += 4;
-      });
-      y += 12;
-    }
-
-    // Improvements Section
-    if (data.improvements && data.improvements.length > 0) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(59, 130, 246);
-      doc.text('Improvements', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.improvements.forEach((imp: string) => {
-        const itemText = `•  ${imp}`;
-        const splitImp = doc.splitTextToSize(itemText, contentWidth - 10);
-        drawWrapped(splitImp, margin + 5, 13);
-        y += 4;
-      });
-      y += 12;
-    }
-
-    // Bug Fixes Section
-    if (data.bugFixes && data.bugFixes.length > 0) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(245, 158, 11);
-      doc.text('Bug Fixes', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.bugFixes.forEach((bf: string) => {
-        const itemText = `•  ${bf}`;
-        const splitBf = doc.splitTextToSize(itemText, contentWidth - 10);
-        drawWrapped(splitBf, margin + 5, 13);
-        y += 4;
-      });
-      y += 12;
-    }
-
-    // Breaking Changes Section
-    if (data.breakingChanges && data.breakingChanges.length > 0) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(239, 68, 68);
-      doc.text('Breaking Changes', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      data.breakingChanges.forEach((bc: string) => {
-        const itemText = `•  ${bc}`;
-        const splitBc = doc.splitTextToSize(itemText, contentWidth - 10);
-        drawWrapped(splitBc, margin + 5, 13);
-        y += 4;
-      });
-      y += 12;
-    }
-
-    // Technical Notes Section
-    if (data.technicalNotes) {
-      checkPageBreak(50);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Technical Notes', margin, y);
-      y += 14;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      const splitTech = doc.splitTextToSize(data.technicalNotes, contentWidth);
-      drawWrapped(splitTech, margin, 13);
-      y += 14;
-    }
-
-    doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
-  }
-
-  // ==========================================
-  // UNIFIED DOCUMENT PDF GENERATOR
-  // ==========================================
-  generateDocumentPdf(
-    type: 'USER_STORY' | 'FUNCTIONAL_DESIGN' | 'TECHNICAL_DESIGN' | 'REQUIREMENT' | 'DEFECT' | 'RELEASE_NOTE',
-    data: any,
-    meta?: any
-  ): void {
-    if (type === 'USER_STORY') {
-      this.downloadUserStoryPdf(data, meta);
-    } else if (type === 'FUNCTIONAL_DESIGN') {
-      this.downloadFunctionalDesignPdf(data, meta);
-    } else if (type === 'TECHNICAL_DESIGN') {
-      this.downloadTechnicalDesignPdf(data, meta);
-    } else if (type === 'REQUIREMENT') {
-      const items = Array.isArray(data) ? data : (data.requirements || [data]);
-      this.downloadAllRequirementsPdf(items);
-    } else if (type === 'DEFECT') {
-      this.downloadDefectPdf(data);
-    } else if (type === 'RELEASE_NOTE') {
-      this.downloadReleaseNotePdf(data);
-    }
-  }
-
   // ============================================================
-  // SHARED DOC-STYLE LAYOUT ENGINE
-  // Clean Word/business document style â€” black on white, no boxes
+  // MASTER DOC-STYLE LAYOUT ENGINE (SPECIFICATION COMPLIANT)
+  // Specs: A4, 20mm margins, Helvetica, Bold hierarchy,
+  // Aligned Metadata, Clean Tables, Flowcharts, Header/Footer
   // ============================================================
 
-  /** Creates a fresh doc context. Call once per PDF. */
-  private newDocCtx(docType: string, docTitle: string, meta?: any) {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageWidth  = doc.internal.pageSize.getWidth();   // 595.28
-    const pageHeight = doc.internal.pageSize.getHeight();  // 841.89
-    const margin = 54;                  // ~19mm â€” matches Word normal margins
-    const contentWidth = pageWidth - margin * 2;
+  /** Strips raw markdown syntax (#, **, *, ``, ---, etc.) and emojis (Specs 47 & 48) */
+  cleanMarkdown(text: any): string {
+    if (text === null || text === undefined) return '';
+    let str = String(text);
+    // Strip markdown headings
+    str = str.replace(/^#{1,6}\s+/gm, '');
+    // Strip bold and italic formatting
+    str = str.replace(/\*\*([^*]+)\*\*/g, '$1');
+    str = str.replace(/\*([^*]+)\*/g, '$1');
+    str = str.replace(/__([^_]+)__/g, '$1');
+    str = str.replace(/_([^_]+)_/g, '$1');
+    // Strip inline backticks
+    str = str.replace(/`([^`]+)`/g, '$1');
+    // Strip horizontal rules
+    str = str.replace(/^[-*_]{3,}\s*$/gm, '');
+    // Replace smart quotes and special typographical symbols with ASCII equivalents
+    str = str.replace(/[\u201C\u201D]/g, '"');
+    str = str.replace(/[\u2018\u2019]/g, "'");
+    str = str.replace(/[\u2013\u2014]/g, '-');
+    str = str.replace(/[\u2192\u21D2\u21B3]/g, '->');
+    str = str.replace(/\u2026/g, '...');
+    // Strip emojis
+    str = str.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '');
+    return str.trim();
+  }
+
+  /** Creates a fresh document context strictly respecting A4 size, 20mm margins, and available content width (Specs 1–3) */
+  private newDocCtx(docType: string, docTitle: string, meta?: any, orientation: 'portrait' | 'landscape' = 'portrait') {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation });
+    const pageWidth = doc.internal.pageSize.getWidth();   // 595.28 (portrait) or 841.89 (landscape)
+    const pageHeight = doc.internal.pageSize.getHeight(); // 841.89 (portrait) or 595.28 (landscape)
+    const margin = 56.7;                                  // Exactly 20 mm (visual equality left/right/top/bottom)
+    const contentWidth = pageWidth - (margin * 2);        // 481.88 pt (portrait)
     let y = margin;
 
     const checkPageBreak = (need: number): void => {
-      if (y + need > pageHeight - 50) {
-        doc.addPage();
-        y = margin;
+      if (y + need > pageHeight - margin - 35) {
+        doc.addPage(orientation);
+        y = margin + 20; // Extra room for running top header on pages > 1
       }
     };
 
-    return { doc, pageWidth, pageHeight, margin, contentWidth, y, checkPageBreak,
-             docType, docTitle, meta,
-             setY: (v: number) => { y = v; },
-             getY: () => y,
-             addY: (v: number) => { y += v; } };
+    return {
+      doc, pageWidth, pageHeight, margin, contentWidth, y, checkPageBreak,
+      docType, docTitle, meta, orientation,
+      setY: (v: number) => { y = v; },
+      getY: () => y,
+      addY: (v: number) => { y += v; }
+    };
   }
 
-  /** Big document title  (e.g. "Technical Design Document â€” Preferred Custody Platform") */
+  /** Standardized Document Title (22 pt Bold, clean and distinct, Specs 4, 5, 6) */
   private docTitle(ctx: any, title: string): void {
     const { doc, margin, contentWidth } = ctx;
+    const cleanT = this.cleanMarkdown(title).toUpperCase();
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(0, 0, 0);
-    const lines = doc.splitTextToSize(title, contentWidth);
-    doc.text(lines, margin, ctx.getY());
-    ctx.addY(lines.length * 26 + 6);
+    doc.setFontSize(22);
+    doc.setTextColor(15, 23, 42); // Deep slate
+    const lines = doc.splitTextToSize(cleanT, contentWidth);
+    doc.text(lines, margin, ctx.getY() + 18);
+    ctx.addY(lines.length * 26 + 8);
   }
 
-  /** Program / Work / BRD Version info line â€” bold labels, normal values inline */
-  private docMetaLine(ctx: any, parts: { label: string; value: string }[]): void {
+  /** Aligned Structured Document Metadata Block (Spec 7: Project Name, Source Document, Version, Generated On) */
+  private docMetaBlock(ctx: any, parts: { label: string; value: string }[]): void {
     const { doc, margin, contentWidth } = ctx;
-    const filtered = parts.filter(p => p.value && p.value.trim() !== '');
+    const filtered = parts.filter(p => p.value && String(p.value).trim() !== '');
     if (filtered.length === 0) return;
 
-    // Build mixed-style text by drawing label then value sequentially
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
+    ctx.checkPageBreak(filtered.length * 16 + 20);
 
-    let x = margin;
-    const lineY = ctx.getY();
+    const startY = ctx.getY();
+    const rowH = 15;
+    const totalH = (filtered.length * rowH) + 12;
 
-    filtered.forEach((part, idx) => {
-      const label = part.label + ': ';
-      const value = part.value + (idx < filtered.length - 1 ? '  ' : '');
+    // Subtle background card with border
+    doc.setFillColor(248, 250, 252); // #f8fafc
+    doc.setDrawColor(226, 232, 240); // #e2e8f0
+    doc.setLineWidth(0.75);
+    doc.roundedRect(margin, startY, contentWidth, totalH, 4, 4, 'FD');
 
-      // Bold label
+    let curY = startY + 13;
+    const labelWidth = 120;
+
+    filtered.forEach(part => {
+      const cleanVal = this.cleanMarkdown(part.value);
+      // Label
       doc.setFont('helvetica', 'bold');
-      doc.text(label, x, lineY);
-      x += doc.getTextWidth(label);
+      doc.setFontSize(9.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(part.label, margin + 12, curY);
 
-      // Normal value
+      // Colon
+      doc.text(':', margin + labelWidth - 10, curY);
+
+      // Value
       doc.setFont('helvetica', 'normal');
-      doc.text(value, x, lineY);
-      x += doc.getTextWidth(value);
-
-      // Wrap to next line if needed
-      if (x > margin + ctx.contentWidth - 40) {
-        x = margin;
-        ctx.addY(14);
-      }
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      const valLines = doc.splitTextToSize(cleanVal, contentWidth - labelWidth - 20);
+      doc.text(valLines[0] || '', margin + labelWidth, curY);
+      curY += rowH;
     });
 
-    ctx.addY(20);
+    ctx.setY(startY + totalH + 16);
   }
 
-  /** Horizontal rule */
+  /** Backward-compatible alias for docMetaBlock */
+  private docMetaLine(ctx: any, parts: { label: string; value: string }[]): void {
+    this.docMetaBlock(ctx, parts);
+  }
+
+  /** Subtle divider rule across content width (Spec 2 & 10) */
   private docRule(ctx: any): void {
     const { doc, margin, contentWidth } = ctx;
-    doc.setDrawColor(180, 180, 180);
+    doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.75);
     doc.line(margin, ctx.getY(), margin + contentWidth, ctx.getY());
-    ctx.addY(18);
-  }
-
-  /** Top-level section heading: "1. Technical Objective" */
-  private docSection(ctx: any, title: string): void {
-    ctx.checkPageBreak(36);
-    const { doc, margin } = ctx;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(0, 0, 0);
-    doc.text(title, margin, ctx.getY());
-    ctx.addY(20);
-  }
-
-  /** Sub-section heading: "2.1 ODR Feed Ingestion Component" */
-  private docSubSection(ctx: any, title: string): void {
-    ctx.checkPageBreak(28);
-    const { doc, margin } = ctx;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.text(title, margin, ctx.getY());
     ctx.addY(16);
   }
 
-  /** Inline bold label + normal text on same line: "Responsibility: lorem ipsum" */
-  private docInlineLabel(ctx: any, label: string, value: string): void {
-    if (!value || value.trim() === '') return;
-    ctx.checkPageBreak(24);
+  /** Main Section Heading (16 pt Bold, Specs 4, 5, 8, 9, with orphan prevention Specs 43 & 44) */
+  private docSection(ctx: any, title: string): void {
+    ctx.checkPageBreak(55); // Lookahead ensures heading is NEVER left alone at bottom of page
     const { doc, margin, contentWidth } = ctx;
-
-    const boldLabel = label + ': ';
+    const cleanT = this.cleanMarkdown(title);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    const labelW = doc.getTextWidth(boldLabel);
-    doc.text(boldLabel, margin, ctx.getY());
-
-    doc.setFont('helvetica', 'normal');
-    const avail = contentWidth - labelW;
-    const lines = doc.splitTextToSize(value, avail);
-    doc.text(lines[0] || '', margin + labelW, ctx.getY());
-    ctx.addY(14);
-
-    // Overflow lines
-    for (let i = 1; i < lines.length; i++) {
-      ctx.checkPageBreak(14);
-      doc.text(lines[i], margin, ctx.getY());
-      ctx.addY(14);
-    }
-    ctx.addY(4);
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    const lines = doc.splitTextToSize(cleanT, contentWidth);
+    doc.text(lines, margin, ctx.getY() + 14);
+    ctx.addY(lines.length * 18 + 8);
   }
 
-  /** Bold label on its own line: "Key Logic:" */
-  private docLabelLine(ctx: any, label: string): void {
-    ctx.checkPageBreak(20);
-    const { doc, margin } = ctx;
+  /** Subsection Heading (13 pt Bold, Specs 4, 5, 8, 9) */
+  private docSubSection(ctx: any, title: string): void {
+    ctx.checkPageBreak(40);
+    const { doc, margin, contentWidth } = ctx;
+    const cleanT = this.cleanMarkdown(title);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(label + ':', margin, ctx.getY());
-    ctx.addY(14);
+    doc.setFontSize(13);
+    doc.setTextColor(30, 41, 59);
+    const lines = doc.splitTextToSize(cleanT, contentWidth);
+    doc.text(lines, margin, ctx.getY() + 11);
+    ctx.addY(lines.length * 15 + 6);
   }
 
-  /** Normal paragraph text */
+  /** Sub-subsection Heading (11.5 pt Semi-bold) */
+  private docSubSubSection(ctx: any, title: string): void {
+    ctx.checkPageBreak(30);
+    const { doc, margin, contentWidth } = ctx;
+    const cleanT = this.cleanMarkdown(title);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(51, 65, 85);
+    const lines = doc.splitTextToSize(cleanT, contentWidth);
+    doc.text(lines, margin, ctx.getY() + 9);
+    ctx.addY(lines.length * 13 + 5);
+  }
+
+  /** Regular Paragraph with consistent 1.25 line height and boundary wrapping (Specs 11 & 45) */
   private docParagraph(ctx: any, text: string, indent = 0): void {
-    if (!text || text.trim() === '') return;
-    ctx.checkPageBreak(16);
+    if (!text || String(text).trim() === '') return;
     const { doc, margin, contentWidth } = ctx;
+    const cleanT = this.cleanMarkdown(text);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(30, 30, 30);
-    const lines = doc.splitTextToSize(text, contentWidth - indent);
+    doc.setTextColor(30, 41, 59);
+
+    const avail = contentWidth - indent;
+    const lines = doc.splitTextToSize(cleanT, avail);
     lines.forEach((line: string) => {
-      ctx.checkPageBreak(14);
-      doc.text(line, margin + indent, ctx.getY());
-      ctx.addY(14);
+      ctx.checkPageBreak(15);
+      doc.text(line, margin + indent, ctx.getY() + 9);
+      ctx.addY(13.5);
     });
-    ctx.addY(4);
+    ctx.addY(5);
   }
 
-  /**
-   * Bullet list item.
-   * level 0 â†’ "â€¢" bullet at margin+12
-   * level 1 â†’ "â—¦" bullet at margin+28
-   */
+  /** Bullet Item with strict hanging indent and vector glyphs (ZERO character encoding bugs) */
   private docBullet(ctx: any, text: string, level = 0, sourceTag = ''): void {
-    if (!text || text.trim() === '') return;
+    if (!text || String(text).trim() === '') return;
     const { doc, margin, contentWidth } = ctx;
 
-    const bulletChar = level === 0 ? '\u2022' : '\u25e6'; // â€¢ or â—¦
-    const indentBase = level === 0 ? 14 : 30;
-    const textIndent = indentBase + 10;
+    const bulletIndent = level === 0 ? 8 : 20;
+    const textIndent = level === 0 ? 20 : 32;
+
+    const rawT = this.cleanMarkdown(text);
+    // Strip any leading bullet symbols from the text itself so they never duplicate
+    const cleanT = rawT.replace(/^[-•*◦\u25e6\u2022\u25aa\u25ab>]+\s*/, '') + (sourceTag ? `  [${this.cleanMarkdown(sourceTag)}]` : '');
+    const avail = contentWidth - textIndent;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(30, 30, 30);
+    doc.setTextColor(30, 41, 59);
 
-    const fullText = text + (sourceTag ? `  ${sourceTag}` : '');
-    const avail = contentWidth - textIndent;
-    const lines = doc.splitTextToSize(fullText, avail);
+    const lines = doc.splitTextToSize(cleanT, avail);
+    ctx.checkPageBreak(lines.length * 13.5 + 4);
 
-    ctx.checkPageBreak(lines.length * 14 + 4);
-    doc.text(bulletChar, margin + indentBase, ctx.getY());
-    lines.forEach((line: string, i: number) => {
-      doc.text(line, margin + textIndent, ctx.getY());
-      ctx.addY(14);
+    // Vector drawing: Level 0 = crisp filled circle; Level 1 = crisp open ring (ZERO %af glyph corruption)
+    if (level === 0) {
+      doc.setFillColor(30, 41, 59);
+      doc.circle(margin + bulletIndent, ctx.getY() + 5.5, 1.8, 'F');
+    } else {
+      doc.setDrawColor(71, 85, 105);
+      doc.setLineWidth(0.8);
+      doc.circle(margin + bulletIndent, ctx.getY() + 5.5, 1.4, 'S');
+    }
+
+    // Draw wrapped text lines with aligned continuation
+    doc.setFont('helvetica', 'normal');
+    lines.forEach((line: string) => {
+      doc.text(line, margin + textIndent, ctx.getY() + 9);
+      ctx.addY(13.5);
     });
+    ctx.addY(3);
   }
 
-  /** Numbered list item: "1.  text..." */
-  private docNumbered(ctx: any, num: number, text: string): void {
-    if (!text || text.trim() === '') return;
+  /** Numbered List Item with strict hanging indent (Spec 13: continuation lines align with text) */
+  private docNumbered(ctx: any, num: number | string, text: string): void {
+    if (!text || String(text).trim() === '') return;
     const { doc, margin, contentWidth } = ctx;
 
     const prefix = `${num}.`;
+    const numIndent = 4;
     const textIndent = 22;
+
+    const cleanT = this.cleanMarkdown(text);
+    const avail = contentWidth - textIndent;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(30, 30, 30);
+    doc.setTextColor(30, 41, 59);
 
-    const avail = contentWidth - textIndent;
-    const lines = doc.splitTextToSize(text, avail);
+    const lines = doc.splitTextToSize(cleanT, avail);
+    ctx.checkPageBreak(lines.length * 13.5 + 4);
 
-    ctx.checkPageBreak(lines.length * 14 + 4);
+    // Draw number prefix
     doc.setFont('helvetica', 'bold');
-    doc.text(prefix, margin, ctx.getY());
+    doc.text(prefix, margin + numIndent, ctx.getY() + 9);
+
+    // Draw wrapped text lines with aligned continuation
     doc.setFont('helvetica', 'normal');
     lines.forEach((line: string) => {
-      doc.text(line, margin + textIndent, ctx.getY());
-      ctx.addY(14);
+      doc.text(line, margin + textIndent, ctx.getY() + 9);
+      ctx.addY(13.5);
     });
+    ctx.addY(3);
   }
 
-  /**
-   * Lightweight 2-column table â€” no colored backgrounds.
-   * Header row is bold, rows alternate no-fill / very-light-gray.
-   */
+  /** Inline bold label + value: "Severity: High" (Spec 5) */
+  private docInlineLabel(ctx: any, label: string, value: string): void {
+    if (!value || String(value).trim() === '') return;
+    ctx.checkPageBreak(18);
+    const { doc, margin, contentWidth } = ctx;
+
+    const cleanVal = this.cleanMarkdown(value);
+    const boldLabel = label + ': ';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    const labelW = doc.getTextWidth(boldLabel);
+    doc.text(boldLabel, margin, ctx.getY() + 9);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    const avail = contentWidth - labelW;
+    const lines = doc.splitTextToSize(cleanVal, avail);
+    doc.text(lines[0] || '', margin + labelW, ctx.getY() + 9);
+    ctx.addY(13.5);
+
+    for (let i = 1; i < lines.length; i++) {
+      ctx.checkPageBreak(14);
+      doc.text(lines[i], margin + 14, ctx.getY() + 9);
+      ctx.addY(13.5);
+    }
+    ctx.addY(3);
+  }
+
+  /** Bold label on its own line: "Acceptance Criteria:" (Spec 5) */
+  private docLabelLine(ctx: any, label: string): void {
+    ctx.checkPageBreak(22);
+    const { doc, margin } = ctx;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(label + ':', margin, ctx.getY() + 9);
+    ctx.addY(14);
+  }
+
+  /** Monospace code block in shaded container (Spec 33) */
+  private docCodeBlock(ctx: any, code: string, label?: string): void {
+    if (!code || String(code).trim() === '') return;
+    const { doc, margin, contentWidth } = ctx;
+    if (label) this.docLabelLine(ctx, label);
+
+    const cleanC = String(code).trim();
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(8.5);
+    const lines = doc.splitTextToSize(cleanC, contentWidth - 18);
+    const blockH = lines.length * 11 + 12;
+
+    ctx.checkPageBreak(Math.min(blockH, 120));
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, ctx.getY(), contentWidth, blockH, 3, 3, 'FD');
+
+    doc.setTextColor(30, 41, 59);
+    let lineY = ctx.getY() + 10;
+    lines.forEach((line: string) => {
+      if (lineY > ctx.pageHeight - ctx.margin - 35) {
+        ctx.doc.addPage(ctx.orientation);
+        ctx.setY(ctx.margin + 20);
+        lineY = ctx.getY() + 10;
+      }
+      doc.text(line, margin + 9, lineY);
+      lineY += 11;
+    });
+
+    ctx.setY(lineY + 6);
+  }
+
+  /** Professional Flowchart / Visual Architecture Diagram (Specs 28–32) */
+  private docFlowchart(ctx: any, title: string, steps: { label: string; desc?: string; component?: string }[]): void {
+    if (!steps || steps.length === 0) return;
+    const { doc, margin, contentWidth } = ctx;
+
+    const boxW = Math.min(340, contentWidth - 30);
+    const boxX = margin + (contentWidth - boxW) / 2;
+    const padY = 6;
+    const arrowH = 18;
+
+    // Calculate box heights
+    const boxHeights: number[] = steps.map(s => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      const descLines = s.desc ? doc.splitTextToSize(this.cleanMarkdown(s.desc), boxW - 18) : [];
+      return Math.max(34, 18 + (descLines.length * 11) + (padY * 2));
+    });
+
+    const totalDiagramHeight = 28 + boxHeights.reduce((sum, h) => sum + h + arrowH, 0) - arrowH + 14;
+
+    // Page break protection: move whole diagram to next page if it doesn't fit (Spec 32)
+    ctx.checkPageBreak(Math.min(totalDiagramHeight, 420));
+
+    const startY = ctx.getY();
+
+    // Light subtle background container (Spec 29)
+    doc.setFillColor(248, 250, 252); // #f8fafc
+    doc.setDrawColor(203, 213, 225); // #cbd5e1
+    doc.setLineWidth(0.75);
+    doc.roundedRect(margin, startY, contentWidth, totalDiagramHeight, 6, 6, 'FD');
+
+    // Title inside container
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text(this.cleanMarkdown(title), margin + 14, startY + 16);
+
+    let curY = startY + 28;
+
+    steps.forEach((step, idx) => {
+      const bH = boxHeights[idx];
+
+      // Draw box card (Spec 30)
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(2, 132, 199); // #0284c7 accent border
+      doc.setLineWidth(1);
+      doc.roundedRect(boxX, curY, boxW, bH, 4, 4, 'FD');
+
+      // Step Tag / Component Header
+      const compLabel = step.component ? `[${this.cleanMarkdown(step.component)}] ` : '';
+      const stepTitle = `${compLabel}${this.cleanMarkdown(step.label)}`;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(2, 132, 199);
+      doc.text(stepTitle, boxX + 9, curY + 13);
+
+      // Description text
+      if (step.desc) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(51, 65, 85);
+        const dLines = doc.splitTextToSize(this.cleanMarkdown(step.desc), boxW - 18);
+        dLines.forEach((dl: string, di: number) => {
+          doc.text(dl, boxX + 9, curY + 25 + (di * 11));
+        });
+      }
+
+      curY += bH;
+
+      // Draw connecting arrow if not last box (Spec 31)
+      if (idx < steps.length - 1) {
+        const arrowCenterX = boxX + (boxW / 2);
+        const arrowStartY = curY;
+        const arrowEndY = curY + arrowH;
+
+        doc.setDrawColor(100, 116, 139);
+        doc.setLineWidth(1.2);
+        doc.line(arrowCenterX, arrowStartY, arrowCenterX, arrowEndY);
+
+        // Triangular arrowhead pointing down
+        doc.setFillColor(100, 116, 139);
+        doc.triangle(
+          arrowCenterX, arrowEndY,
+          arrowCenterX - 3.5, arrowEndY - 5,
+          arrowCenterX + 3.5, arrowEndY - 5,
+          'FD'
+        );
+
+        curY += arrowH;
+      }
+    });
+
+    ctx.setY(startY + totalDiagramHeight + 16);
+  }
+
+  /** Master Table Engine (Specs 14–23: auto-width normalization, cell padding, top alignment, repeated headers, row break protection) */
   private docTable(
     ctx: any,
-    cols: { header: string; key: string; width: number }[],
+    cols: { header: string; key: string; width: number; align?: 'left' | 'center' | 'right' }[],
     rows: any[]
   ): void {
     if (!rows || rows.length === 0) return;
-    const { doc, margin, pageHeight } = ctx;
+    const { doc, margin, contentWidth, pageHeight } = ctx;
+
+    // 1. Proportional Width Auto-Scaling (Spec 15): guarantees sum(width) === contentWidth
+    const rawTotalW = cols.reduce((sum, c) => sum + c.width, 0);
+    const scaledCols = cols.map(c => ({
+      ...c,
+      width: (c.width / rawTotalW) * contentWidth,
+      align: c.align || (['sno', 'id', 'tcid', 'defectid', 'status', 'priority', 'type', 'version', 'step', 'stepstr'].includes(c.key.toLowerCase()) ? 'center' : 'left')
+    }));
+
+    const padX = 7;
+    const padY = 6;
+    const headerH = 22;
 
     const renderHeader = () => {
+      const hy = ctx.getY();
       let cx = margin;
+
+      // Header background fill
+      doc.setFillColor(241, 245, 249); // #f1f5f9
+      doc.rect(margin, hy, contentWidth, headerH, 'F');
+
+      // Header borders
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.75);
+      doc.rect(margin, hy, contentWidth, headerH, 'S');
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9.5);
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(15, 23, 42);
 
-      // Header bottom border
-      const headerY = ctx.getY();
-      cols.forEach(col => {
-        const lines = doc.splitTextToSize(col.header, col.width - 8);
-        doc.text(lines, cx + 4, headerY + 12);
+      scaledCols.forEach(col => {
+        const text = this.cleanMarkdown(col.header);
+        const avail = col.width - (padX * 2);
+        const lines = doc.splitTextToSize(text, avail);
+        const tx = col.align === 'center'
+          ? cx + Math.max(padX, (col.width - doc.getTextWidth(lines[0] || '')) / 2)
+          : cx + padX;
+        doc.text(lines[0] || '', tx, hy + 15);
+
+        // Vertical divider
+        doc.line(cx + col.width, hy, cx + col.width, hy + headerH);
         cx += col.width;
       });
 
-      ctx.addY(22);
-      doc.setDrawColor(100, 100, 100);
-      doc.setLineWidth(0.75);
-      doc.line(margin, ctx.getY(), margin + cols.reduce((s, c) => s + c.width, 0), ctx.getY());
-      ctx.addY(4);
+      ctx.addY(headerH);
     };
 
     renderHeader();
 
     rows.forEach((row, rowIdx) => {
-      // Measure row height
+      // Measure line counts for each column
       let maxLines = 1;
-      const cellLines: string[][] = cols.map(col => {
-        const val = String(row[col.key] ?? '');
-        const ls = doc.splitTextToSize(val, col.width - 8);
-        if (ls.length > maxLines) maxLines = ls.length;
-        return ls;
+      const cellLinesArr: string[][] = scaledCols.map(col => {
+        const rawVal = row[col.key] != null ? String(row[col.key]) : '';
+        const cleanVal = this.cleanMarkdown(rawVal);
+        const lines = doc.splitTextToSize(cleanVal, col.width - (padX * 2));
+        if (lines.length > maxLines) maxLines = lines.length;
+        return lines;
       });
 
-      const rowH = Math.max(18, maxLines * 13 + 8);
+      const rowH = Math.max(20, (maxLines * 12.5) + (padY * 2));
 
-      if (ctx.getY() + rowH > pageHeight - 50) {
-        doc.addPage();
-        ctx.setY(54);
+      // Row Break Protection (Spec 21): Never split row across pages; Repeat Header on next page (Spec 20)
+      if (ctx.getY() + rowH > pageHeight - margin - 35) {
+        doc.addPage(ctx.orientation);
+        ctx.setY(margin + 20);
         renderHeader();
       }
 
-      // Very light alternate rows
+      const rowY = ctx.getY();
+
+      // Alternate row fill
       if (rowIdx % 2 === 1) {
-        doc.setFillColor(246, 246, 246);
-        doc.rect(margin, ctx.getY() - 2, cols.reduce((s, c) => s + c.width, 0), rowH, 'F');
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, rowY, contentWidth, rowH, 'F');
       }
 
+      // Outer & Bottom Border
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.rect(margin, rowY, contentWidth, rowH, 'S');
+
+      // Render cells (TOP ALIGNED per Spec 23)
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9.5);
-      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
 
       let cx = margin;
-      cellLines.forEach((lines, ci) => {
-        doc.text(lines, cx + 4, ctx.getY() + 12);
-        cx += cols[ci].width;
-      });
+      scaledCols.forEach((col, ci) => {
+        const lines = cellLinesArr[ci];
+        lines.forEach((line: string, li: number) => {
+          const tx = col.align === 'center'
+            ? cx + Math.max(padX, (col.width - doc.getTextWidth(line)) / 2)
+            : cx + padX;
+          doc.text(line, tx, rowY + padY + 8.5 + (li * 12.5));
+        });
 
-      // Light bottom border
-      doc.setDrawColor(210, 210, 210);
-      doc.setLineWidth(0.4);
-      const lineY = ctx.getY() + rowH;
-      doc.line(margin, lineY, margin + cols.reduce((s, c) => s + c.width, 0), lineY);
+        // Vertical divider
+        doc.line(cx + col.width, rowY, cx + col.width, rowY + rowH);
+        cx += col.width;
+      });
 
       ctx.addY(rowH);
     });
 
-    ctx.addY(12);
+    ctx.addY(14);
   }
 
-  /** Apply "Page X of Y" footer on all pages */
-  private docApplyFooters(ctx: any): void {
-    const { doc, margin, pageWidth, pageHeight, docType, docTitle } = ctx;
+  /** Running Headers (on pages > 1, Spec 40) & Footers (every page, Specs 41 & 42) */
+  private docApplyHeaderAndFooters(ctx: any): void {
+    const { doc, margin, pageWidth, pageHeight, docType, meta } = ctx;
     const total = doc.getNumberOfPages();
+    const projectName = meta?.project || meta?.documentName || 'AI Work Copilot';
+
     for (let i = 1; i <= total; i++) {
       doc.setPage(i);
+
+      // Running Header on pages > 1 (Spec 40)
+      if (i > 1) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(100, 116, 139);
+
+        // Left header
+        doc.text(this.cleanMarkdown(projectName), margin, 32);
+
+        // Right header (Document Type uppercase)
+        const typeStr = this.cleanMarkdown(docType).toUpperCase();
+        const typeW = doc.getTextWidth(typeStr);
+        doc.text(typeStr, pageWidth - margin - typeW, 32);
+
+        // Top divider rule
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.5);
+        doc.line(margin, 38, pageWidth - margin, 38);
+      }
+
+      // Running Footer on EVERY page (Specs 41 & 42)
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+
+      // Bottom divider rule
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.line(margin, pageHeight - 34, pageWidth - margin, pageHeight - 34);
 
       // Left footer
-      doc.text(`${docType}  |  ${docTitle}`, margin, pageHeight - 16);
+      const leftFooter = `AI Work Copilot  |  Project: ${this.cleanMarkdown(projectName)}`;
+      doc.text(leftFooter, margin, pageHeight - 20);
 
-      // Right footer â€” page number
+      // Right footer: "Page X of Y"
       const pageStr = `Page ${i} of ${total}`;
       const pw = doc.getTextWidth(pageStr);
-      doc.text(pageStr, pageWidth - margin - pw, pageHeight - 16);
-
-      // Footer rule
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.4);
-      doc.line(margin, pageHeight - 26, pageWidth - margin, pageHeight - 26);
+      doc.text(pageStr, pageWidth - margin - pw, pageHeight - 20);
     }
   }
 
+  /** Alias for backward compatibility */
+  private docApplyFooters(ctx: any): void {
+    this.docApplyHeaderAndFooters(ctx);
+  }
+
   // ============================================================
-  // 1. USER STORY PDF  â€”  Word-document style
+  // 1. USER STORY PDF (Spec 25)
   // ============================================================
   downloadUserStoryPdf(items: any | any[], meta?: any): void {
     const list: any[] = Array.isArray(items) ? items : [items];
@@ -1144,34 +759,29 @@ export class ExportService {
     }
 
     const rawDocName = (meta?.documentName || '').trim();
-    const docName = rawDocName || 'User Stories';
-    const ctx = this.newDocCtx('User Stories', docName, meta);
+    const docName = rawDocName || 'User Story Specification';
+    const ctx = this.newDocCtx('User Story', docName, meta);
 
-    // Cover header
-    const titleText = rawDocName && rawDocName.toLowerCase() !== 'user stories'
-      ? `User Stories - ${rawDocName}`
-      : 'User Stories';
-    this.docTitle(ctx, titleText);
-
-    const metaParts: { label: string; value: string }[] = [
-      { label: 'Program', value: meta?.project || '' },
-      { label: 'Work', value: meta?.work || '' },
-      { label: 'BRD Version', value: meta?.version || '' }
-    ];
-    this.docMetaLine(ctx, metaParts);
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, `USER STORY SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Work / Mode',     value: meta?.work    || meta?.inputType || 'User Stories' },
+      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Generated On',    value: new Date().toLocaleDateString() }
+    ]);
     this.docRule(ctx);
 
-    // â”€â”€ User Stories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Render each User Story as a clean, structured block (Spec 25)
     list.forEach((story: any, idx: number) => {
       const storyId = story.userStoryId || story.requirementId || `US-${String(idx + 1).padStart(3, '0')}`;
       const storyTitle = story.title || `User Story ${idx + 1}`;
 
-      // Sub-section header: "US-001  Title"
       this.docSubSection(ctx, `${storyId}  ${storyTitle}`);
 
-      // "As aâ€¦" user story statement
+      // User Story Statement
       if (story.userStory) {
-        this.docParagraph(ctx, story.userStory);
+        this.docInlineLabel(ctx, 'User Story', story.userStory);
       }
 
       // Description / Summary
@@ -1180,26 +790,26 @@ export class ExportService {
         this.docInlineLabel(ctx, 'Description', desc);
       }
 
-      // Acceptance Criteria
+      // Acceptance Criteria (Numbered list with hanging indent, Spec 13 & 25)
       if (story.acceptanceCriteria && story.acceptanceCriteria.length > 0) {
         this.docLabelLine(ctx, 'Acceptance Criteria');
         story.acceptanceCriteria.forEach((ac: any, acIdx: number) => {
           const text = this.toText(ac);
           const defaultId = `AC-${String(acIdx + 1).padStart(3, '0')}`;
-          const prefix = text.startsWith('AC-') ? '' : `${defaultId}  `;
+          const prefix = text.startsWith('AC-') ? '' : `${defaultId}: `;
           const srcTag = this.formatItemSource(ac);
-          this.docBullet(ctx, `${prefix}${text}`, 0, srcTag);
+          this.docNumbered(ctx, acIdx + 1, `${prefix}${text}${srcTag ? ' ' + srcTag : ''}`);
         });
         ctx.addY(4);
       }
 
-      // Business Rules
+      // Business Rules (Bullets)
       if (story.businessRules && story.businessRules.length > 0) {
         this.docLabelLine(ctx, 'Business Rules');
         story.businessRules.forEach((br: any, brIdx: number) => {
           const text = this.toText(br);
           const defaultId = `BR-${String(brIdx + 1).padStart(3, '0')}`;
-          const prefix = text.startsWith('BR-') ? '' : `${defaultId}  `;
+          const prefix = text.startsWith('BR-') ? '' : `${defaultId}: `;
           this.docBullet(ctx, `${prefix}${text}`);
         });
         ctx.addY(4);
@@ -1231,23 +841,19 @@ export class ExportService {
       if (storySrc) {
         const srcArr = Array.isArray(storySrc) ? storySrc : [storySrc];
         if (srcArr.length > 0) {
-          this.docLabelLine(ctx, 'Source / Reference');
+          this.docLabelLine(ctx, 'Source References');
           srcArr.forEach((s: any) => this.docBullet(ctx, this.toText(s)));
         }
       }
 
-      // Separator (thin rule) between stories
+      // Thin separator rule between stories
       if (idx < list.length - 1) {
-        ctx.addY(10);
-        const { doc, margin, contentWidth } = ctx;
-        doc.setDrawColor(210, 210, 210);
-        doc.setLineWidth(0.4);
-        doc.line(margin, ctx.getY(), margin + contentWidth, ctx.getY());
-        ctx.addY(14);
+        ctx.addY(8);
+        this.docRule(ctx);
       }
     });
 
-    this.docApplyFooters(ctx);
+    this.docApplyHeaderAndFooters(ctx);
 
     const firstId = list[0]?.userStoryId || list[0]?.requirementId || 'US-001';
     const filename = list.length === 1
@@ -1257,7 +863,7 @@ export class ExportService {
   }
 
   // ============================================================
-  // 2. FUNCTIONAL DESIGN PDF  â€”  Word-document style
+  // 2. FUNCTIONAL DESIGN PDF (Spec 26)
   // ============================================================
   downloadFunctionalDesignPdf(data: any, meta?: any): void {
     if (!data) { alert('No functional design data available to export.'); return; }
@@ -1266,31 +872,28 @@ export class ExportService {
     const docName = rawDocName || 'Functional Specification';
     const ctx = this.newDocCtx('Functional Design', docName, meta);
 
-    // Cover header
-    const titleText = rawDocName && rawDocName.toLowerCase() !== 'functional design document' && rawDocName.toLowerCase() !== 'functional specification'
-      ? `Functional Design Document - ${rawDocName}`
-      : 'Functional Design Document';
-    this.docTitle(ctx, titleText);
-    this.docMetaLine(ctx, [
-      { label: 'Program', value: meta?.project || '' },
-      { label: 'Work', value: meta?.work || meta?.inputType || '' },
-      { label: 'Version', value: meta?.version || '' }
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, `FUNCTIONAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Functional Design' },
+      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
 
-    let sectionIdx = 1;
+    let secIdx = 1;
 
-    // 1. Objective
-    if (data.objective) {
-      this.docSection(ctx, `${sectionIdx++}. Objective`);
-      this.docParagraph(ctx, data.objective);
+    // 1. Purpose & Objectives
+    if (data.objective || data.purpose) {
+      this.docSection(ctx, `${secIdx++}. Purpose & Objectives`);
+      this.docParagraph(ctx, data.objective || data.purpose);
     }
 
     // 2. Scope
     const scopeList = Array.isArray(data.scope) ? data.scope : (data.scope ? [data.scope] : []);
     if (scopeList.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Scope`);
-
+      this.docSection(ctx, `${secIdx++}. Scope`);
       this.docLabelLine(ctx, 'In Scope');
       scopeList.forEach((s: any) => this.docBullet(ctx, this.toText(s)));
 
@@ -1302,31 +905,31 @@ export class ExportService {
       ctx.addY(6);
     }
 
-    // 3. Actors
+    // 3. Actors & User Roles
     if (data.actors && data.actors.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Actors`);
+      this.docSection(ctx, `${secIdx++}. Actors & User Roles`);
       data.actors.forEach((act: any, idx: number) => {
         const name = act.name || `Actor ${idx + 1}`;
         const desc = act.description || '';
-        this.docSubSection(ctx, `${idx + 1 < 10 ? sectionIdx - 1 + '.' + idx : (idx + 1)}  ${name}`);
+        this.docSubSection(ctx, `${secIdx - 1}.${idx + 1}  ${name}`);
         if (desc) this.docParagraph(ctx, desc);
       });
     }
 
     // 4. Preconditions
     if (data.preconditions && data.preconditions.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Preconditions`);
+      this.docSection(ctx, `${secIdx++}. Preconditions`);
       data.preconditions.forEach((p: any, i: number) => this.docNumbered(ctx, i + 1, this.toText(p)));
       ctx.addY(6);
     }
 
     // 5. Main Functional Flow
     if (data.mainFlow && data.mainFlow.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Main Functional Flow`);
+      this.docSection(ctx, `${secIdx++}. Main Functional Flow`);
       data.mainFlow.forEach((step: any) => {
         const sNum = step.step != null ? `Step ${step.step}` : '';
-        const actor = step.actor ? `  Actor: ${step.actor}` : '';
-        const label = sNum + actor;
+        const actor = step.actor ? `  [Actor: ${step.actor}]` : '';
+        const label = `${sNum}${actor}`;
         if (label) this.docSubSection(ctx, label);
         if (step.action) this.docInlineLabel(ctx, 'Action', step.action);
         if (step.systemResponse) this.docInlineLabel(ctx, 'System Response', step.systemResponse);
@@ -1335,10 +938,10 @@ export class ExportService {
 
     // 6. Alternate Flows
     if (data.alternateFlows && data.alternateFlows.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Alternate Flows`);
+      this.docSection(ctx, `${secIdx++}. Alternate Flows`);
       data.alternateFlows.forEach((af: any, i: number) => {
         const flowName = af.name || `Alternate Flow ${i + 1}`;
-        this.docSubSection(ctx, `${sectionIdx - 1}.${i + 1}  ${flowName}`);
+        this.docSubSection(ctx, `${secIdx - 1}.${i + 1}  ${flowName}`);
         if (af.steps && af.steps.length > 0) {
           af.steps.forEach((s: any, si: number) => this.docNumbered(ctx, si + 1, this.toText(s)));
         }
@@ -1346,36 +949,36 @@ export class ExportService {
       });
     }
 
-    // 7. Validations
+    // 7. Validation Rules (Table)
     if (data.validations && data.validations.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Validation Rules`);
+      this.docSection(ctx, `${secIdx++}. Validation Rules`);
       const tableRows = data.validations.map((v: any) => ({
         field: v.field || 'General',
         rule: v.rule || this.toText(v),
-        grounding: v.grounding || ''
+        grounding: v.grounding || 'Standard'
       }));
       this.docTable(ctx, [
-        { header: 'Field / Target', key: 'field', width: 140 },
-        { header: 'Validation Rule', key: 'rule', width: 270 },
-        { header: 'Source / Grounding', key: 'grounding', width: 105 }
+        { header: 'Field / Target', key: 'field', width: 130 },
+        { header: 'Validation Rule', key: 'rule', width: 250 },
+        { header: 'Source / Grounding', key: 'grounding', width: 100 }
       ], tableRows);
     }
 
     // 8. Business Rules
     if (data.businessRules && data.businessRules.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Business Rules`);
+      this.docSection(ctx, `${secIdx++}. Business Rules`);
       data.businessRules.forEach((br: any) => this.docBullet(ctx, this.toText(br)));
       ctx.addY(6);
     }
 
-    // 9. Inputs
+    // 9. Input Specifications (Table)
     if (data.inputs && data.inputs.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Inputs`);
+      this.docSection(ctx, `${secIdx++}. Input Specifications`);
       this.docTable(ctx, [
-        { header: 'Input', key: 'name', width: 120 },
-        { header: 'Description', key: 'description', width: 215 },
-        { header: 'Required', key: 'reqText', width: 75 },
-        { header: 'Format', key: 'format', width: 105 }
+        { header: 'Input Field', key: 'name', width: 110 },
+        { header: 'Description', key: 'description', width: 210 },
+        { header: 'Required', key: 'reqText', width: 70 },
+        { header: 'Format', key: 'format', width: 90 }
       ], data.inputs.map((inp: any) => ({
         name: inp.name || '',
         description: inp.description || '',
@@ -1384,16 +987,16 @@ export class ExportService {
       })));
     }
 
-    // 10. Outputs
+    // 10. Output Specifications
     if (data.outputs && data.outputs.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Outputs`);
+      this.docSection(ctx, `${secIdx++}. Output Specifications`);
       data.outputs.forEach((o: any) => this.docBullet(ctx, this.toText(o)));
       ctx.addY(6);
     }
 
-    // 11. Error Handling
+    // 11. Error Handling Specifications
     if (data.errorHandling && data.errorHandling.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Error Handling`);
+      this.docSection(ctx, `${secIdx++}. Error Handling Specifications`);
       data.errorHandling.forEach((eh: any) => {
         const scenario = eh.scenario || '';
         const behavior = eh.expectedBehavior || eh.handling || this.toText(eh);
@@ -1402,23 +1005,23 @@ export class ExportService {
       });
     }
 
-    // 12. Dependencies
+    // 12. System Dependencies
     if (data.dependencies && data.dependencies.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Dependencies`);
+      this.docSection(ctx, `${secIdx++}. Dependencies`);
       data.dependencies.forEach((d: any) => this.docBullet(ctx, this.toText(d)));
       ctx.addY(6);
     }
 
-    // 13. Assumptions
+    // 13. Assumptions & Constraints
     if (data.assumptions && data.assumptions.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Assumptions`);
+      this.docSection(ctx, `${secIdx++}. Assumptions`);
       data.assumptions.forEach((a: any) => this.docBullet(ctx, this.toText(a)));
       ctx.addY(6);
     }
 
     // 14. Edge Cases
     if (data.edgeCases && data.edgeCases.length > 0) {
-      this.docSection(ctx, `${sectionIdx++}. Edge Cases`);
+      this.docSection(ctx, `${secIdx++}. Edge Cases`);
       data.edgeCases.forEach((e: any) => this.docBullet(ctx, this.toText(e)));
       ctx.addY(6);
     }
@@ -1427,17 +1030,17 @@ export class ExportService {
     if (data.sources) {
       const srcArr = Array.isArray(data.sources) ? data.sources : [data.sources];
       if (srcArr.length > 0) {
-        this.docSection(ctx, `${sectionIdx++}. Source References`);
+        this.docSection(ctx, `${secIdx++}. Source References`);
         srcArr.forEach((s: any) => this.docBullet(ctx, this.toText(s)));
       }
     }
 
-    this.docApplyFooters(ctx);
+    this.docApplyHeaderAndFooters(ctx);
     ctx.doc.save(`Functional_Design_${this.sanitizeFilename(docName)}.pdf`);
   }
 
   // ============================================================
-  // 3. TECHNICAL DESIGN PDF  â€”  Word-document style
+  // 3. TECHNICAL DESIGN PDF (Specs 27–35: Flowcharts, APIs, DB Schema)
   // ============================================================
   downloadTechnicalDesignPdf(data: any, meta?: any): void {
     if (!data) { alert('No technical design data available to export.'); return; }
@@ -1446,41 +1049,142 @@ export class ExportService {
     const docName = rawDocName || 'Technical Specification';
     const ctx = this.newDocCtx('Technical Design', docName, meta);
 
-    // Cover header
-    const titleText = rawDocName && rawDocName.toLowerCase() !== 'technical design document' && rawDocName.toLowerCase() !== 'technical specification'
-      ? `Technical Design Document - ${rawDocName}`
-      : 'Technical Design Document';
-    this.docTitle(ctx, titleText);
-    this.docMetaLine(ctx, [
-      { label: 'Program', value: meta?.project || '' },
-      { label: 'Work', value: meta?.work || meta?.inputType || '' },
-      { label: 'BRD Version', value: meta?.version || '' }
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, `TECHNICAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',     value: meta?.project || 'Enterprise AI' },
+      { label: 'Module / Work',    value: meta?.work    || meta?.inputType || 'Technical Design' },
+      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Generated On',     value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
 
     let secIdx = 1;
 
-    // 1. System Overview / Technical Objective
-    if (data.objective) {
-      this.docSection(ctx, `${secIdx++}. System Overview`);
-      this.docParagraph(ctx, data.objective);
+    // 1. Technical Overview
+    const to = data.technicalOverview || {};
+    const sysOverview = data.systemOverview || {};
+    const hasTechOverview = to.whatIsBeingImplemented || to.technicalObjective || to.highLevelApproach ||
+                            to.relationshipToUserStory || (to.scopeOfImplementation && to.scopeOfImplementation.length) ||
+                            (to.outOfScope && to.outOfScope.length) || data.objective || data.overview ||
+                            sysOverview.highLevelArchitecture || data.requirementSummary;
+    if (hasTechOverview) {
+      this.docSection(ctx, `${secIdx++}. Technical Overview`);
+      if (to.whatIsBeingImplemented) {
+        this.docLabelLine(ctx, 'What is Being Implemented:');
+        this.docParagraph(ctx, to.whatIsBeingImplemented, 8);
+      }
+      if (to.technicalObjective || data.objective) {
+        this.docLabelLine(ctx, 'Technical Objective:');
+        this.docParagraph(ctx, to.technicalObjective || data.objective, 8);
+      }
+      if (sysOverview.highLevelArchitecture) {
+        this.docLabelLine(ctx, 'System Architecture Overview:');
+        this.docParagraph(ctx, sysOverview.highLevelArchitecture, 8);
+      }
+      if (to.highLevelApproach) {
+        this.docLabelLine(ctx, 'High-Level Implementation Approach:');
+        this.docParagraph(ctx, to.highLevelApproach, 8);
+      }
+      if (to.relationshipToUserStory) {
+        this.docLabelLine(ctx, 'Relationship to Requirement / User Story:');
+        this.docParagraph(ctx, to.relationshipToUserStory, 8);
+      }
+      if (data.requirementSummary) {
+        this.docLabelLine(ctx, 'Requirement Summary:');
+        this.docParagraph(ctx, data.requirementSummary, 8);
+      }
+      if (sysOverview.keyPrinciples && Array.isArray(sysOverview.keyPrinciples) && sysOverview.keyPrinciples.length > 0) {
+        this.docLabelLine(ctx, 'Architectural Key Principles:');
+        sysOverview.keyPrinciples.forEach((kp: any) => this.docBullet(ctx, this.toText(kp)));
+      }
+      if (to.scopeOfImplementation && to.scopeOfImplementation.length > 0) {
+        this.docTable(ctx, [
+          { header: 'In-Scope Deliverable', key: 'item', width: 480 }
+        ], to.scopeOfImplementation.map((item: any) => ({ item: this.toText(item) })));
+      }
+      if (to.outOfScope && to.outOfScope.length > 0) {
+        this.docTable(ctx, [
+          { header: 'Out of Scope', key: 'item', width: 480 }
+        ], to.outOfScope.map((item: any) => ({ item: this.toText(item) })));
+      }
+      if (!to.whatIsBeingImplemented && !to.technicalObjective && !sysOverview.highLevelArchitecture && (data.objective || data.overview)) {
+        this.docParagraph(ctx, data.objective || data.overview, 10);
+      }
     }
 
-    // 2. Requirement Summary
-    if (data.requirementSummary) {
-      this.docSection(ctx, `${secIdx++}. Requirement Summary`);
-      this.docParagraph(ctx, data.requirementSummary);
+    // 2. Architecture Overview & Flowchart Diagram
+    const ao = data.architectureOverview;
+    const archFlow: any[] = Array.isArray(data.architectureFlow) ? data.architectureFlow : [];
+    const flowchartSteps: any[] = Array.isArray(sysOverview.flowchartSteps) ? sysOverview.flowchartSteps : [];
+
+    if (ao || archFlow.length > 0 || flowchartSteps.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Architecture & Component Overview`);
+      
+      // Visual Flowchart (from architectureFlow OR systemOverview.flowchartSteps)
+      if (archFlow.length > 0) {
+        const flowSteps = archFlow.map((step: any, i: number) => ({
+          label: step.action ? `Step ${step.step || i + 1}` : (step.name || `Process ${i + 1}`),
+          desc: step.action || step.details || '',
+          component: step.component || ''
+        }));
+        this.docFlowchart(ctx, 'End-to-End Processing Architecture', flowSteps);
+      } else if (flowchartSteps.length > 0) {
+        const flowSteps = flowchartSteps.map((step: any, i: number) => ({
+          label: `Stage ${i + 1}`,
+          desc: this.toText(step),
+          component: 'System Architecture Tier'
+        }));
+        this.docFlowchart(ctx, 'End-to-End Processing Architecture', flowSteps);
+      } else if (ao?.textFlowDiagram) {
+        this.docLabelLine(ctx, 'Architecture Flow Diagram:');
+        this.docParagraph(ctx, ao.textFlowDiagram, 10);
+      }
+
+      // Components Involved Table
+      const compRows: any[] = [];
+      if (ao?.frontendComponents && Array.isArray(ao.frontendComponents)) {
+        ao.frontendComponents.forEach((fc: any) => compRows.push({ tier: 'Frontend', component: this.toText(fc) }));
+      }
+      if (ao?.backendServices && Array.isArray(ao.backendServices)) {
+        ao.backendServices.forEach((bs: any) => compRows.push({ tier: 'Backend', component: this.toText(bs) }));
+      }
+      if (compRows.length > 0) {
+        this.docTable(ctx, [
+          { header: 'System Tier', key: 'tier', width: 120, align: 'center' },
+          { header: 'Component / Service Involved', key: 'component', width: 360 }
+        ], compRows);
+      }
+
+      if (ao?.communicationFlow) {
+        this.docInlineLabel(ctx, 'Communication Flow', ao.communicationFlow);
+      }
     }
 
-    // 3. Component Design  (maps to "components" array)
-    if (data.components && data.components.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Component Design`);
-      data.components.forEach((comp: any, idx: number) => {
+    // 3. Architecture Flow Steps (Table)
+    if (archFlow.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Architecture Processing Steps`);
+      this.docTable(ctx, [
+        { header: 'Step', key: 'stepStr', width: 50, align: 'center' },
+        { header: 'Component', key: 'component', width: 150 },
+        { header: 'Technical Action & Processing', key: 'action', width: 280 }
+      ], archFlow.map((s: any, idx: number) => ({
+        stepStr: String(s.step != null ? s.step : idx + 1),
+        component: s.component || '',
+        action: s.action || s.details || this.toText(s)
+      })));
+    }
+
+    // 4. Component-Level Detailed Specifications
+    const components: any[] = Array.isArray(data.components) ? data.components : [];
+    if (components.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Component-Level Design`);
+      components.forEach((comp: any, idx: number) => {
         const name = comp.name || `Component ${idx + 1}`;
         this.docSubSection(ctx, `${secIdx - 1}.${idx + 1}  ${name}`);
         if (comp.responsibility) this.docInlineLabel(ctx, 'Responsibility', comp.responsibility);
 
-        // Key Logic from various possible fields
+        // Key Processing Logic (Clean vector sub-bullets)
         const logic: string[] = [];
         if (comp.keyLogic && Array.isArray(comp.keyLogic)) logic.push(...comp.keyLogic.map((k: any) => this.toText(k)));
         if (comp.steps && Array.isArray(comp.steps)) logic.push(...comp.steps.map((k: any) => this.toText(k)));
@@ -1489,219 +1193,472 @@ export class ExportService {
         if (comp.notes && Array.isArray(comp.notes)) logic.push(...comp.notes.map((n: any) => this.toText(n)));
 
         if (logic.length > 0) {
-          this.docLabelLine(ctx, 'Key Logic');
+          this.docLabelLine(ctx, 'Key Processing Logic:');
           logic.forEach((line: string) => {
-            // Handle nested sub-bullets that start with "â—¦" or "-"
-            if (line.startsWith('-') || line.startsWith('\u25e6')) {
-              this.docBullet(ctx, line.replace(/^[-\u25e6]\s*/, ''), 1);
-            } else {
-              this.docBullet(ctx, line, 0);
-            }
+            const trimmed = String(line).trim();
+            const isSub = /^[-*\u25e6\u2022]\s*/.test(trimmed);
+            const cleanLine = trimmed.replace(/^[-*\u25e6\u2022]+\s*/, '');
+            this.docBullet(ctx, cleanLine, isSub ? 1 : 0);
           });
+        }
+
+        if (comp.importantMethods && Array.isArray(comp.importantMethods) && comp.importantMethods.length > 0) {
+          ctx.addY(4);
+          this.docLabelLine(ctx, 'Key Methods & Interfaces:');
+          comp.importantMethods.forEach((m: any) => this.docBullet(ctx, this.toText(m)));
+        }
+
+        if (comp.dependencies && Array.isArray(comp.dependencies) && comp.dependencies.length > 0) {
+          ctx.addY(4);
+          this.docLabelLine(ctx, 'Dependencies:');
+          this.docParagraph(ctx, comp.dependencies.map((d: any) => this.toText(d)).join(', '), 6);
         }
 
         if (comp.rules && Array.isArray(comp.rules) && comp.rules.length > 0) {
           ctx.addY(4);
-          this.docLabelLine(ctx, 'Rules');
+          this.docLabelLine(ctx, 'Component Rules:');
           comp.rules.forEach((r: any) => this.docBullet(ctx, this.toText(r)));
         }
 
-        ctx.addY(8);
+        ctx.addY(6);
       });
     }
 
-    // 4. Architecture Flow
-    if (data.architectureFlow && data.architectureFlow.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Architecture Flow`);
-      data.architectureFlow.forEach((step: any, i: number) => {
-        const sNum = step.step != null ? `Step ${step.step}` : `Step ${i + 1}`;
-        const comp = step.component ? `  [${step.component}]` : '';
-        this.docSubSection(ctx, `${sNum}${comp}`);
-        if (step.action) this.docParagraph(ctx, step.action, 10);
-      });
+    // 5. Frontend Technical Design
+    const fd = data.frontendDesign;
+    if (fd) {
+      this.docSection(ctx, `${secIdx++}. Frontend Technical Design`);
+      const feRows: any[] = [];
+      if (fd.angularComponents && Array.isArray(fd.angularComponents)) {
+        fd.angularComponents.forEach((ac: any) => feRows.push({ type: 'Component', detail: this.toText(ac) }));
+      }
+      if (fd.services && Array.isArray(fd.services)) {
+        fd.services.forEach((s: any) => feRows.push({ type: 'Service', detail: this.toText(s) }));
+      }
+      if (fd.models && Array.isArray(fd.models)) {
+        fd.models.forEach((m: any) => feRows.push({ type: 'Model / Interface', detail: this.toText(m) }));
+      }
+      if (feRows.length > 0) {
+        this.docTable(ctx, [
+          { header: 'Frontend Artifact', key: 'type', width: 140 },
+          { header: 'Name & Purpose', key: 'detail', width: 340 }
+        ], feRows);
+      }
+      if (fd.formsAndState) this.docInlineLabel(ctx, 'Forms & State Management', fd.formsAndState);
+      if (fd.editModeBehavior) this.docInlineLabel(ctx, 'Inline Edit Mode Behavior', fd.editModeBehavior);
+      if (fd.loadingAndErrorStates) this.docInlineLabel(ctx, 'Loading & Error States', fd.loadingAndErrorStates);
+      if (fd.uiStateTransitions) this.docInlineLabel(ctx, 'UI State Transitions', fd.uiStateTransitions);
+      if (fd.validation && Array.isArray(fd.validation) && fd.validation.length > 0) {
+        this.docLabelLine(ctx, 'Frontend Validation Rules:');
+        fd.validation.forEach((v: any) => this.docBullet(ctx, this.toText(v)));
+      }
     }
 
-    // 5. API Specifications
-    if (data.apis && data.apis.length > 0) {
-      this.docSection(ctx, `${secIdx++}. API Specifications`);
-      const tableRows = data.apis.map((api: any) => {
-        const statusStr = api.statusCodes
-          ? (Array.isArray(api.statusCodes) ? api.statusCodes.join(', ') : api.statusCodes)
-          : '';
-        return {
+    // 6. Backend Technical Design
+    const bd = data.backendDesign;
+    if (bd) {
+      this.docSection(ctx, `${secIdx++}. Backend Technical Design`);
+      const beRows: any[] = [];
+      if (bd.controllers && Array.isArray(bd.controllers)) {
+        bd.controllers.forEach((c: any) => beRows.push({ layer: 'Controller', detail: this.toText(c) }));
+      }
+      if (bd.businessServices && Array.isArray(bd.businessServices)) {
+        bd.businessServices.forEach((s: any) => beRows.push({ layer: 'Service', detail: this.toText(s) }));
+      }
+      if (bd.repositoryLayer && Array.isArray(bd.repositoryLayer)) {
+        bd.repositoryLayer.forEach((r: any) => beRows.push({ layer: 'Repository', detail: this.toText(r) }));
+      }
+      if (beRows.length > 0) {
+        this.docTable(ctx, [
+          { header: 'Architecture Layer', key: 'layer', width: 130 },
+          { header: 'Class / Component Description', key: 'detail', width: 350 }
+        ], beRows);
+      }
+      if (bd.validation && Array.isArray(bd.validation) && bd.validation.length > 0) {
+        this.docLabelLine(ctx, 'Server-Side Validation:');
+        bd.validation.forEach((v: any) => this.docBullet(ctx, this.toText(v)));
+      }
+      if (bd.errorHandling && Array.isArray(bd.errorHandling) && bd.errorHandling.length > 0) {
+        this.docLabelLine(ctx, 'Backend Error Handling:');
+        bd.errorHandling.forEach((eh: any) => this.docBullet(ctx, this.toText(eh)));
+      }
+      if (bd.security && Array.isArray(bd.security) && bd.security.length > 0) {
+        this.docLabelLine(ctx, 'Authentication & Authorization:');
+        bd.security.forEach((sec: any) => this.docBullet(ctx, this.toText(sec)));
+      }
+    }
+
+    // 7. API Contract & External Integrations
+    const apis: any[] = Array.isArray(data.apis) ? data.apis : [];
+    const apiContracts: any[] = Array.isArray(data.apiContracts) ? data.apiContracts : [];
+    const integrationPoints: any[] = Array.isArray(data.integrationPoints) ? data.integrationPoints : [];
+
+    if (apis.length > 0 || apiContracts.length > 0 || integrationPoints.length > 0) {
+      this.docSection(ctx, `${secIdx++}. API Specifications & System Integrations`);
+      
+      if (apis.length > 0) {
+        this.docTable(ctx, [
+          { header: 'API Name', key: 'name', width: 105 },
+          { header: 'Method', key: 'method', width: 55, align: 'center' },
+          { header: 'Endpoint', key: 'endpoint', width: 155 },
+          { header: 'Purpose', key: 'purpose', width: 115 },
+          { header: 'Status', key: 'statusCodes', width: 50, align: 'center' }
+        ], apis.map((api: any) => ({
           name: api.name || '',
-          method: api.method || 'GET',
+          method: (api.method || 'GET').toUpperCase(),
           endpoint: api.endpoint || '',
           purpose: api.purpose || '',
-          statusCodes: statusStr
-        };
-      });
-      this.docTable(ctx, [
-        { header: 'API Name', key: 'name', width: 110 },
-        { header: 'Method', key: 'method', width: 55 },
-        { header: 'Endpoint', key: 'endpoint', width: 175 },
-        { header: 'Purpose', key: 'purpose', width: 135 },
-        { header: 'Status Codes', key: 'statusCodes', width: 40 }
-      ], tableRows);
+          statusCodes: api.statusCodes ? (Array.isArray(api.statusCodes) ? api.statusCodes.join(', ') : api.statusCodes) : '200 OK'
+        })));
+
+        apis.forEach((api: any) => {
+          if (api.request || api.response || (api.validationRules && api.validationRules.length)) {
+            this.docSubSection(ctx, `API Contract: ${(api.method || 'GET').toUpperCase()} ${api.endpoint || api.name}`);
+            if (api.request) {
+              this.docLabelLine(ctx, 'Request Payload Schema / Example:');
+              this.docParagraph(ctx, typeof api.request === 'object' ? JSON.stringify(api.request, null, 2) : String(api.request), 8);
+            }
+            if (api.response) {
+              this.docLabelLine(ctx, 'Response Payload Schema / Example:');
+              this.docParagraph(ctx, typeof api.response === 'object' ? JSON.stringify(api.response, null, 2) : String(api.response), 8);
+            }
+            if (api.validationRules && Array.isArray(api.validationRules) && api.validationRules.length > 0) {
+              this.docLabelLine(ctx, 'Validation Rules:');
+              api.validationRules.forEach((vr: any) => this.docBullet(ctx, this.toText(vr)));
+            }
+            if (api.errorScenarios && Array.isArray(api.errorScenarios) && api.errorScenarios.length > 0) {
+              this.docLabelLine(ctx, 'Error Scenarios:');
+              api.errorScenarios.forEach((es: any) => this.docBullet(ctx, this.toText(es)));
+            }
+          }
+        });
+      }
+
+      if (apiContracts.length > 0 && apis.length === 0) {
+        this.docTable(ctx, [
+          { header: 'Integration Touchpoint', key: 'integration', width: 160 },
+          { header: 'Data Flow Direction', key: 'direction', width: 140, align: 'center' },
+          { header: 'Technical Specification & Notes', key: 'notes', width: 180 }
+        ], apiContracts.map((ac: any) => ({
+          integration: ac.integration || '',
+          direction: ac.direction || '',
+          notes: ac.notes || this.toText(ac)
+        })));
+      }
+
+      if (integrationPoints.length > 0) {
+        this.docSubSection(ctx, 'External Integration Touchpoints');
+        integrationPoints.forEach((ip: any) => {
+          const ipName = ip.name || 'Integration Point';
+          const ipDir = ip.direction ? ` (${ip.direction})` : '';
+          this.docLabelLine(ctx, `${ipName}${ipDir}`);
+          if (ip.attributes && Array.isArray(ip.attributes) && ip.attributes.length > 0) {
+            this.docTable(ctx, [
+              { header: 'Integration Attribute', key: 'attribute', width: 150 },
+              { header: 'Specification Details', key: 'detail', width: 330 }
+            ], ip.attributes);
+          }
+        });
+      }
     }
 
-    // 6. Data Model
-    if (data.dataModel && data.dataModel.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Data Model`);
-      data.dataModel.forEach((dm: any, idx: number) => {
-        const entity = dm.entity || `Entity ${idx + 1}`;
-        this.docSubSection(ctx, `${secIdx - 1}.${idx + 1}  ${entity}`);
-        if (dm.fields && dm.fields.length > 0) {
-          this.docTable(ctx, [
-            { header: 'Field', key: 'name', width: 120 },
-            { header: 'Type', key: 'type', width: 80 },
-            { header: 'Required', key: 'reqText', width: 65 },
-            { header: 'Description', key: 'description', width: 250 }
-          ], dm.fields.map((f: any) => ({
-            name: f.name || '',
-            type: f.type || 'String',
-            reqText: f.required ? 'Yes' : 'No',
-            description: f.description || ''
-          })));
+    // 8. Database Schema & Data Models
+    const dataModel: any[] = Array.isArray(data.dataModel) ? data.dataModel : (Array.isArray(data.databaseSchema) ? data.databaseSchema : []);
+    if (dataModel.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Data Model & Database Design`);
+      dataModel.forEach((dm: any, idx: number) => {
+        const entity = dm.entity || dm.table || dm.tableName || `Entity ${idx + 1}`;
+        this.docSubSection(ctx, `${secIdx - 1}.${idx + 1}  Table: ${entity}`);
+        if (dm.databaseChangesSummary) {
+          this.docInlineLabel(ctx, 'Schema Changes', dm.databaseChangesSummary);
         }
-        if (dm.relationships && dm.relationships.length > 0) {
+        if (dm.description) {
+          this.docParagraph(ctx, dm.description, 6);
+        }
+        if (dm.indexes) {
+          this.docInlineLabel(ctx, 'Indexes', dm.indexes);
+        }
+        const fields: any[] = Array.isArray(dm.fields) ? dm.fields : (Array.isArray(dm.columns) ? dm.columns : []);
+        if (fields.length > 0) {
+          this.docTable(ctx, [
+            { header: 'Field / Column', key: 'name', width: 115 },
+            { header: 'Data Type', key: 'type', width: 80, align: 'center' },
+            { header: 'Key', key: 'key', width: 45, align: 'center' },
+            { header: 'Required', key: 'req', width: 60, align: 'center' },
+            { header: 'Description / Constraints', key: 'desc', width: 180 }
+          ], fields.map((f: any) => {
+            const hasPK = f.primaryKey || (f.constraints && String(f.constraints).includes('PK'));
+            const hasFK = f.foreignKey || (f.constraints && String(f.constraints).includes('FK'));
+            const isReq = f.required || f.nullable === false || (f.constraints && String(f.constraints).includes('NOT NULL'));
+            return {
+              name: f.name || f.column || '',
+              type: f.type || 'VARCHAR',
+              key: hasPK ? 'PK' : (hasFK ? 'FK' : '-'),
+              req: isReq ? 'Yes' : 'No',
+              desc: f.description || f.constraints || ''
+            };
+          }));
+        }
+        if (dm.relationships) {
           const relStr = Array.isArray(dm.relationships) ? dm.relationships.join(', ') : dm.relationships;
           this.docInlineLabel(ctx, 'Relationships', relStr);
         }
+        if (dm.persistenceBehavior) {
+          this.docInlineLabel(ctx, 'Persistence Behavior', dm.persistenceBehavior);
+        }
       });
     }
 
-    // 7. Business Logic
-    if (data.businessLogic && data.businessLogic.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Business Logic`);
-      data.businessLogic.forEach((bl: any) => {
-        const text = bl.rule || this.toText(bl);
-        this.docBullet(ctx, text);
-      });
-      ctx.addY(6);
-    }
+    // 9. End-to-End Data Flow (Flowchart + Table)
+    const dataFlow: any[] = Array.isArray(data.dataFlow) ? data.dataFlow : [];
+    if (dataFlow.length > 0) {
+      this.docSection(ctx, `${secIdx++}. End-to-End Data Flow`);
+      
+      const dataFlowSteps = dataFlow.map((df: any, i: number) => ({
+        label: `Step ${df.step || i + 1}`,
+        desc: df.action || df.payload || '',
+        component: `${df.source || 'Source'} -> ${df.target || 'Target'}`
+      }));
+      this.docFlowchart(ctx, 'End-to-End Data Flow Sequence', dataFlowSteps);
 
-    // 8. Validation
-    if (data.validation && data.validation.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Validation`);
-      data.validation.forEach((v: any) => this.docBullet(ctx, this.toText(v)));
-      ctx.addY(6);
-    }
-
-    // 9. Error Handling
-    if (data.errorHandling && data.errorHandling.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Error Handling`);
-      data.errorHandling.forEach((eh: any) => {
-        const scenario = eh.scenario || '';
-        const handling = eh.handling || eh.expectedBehavior || this.toText(eh);
-        if (scenario) this.docSubSection(ctx, scenario);
-        this.docParagraph(ctx, handling, 10);
-      });
-    }
-
-    // 10. Security
-    if (data.security && data.security.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Security Considerations`);
-      data.security.forEach((s: any) => {
-        const text = s.consideration || this.toText(s);
-        this.docBullet(ctx, text);
-      });
-      ctx.addY(6);
-    }
-
-    // 11. Database Changes
-    if (data.databaseChanges && data.databaseChanges.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Database Changes`);
       this.docTable(ctx, [
-        { header: 'Entity / Table', key: 'entity', width: 150 },
-        { header: 'Change Description', key: 'change', width: 365 }
-      ], data.databaseChanges.map((dbc: any) => ({
-        entity: dbc.entity || dbc.table || 'Schema',
-        change: dbc.change || this.toText(dbc)
+        { header: 'Step', key: 'stepStr', width: 40, align: 'center' },
+        { header: 'Source System', key: 'source', width: 95 },
+        { header: 'Target System', key: 'target', width: 95 },
+        { header: 'Action Performed', key: 'action', width: 130 },
+        { header: 'Payload / Transferred Data', key: 'payload', width: 120 }
+      ], dataFlow.map((df: any, idx: number) => ({
+        stepStr: String(df.step != null ? df.step : idx + 1),
+        source: df.source || '',
+        target: df.target || '',
+        action: df.action || '',
+        payload: df.payload || ''
       })));
     }
 
-    // 12. Integrations
-    if (data.integrations && data.integrations.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Integrations`);
+    // 10. AI / LLM Integration Specifications
+    const ai = data.aiLlmIntegration;
+    if (ai) {
+      this.docSection(ctx, `${secIdx++}. AI & LLM Integration Architecture`);
+      if (ai.modelUsed) this.docInlineLabel(ctx, 'Model Employed', ai.modelUsed);
       this.docTable(ctx, [
-        { header: 'External System', key: 'system', width: 150 },
-        { header: 'Purpose & Protocol', key: 'purpose', width: 365 }
-      ], data.integrations.map((int: any) => ({
-        system: int.system || 'External Service',
-        purpose: int.purpose || this.toText(int)
+        { header: 'AI Integration Dimension', key: 'dimension', width: 140 },
+        { header: 'Implementation Specification', key: 'spec', width: 340 }
+      ], [
+        { dimension: 'Prompt Construction', spec: ai.promptConstruction || 'Standardized system prompt with zero-shot context' },
+        { dimension: 'Input Context & Retrieval', spec: ai.inputContext || 'RAG semantic search and active knowledge store' },
+        { dimension: 'Response Parsing', spec: ai.responseParsing || 'Strict JSON regex extraction and schema validation' },
+        { dimension: 'Validation & Sanitization', spec: ai.validationAndSanitization || 'Sanitization against markdown artifacts and format schema' },
+        { dimension: 'Error & Retry Handling', spec: ai.errorAndRetryHandling || 'Exponential backoff with circuit breaker pattern' },
+        { dimension: 'Fallback Behavior', spec: ai.fallbackBehavior || 'Deterministic rule-based default response' }
+      ].filter(r => r.spec && r.spec.length > 0));
+    }
+
+    // 11. Security Design (Existing & Recommended Controls Table)
+    const secDesign = data.securityDesign;
+    const secList: any[] = Array.isArray(data.security) ? data.security : [];
+    const secConsiderations: any[] = Array.isArray(data.securityConsiderations) ? data.securityConsiderations : [];
+
+    if (secDesign || secList.length > 0 || secConsiderations.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Security Design & Controls`);
+      
+      if (secConsiderations.length > 0) {
+        this.docTable(ctx, [
+          { header: 'ID', key: 'id', width: 55, align: 'center' },
+          { header: 'Security Area', key: 'consideration', width: 115 },
+          { header: 'Security Control Specification', key: 'detail', width: 220 },
+          { header: 'Source Standard', key: 'source', width: 90 }
+        ], secConsiderations.map((sc: any, idx: number) => ({
+          id: sc.id || `SEC-${String(idx + 1).padStart(2, '0')}`,
+          consideration: sc.consideration || '',
+          detail: sc.detail || this.toText(sc),
+          source: sc.source || 'Security Policy'
+        })));
+      } else {
+        const secRows: any[] = [];
+        if (secDesign?.existingControls && Array.isArray(secDesign.existingControls)) {
+          secDesign.existingControls.forEach((ec: any) => secRows.push({ type: 'Existing Control', control: this.toText(ec) }));
+        }
+        if (secDesign?.recommendedControls && Array.isArray(secDesign.recommendedControls)) {
+          secDesign.recommendedControls.forEach((rc: any) => secRows.push({ type: 'Recommended Control', control: this.toText(rc) }));
+        }
+        if (secList.length > 0 && secRows.length === 0) {
+          secList.forEach((s: any) => secRows.push({ type: 'Security Measure', control: s.consideration || this.toText(s) }));
+        }
+        if (secRows.length > 0) {
+          this.docTable(ctx, [
+            { header: 'Control Category', key: 'type', width: 140 },
+            { header: 'Security Control Specification', key: 'control', width: 340 }
+          ], secRows);
+        }
+      }
+
+      if (secDesign?.inputValidation) this.docInlineLabel(ctx, 'Input Validation', secDesign.inputValidation);
+      if (secDesign?.secretsManagement) this.docInlineLabel(ctx, 'Secrets Management', secDesign.secretsManagement);
+      if (secDesign?.loggingSecurity) this.docInlineLabel(ctx, 'Logging Security', secDesign.loggingSecurity);
+    }
+
+    // 12. Validation Rules (Frontend, Backend, Database Tables)
+    const vr = data.validationRules;
+    if (vr) {
+      this.docSection(ctx, `${secIdx++}. Validation Rules`);
+      if (vr.frontend && Array.isArray(vr.frontend) && vr.frontend.length > 0) {
+        this.docSubSection(ctx, 'Frontend Validation Rules');
+        this.docTable(ctx, [
+          { header: 'Field', key: 'field', width: 120 },
+          { header: 'Validation Rule', key: 'rule', width: 180 },
+          { header: 'User Error Message', key: 'errorMsg', width: 180 }
+        ], vr.frontend);
+      }
+      if (vr.backend && Array.isArray(vr.backend) && vr.backend.length > 0) {
+        this.docSubSection(ctx, 'Backend Server-Side Validation');
+        this.docTable(ctx, [
+          { header: 'Field / Parameter', key: 'field', width: 120 },
+          { header: 'Validation Rule', key: 'rule', width: 180 },
+          { header: 'API Error Response', key: 'errorMsg', width: 180 }
+        ], vr.backend);
+      }
+      if (vr.database && Array.isArray(vr.database) && vr.database.length > 0) {
+        this.docSubSection(ctx, 'Database Constraints');
+        this.docTable(ctx, [
+          { header: 'Constraint Name', key: 'constraint', width: 150 },
+          { header: 'Description', key: 'description', width: 330 }
+        ], vr.database);
+      }
+    }
+
+    // 13. Error Handling & Resilience (Table)
+    const errorHandling: any[] = Array.isArray(data.errorHandling) ? data.errorHandling : [];
+    if (errorHandling.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Error Handling & System Resilience`);
+      this.docTable(ctx, [
+        { header: 'Error Scenario', key: 'scenario', width: 110 },
+        { header: 'Layer', key: 'whereItOccurs', width: 65, align: 'center' },
+        { header: 'Handling Logic', key: 'handling', width: 140 },
+        { header: 'Response', key: 'responseReturned', width: 75, align: 'center' },
+        { header: 'User Experience', key: 'userExperience', width: 90 }
+      ], errorHandling.map((eh: any) => ({
+        scenario: eh.scenario || '',
+        whereItOccurs: eh.whereItOccurs || 'Backend',
+        handling: eh.handling || eh.expectedBehavior || this.toText(eh),
+        responseReturned: eh.responseReturned || 'HTTP 500',
+        userExperience: eh.userExperience || 'Toast alert'
       })));
     }
 
-    // 13. Performance Considerations
-    if (data.performanceConsiderations && data.performanceConsiderations.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Performance Considerations`);
-      data.performanceConsiderations.forEach((pc: any) => {
-        this.docBullet(ctx, pc.consideration || this.toText(pc));
-      });
-      ctx.addY(6);
+    // 14. Edge Cases & Technical Mitigations (Table)
+    const edgeCases: any[] = Array.isArray(data.edgeCases) ? data.edgeCases : [];
+    if (edgeCases.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Edge Cases & Technical Mitigations`);
+      this.docTable(ctx, [
+        { header: 'Scenario', key: 'scenario', width: 130 },
+        { header: 'Impact', key: 'impact', width: 70, align: 'center' },
+        { header: 'Technical Mitigation & Handling', key: 'handling', width: 280 }
+      ], edgeCases.map((ec: any) => ({
+        scenario: ec.scenario || '',
+        impact: ec.impact || 'Medium',
+        handling: ec.handling || ''
+      })));
     }
 
-    // 14. Dependencies
-    if (data.dependencies && data.dependencies.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Dependencies`);
-      data.dependencies.forEach((d: any) => this.docBullet(ctx, this.toText(d)));
-      ctx.addY(6);
-    }
-
-    // 15. Assumptions
-    if (data.assumptions && data.assumptions.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Assumptions`);
-      data.assumptions.forEach((a: any) => this.docBullet(ctx, this.toText(a)));
-      ctx.addY(6);
-    }
-
-    // 16. Implementation Notes
-    if (data.implementationNotes && data.implementationNotes.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Implementation Notes`);
-      data.implementationNotes.forEach((n: any) => this.docBullet(ctx, n.note || this.toText(n)));
-      ctx.addY(6);
-    }
-
-    // Edge Cases
-    if (data.edgeCases && data.edgeCases.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Edge Cases`);
-      data.edgeCases.forEach((ec: any) => {
-        const title = ec.scenario || 'Edge Case';
-        const impact = ec.impact ? ` (Impact: ${ec.impact})` : '';
-        this.docSubSection(ctx, `${title}${impact}`);
-        if (ec.handling) this.docParagraph(ctx, ec.handling, 10);
-      });
-      ctx.addY(6);
-    }
-
-    // Business Rule & AC Mappings
-    if (data.businessRuleMappings && data.businessRuleMappings.length > 0) {
+    // 15. Business Rule Mappings (Table)
+    const brm: any[] = Array.isArray(data.businessRuleMappings) ? data.businessRuleMappings : [];
+    if (brm.length > 0) {
       this.docSection(ctx, `${secIdx++}. Business Rule to Technical Mappings`);
-      data.businessRuleMappings.forEach((brm: any) => {
-        this.docBullet(ctx, `${brm.businessRule || 'Rule'}: ${brm.technicalImplementation || ''}`);
-      });
-      ctx.addY(6);
+      this.docTable(ctx, [
+        { header: 'Business Rule', key: 'businessRule', width: 180 },
+        { header: 'Technical Implementation Details', key: 'technicalImplementation', width: 300 }
+      ], brm);
     }
 
-    if (data.acceptanceCriteriaMappings && data.acceptanceCriteriaMappings.length > 0) {
+    // 16. Acceptance Criteria Mappings (Table)
+    const acm: any[] = Array.isArray(data.acceptanceCriteriaMappings) ? data.acceptanceCriteriaMappings : [];
+    if (acm.length > 0) {
       this.docSection(ctx, `${secIdx++}. Acceptance Criteria to Technical Mappings`);
-      data.acceptanceCriteriaMappings.forEach((acm: any) => {
-        this.docBullet(ctx, `${acm.acceptanceCriterion || 'Criterion'}: ${acm.technicalImplementation || ''}`);
-      });
-      ctx.addY(6);
+      this.docTable(ctx, [
+        { header: 'Acceptance Criterion', key: 'acceptanceCriterion', width: 180 },
+        { header: 'Technical Implementation Details', key: 'technicalImplementation', width: 300 }
+      ], acm);
     }
 
-    // Implementation Plan
-    if (data.implementationPlan && data.implementationPlan.length > 0) {
+    // 17. Hard Constraints & Architectural Invariants (Table)
+    const hardConstraints: any[] = Array.isArray(data.hardConstraints) ? data.hardConstraints : [];
+    if (hardConstraints.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Hard Technical Constraints`);
+      this.docTable(ctx, [
+        { header: 'ID', key: 'id', width: 60, align: 'center' },
+        { header: 'Hard Constraint Specification', key: 'constraint', width: 310 },
+        { header: 'Source / Rule', key: 'source', width: 110 }
+      ], hardConstraints.map((c: any, idx: number) => ({
+        id: c.id || `C-${String(idx + 1).padStart(2, '0')}`,
+        constraint: c.constraint || this.toText(c),
+        source: c.source || 'BRD Constraint'
+      })));
+    }
+
+    // 18. Dependencies & Assumptions (Tables)
+    const deps = data.dependencies;
+    const assumptions: any[] = Array.isArray(data.assumptions) ? data.assumptions : [];
+    if (deps || assumptions.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Dependencies & Assumptions`);
+      if (deps) {
+        this.docSubSection(ctx, 'System Dependencies');
+        const depRows: any[] = [];
+        if (typeof deps === 'object' && !Array.isArray(deps)) {
+          Object.keys(deps).forEach(k => {
+            const arr = Array.isArray(deps[k]) ? deps[k] : [deps[k]];
+            depRows.push({ category: k.toUpperCase(), items: arr.join(', ') });
+          });
+        } else if (Array.isArray(deps)) {
+          deps.forEach((d: any) => depRows.push({ category: 'General', items: d.dependency || this.toText(d) }));
+        }
+        if (depRows.length > 0) {
+          this.docTable(ctx, [
+            { header: 'Dependency Tier', key: 'category', width: 120 },
+            { header: 'Dependencies', key: 'items', width: 360 }
+          ], depRows);
+        }
+      }
+      if (assumptions.length > 0) {
+        this.docSubSection(ctx, 'Technical Assumptions');
+        this.docTable(ctx, [
+          { header: 'Assumption', key: 'assumption', width: 370 },
+          { header: 'Status', key: 'status', width: 110, align: 'center' }
+        ], assumptions.map((a: any) => ({
+          assumption: a.assumption || a.text || this.toText(a),
+          status: a.status || 'CONFIRMED'
+        })));
+      }
+    }
+
+    // 19. Open Technical Questions (Table)
+    const openQuestions: any[] = Array.isArray(data.openQuestions) ? data.openQuestions : [];
+    if (openQuestions.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Open Technical Questions & Clarifications`);
+      this.docTable(ctx, [
+        { header: 'ID', key: 'id', width: 60, align: 'center' },
+        { header: 'Technical Question / Unknown', key: 'question', width: 220 },
+        { header: 'Architecture Impact', key: 'impact', width: 120 },
+        { header: 'Source Section', key: 'source', width: 80 }
+      ], openQuestions.map((oq: any, idx: number) => ({
+        id: oq.id || `OQ-${String(idx + 1).padStart(2, '0')}`,
+        question: oq.question || this.toText(oq),
+        impact: oq.impact || 'Implementation Decision Required',
+        source: oq.source || 'BRD Review'
+      })));
+    }
+
+    // 20. Implementation Plan (Table)
+    const implementationPlan: any[] = Array.isArray(data.implementationPlan) ? data.implementationPlan : [];
+    if (implementationPlan.length > 0) {
       this.docSection(ctx, `${secIdx++}. Implementation Plan`);
       this.docTable(ctx, [
-        { header: 'Step', key: 'stepStr', width: 45 },
-        { header: 'Phase', key: 'phase', width: 100 },
-        { header: 'Action', key: 'action', width: 190 },
-        { header: 'Deliverable', key: 'deliverable', width: 110 },
-        { header: 'Verification', key: 'verification', width: 70 }
-      ], data.implementationPlan.map((ip: any, idx: number) => ({
+        { header: 'Step', key: 'stepStr', width: 40, align: 'center' },
+        { header: 'Phase', key: 'phase', width: 85 },
+        { header: 'Action Performed', key: 'action', width: 165 },
+        { header: 'Deliverable', key: 'deliverable', width: 100 },
+        { header: 'Verification', key: 'verification', width: 90 }
+      ], implementationPlan.map((ip: any, idx: number) => ({
         stepStr: String(ip.step != null ? ip.step : idx + 1),
         phase: ip.phase || 'General',
         action: ip.action || '',
@@ -1710,65 +1667,758 @@ export class ExportService {
       })));
     }
 
-    // Testing Strategy
-    if (data.testingStrategy) {
+    // 21. Testing Strategy (Table)
+    const ts = data.testingStrategy;
+    if (ts) {
       this.docSection(ctx, `${secIdx++}. Testing Strategy`);
-      const ts = data.testingStrategy;
-      if (ts.unitTesting?.length) {
-        this.docSubSection(ctx, 'Unit Testing');
-        ts.unitTesting.forEach((ut: any) => this.docBullet(ctx, this.toText(ut)));
+      const testRows: any[] = [];
+      if (ts.unitTesting && Array.isArray(ts.unitTesting)) {
+        testRows.push({ level: 'Unit Testing', scope: ts.unitTesting.map((ut: any) => this.toText(ut)).join('; ') });
       }
-      if (ts.integrationTesting?.length) {
-        this.docSubSection(ctx, 'Integration Testing');
-        ts.integrationTesting.forEach((it: any) => this.docBullet(ctx, this.toText(it)));
+      if (ts.integrationTesting && Array.isArray(ts.integrationTesting)) {
+        testRows.push({ level: 'Integration Testing', scope: ts.integrationTesting.map((it: any) => this.toText(it)).join('; ') });
       }
-      if (ts.functionalTesting?.length) {
-        this.docSubSection(ctx, 'Functional Testing');
-        ts.functionalTesting.forEach((ft: any) => this.docBullet(ctx, this.toText(ft)));
+      if (ts.functionalTesting && Array.isArray(ts.functionalTesting)) {
+        testRows.push({ level: 'Functional E2E Testing', scope: ts.functionalTesting.map((ft: any) => this.toText(ft)).join('; ') });
       }
-      if (ts.negativeTesting?.length) {
-        this.docSubSection(ctx, 'Negative Testing');
-        ts.negativeTesting.forEach((nt: any) => this.docBullet(ctx, this.toText(nt)));
+      if (ts.negativeTesting && Array.isArray(ts.negativeTesting)) {
+        testRows.push({ level: 'Negative & Error Testing', scope: ts.negativeTesting.map((nt: any) => this.toText(nt)).join('; ') });
       }
-      ctx.addY(6);
+      if (testRows.length > 0) {
+        this.docTable(ctx, [
+          { header: 'Testing Level', key: 'level', width: 130 },
+          { header: 'Test Scope & Verification Details', key: 'scope', width: 350 }
+        ], testRows);
+      }
     }
 
-    // Technical Risks
-    if (data.technicalRisks && data.technicalRisks.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Technical Risks`);
-      this.docTable(ctx, [
-        { header: 'Risk', key: 'risk', width: 180 },
-        { header: 'Impact', key: 'impact', width: 70 },
-        { header: 'Mitigation', key: 'mitigation', width: 265 }
-      ], data.technicalRisks.map((tr: any) => ({
-        risk: tr.risk || '',
-        impact: tr.impact || 'Medium',
-        mitigation: tr.mitigation || ''
-      })));
+    // 22. Performance, Logging & Configuration (Tables)
+    const pcList: any[] = Array.isArray(data.performanceConsiderations) ? data.performanceConsiderations : [];
+    const lmList: any[] = Array.isArray(data.loggingAndMonitoring) ? data.loggingAndMonitoring : [];
+    const cfgList: any[] = Array.isArray(data.configuration) ? data.configuration : [];
+    const fileImpact = data.fileImpact;
+    if (pcList.length > 0 || lmList.length > 0 || cfgList.length > 0 || fileImpact) {
+      this.docSection(ctx, `${secIdx++}. Performance, Logging & Configuration`);
+      if (pcList.length > 0) {
+        this.docSubSection(ctx, 'Performance Considerations');
+        this.docTable(ctx, [
+          { header: 'Area', key: 'area', width: 130 },
+          { header: 'Consideration & Optimization', key: 'consideration', width: 350 }
+        ], pcList.map((pc: any) => ({
+          area: pc.area || 'General',
+          consideration: pc.consideration || this.toText(pc)
+        })));
+      }
+      if (lmList.length > 0) {
+        this.docSubSection(ctx, 'Logging & Monitoring');
+        this.docTable(ctx, [
+          { header: 'Level', key: 'level', width: 60, align: 'center' },
+          { header: 'Event', key: 'event', width: 140 },
+          { header: 'Logging Details', key: 'details', width: 280 }
+        ], lmList.map((lm: any) => ({
+          level: lm.level || 'INFO',
+          event: lm.event || '',
+          details: lm.details || ''
+        })));
+      }
+      if (cfgList.length > 0) {
+        this.docSubSection(ctx, 'Configuration Variables');
+        this.docTable(ctx, [
+          { header: 'Variable Name', key: 'name', width: 160 },
+          { header: 'Purpose & Description', key: 'purpose', width: 320 }
+        ], cfgList.map((c: any) => ({
+          name: c.name || '',
+          purpose: c.purpose || ''
+        })));
+      }
+      if (fileImpact) {
+        this.docSubSection(ctx, 'Code File Impact');
+        const fileRows: any[] = [];
+        if (fileImpact.frontend && Array.isArray(fileImpact.frontend)) {
+          fileImpact.frontend.forEach((f: any) => fileRows.push({ tier: 'Frontend', file: this.toText(f) }));
+        }
+        if (fileImpact.backend && Array.isArray(fileImpact.backend)) {
+          fileImpact.backend.forEach((b: any) => fileRows.push({ tier: 'Backend', file: this.toText(b) }));
+        }
+        if (fileRows.length > 0) {
+          this.docTable(ctx, [
+            { header: 'Tier', key: 'tier', width: 100, align: 'center' },
+            { header: 'Impacted File Path', key: 'file', width: 380 }
+          ], fileRows);
+        }
+      }
     }
 
-    // Technical Decisions
-    if (data.technicalDecisions && data.technicalDecisions.length > 0) {
-      this.docSection(ctx, `${secIdx++}. Technical Decisions`);
-      data.technicalDecisions.forEach((tdDec: any) => {
-        this.docSubSection(ctx, tdDec.decision || 'Decision');
-        if (tdDec.reason) this.docParagraph(ctx, `Rationale: ${tdDec.reason}`, 10);
-        if (tdDec.whySelected) this.docParagraph(ctx, `Why Selected: ${tdDec.whySelected}`, 10);
-      });
-      ctx.addY(6);
+    // 23. Technical Risks & Decisions (Tables)
+    const techRisks: any[] = Array.isArray(data.technicalRisks) ? data.technicalRisks : [];
+    const techDecisions: any[] = Array.isArray(data.technicalDecisions) ? data.technicalDecisions : [];
+    if (techRisks.length > 0 || techDecisions.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Technical Risks & Decisions`);
+      if (techRisks.length > 0) {
+        this.docSubSection(ctx, 'Technical Risks & Mitigations');
+        this.docTable(ctx, [
+          { header: 'Risk Description', key: 'risk', width: 160 },
+          { header: 'Impact', key: 'impact', width: 65, align: 'center' },
+          { header: 'Mitigation Strategy', key: 'mitigation', width: 255 }
+        ], techRisks.map((tr: any) => ({
+          risk: tr.risk || '',
+          impact: tr.impact || 'Medium',
+          mitigation: tr.mitigation || ''
+        })));
+      }
+      if (techDecisions.length > 0) {
+        this.docSubSection(ctx, 'Architecture & Technical Decisions');
+        this.docTable(ctx, [
+          { header: 'Decision', key: 'decision', width: 140 },
+          { header: 'Rationale & Justification', key: 'reason', width: 200 },
+          { header: 'Why Selected', key: 'whySelected', width: 140 }
+        ], techDecisions.map((tdDec: any) => ({
+          decision: tdDec.decision || '',
+          reason: tdDec.reason || '',
+          whySelected: tdDec.whySelected || ''
+        })));
+      }
     }
 
-    // 17. Source References
+    // 24. Source References
     if (data.sources) {
       const srcArr = Array.isArray(data.sources) ? data.sources : [data.sources];
       if (srcArr.length > 0) {
         this.docSection(ctx, `${secIdx++}. Source References`);
-        srcArr.forEach((s: any) => this.docBullet(ctx, this.toText(s)));
+        srcArr.forEach((s: any, sIdx: number) => this.docNumbered(ctx, sIdx + 1, this.toText(s)));
       }
     }
 
-    this.docApplyFooters(ctx);
+    this.docApplyHeaderAndFooters(ctx);
     ctx.doc.save(`Technical_Design_${this.sanitizeFilename(docName)}.pdf`);
+  }
+
+  // ============================================================
+  // 4. SOFTWARE REQUIREMENT SPECIFICATION PDF (Specs 7 & 24)
+  // ============================================================
+  downloadRequirementPdf(data: any, baseFilename = 'requirement', meta?: any): void {
+    if (!data) { alert('No requirement data available to export.'); return; }
+
+    const rawDocName = (data.title || meta?.documentName || '').trim();
+    const docName = rawDocName || 'Requirement Specification';
+    const ctx = this.newDocCtx('Requirement Specification', docName, meta);
+
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Source Document', value: meta?.documentName || meta?.brd || 'BRD Document' },
+      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Generated On',    value: new Date().toLocaleDateString() }
+    ]);
+    this.docRule(ctx);
+
+    // 1. Executive Summary
+    if (data.summary) {
+      this.docSection(ctx, '1. Executive Summary');
+      this.docParagraph(ctx, data.summary);
+    }
+
+    // 2. Requirement Details
+    this.docSection(ctx, '2. Requirement Specification');
+    if (data.requirementId) this.docInlineLabel(ctx, 'Requirement ID', data.requirementId);
+    if (data.title) this.docInlineLabel(ctx, 'Title', data.title);
+    if (data.priority) this.docInlineLabel(ctx, 'Priority', data.priority);
+    if (data.userStory) {
+      this.docLabelLine(ctx, 'User Story');
+      this.docParagraph(ctx, data.userStory, 10);
+    }
+
+    // 3. Acceptance Criteria (Numbered list, Spec 13)
+    if (data.acceptanceCriteria && data.acceptanceCriteria.length > 0) {
+      this.docSection(ctx, '3. Acceptance Criteria');
+      data.acceptanceCriteria.forEach((ac: any, i: number) => {
+        this.docNumbered(ctx, i + 1, this.toText(ac));
+      });
+      ctx.addY(4);
+    }
+
+    // 4. Business Rules
+    if (data.businessRules && data.businessRules.length > 0) {
+      this.docSection(ctx, '4. Business Rules');
+      data.businessRules.forEach((br: any) => this.docBullet(ctx, this.toText(br)));
+      ctx.addY(4);
+    }
+
+    // 5. Assumptions
+    if (data.assumptions && data.assumptions.length > 0) {
+      this.docSection(ctx, '5. Assumptions');
+      data.assumptions.forEach((a: any) => this.docBullet(ctx, this.toText(a)));
+      ctx.addY(4);
+    }
+
+    // 6. Dependencies
+    if (data.dependencies && data.dependencies.length > 0) {
+      this.docSection(ctx, '6. Dependencies');
+      data.dependencies.forEach((d: any) => this.docBullet(ctx, this.toText(d)));
+      ctx.addY(4);
+    }
+
+    // 7. Edge Cases
+    if (data.edgeCases && data.edgeCases.length > 0) {
+      this.docSection(ctx, '7. Edge Cases');
+      data.edgeCases.forEach((e: any) => this.docBullet(ctx, this.toText(e)));
+      ctx.addY(4);
+    }
+
+    this.docApplyHeaderAndFooters(ctx);
+    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+  }
+
+  downloadAllRequirementsPdf(requirements: any[], baseFilename = 'requirements', meta?: any): void {
+    if (!requirements || requirements.length === 0) {
+      alert('No requirements available to export.');
+      return;
+    }
+
+    const rawDocName = (meta?.documentName || '').trim();
+    const docName = rawDocName || 'Requirements Document';
+    const ctx = this.newDocCtx('Requirement Specification', docName, meta);
+
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Source Document', value: meta?.documentName || meta?.brd || 'BRD Document' },
+      { label: 'Total Requirements', value: String(requirements.length) },
+      { label: 'Generated On',    value: new Date().toLocaleDateString() }
+    ]);
+    this.docRule(ctx);
+
+    // 1. Requirements Summary Table (Spec 14–23)
+    this.docSection(ctx, '1. Requirements Matrix Summary');
+    const tableRows = requirements.map((r: any, idx: number) => ({
+      reqId: r.requirementId || `REQ-${String(idx + 1).padStart(3, '0')}`,
+      title: r.title || `Requirement ${idx + 1}`,
+      priority: (r.priority || 'MEDIUM').toUpperCase(),
+      acCount: String(r.acceptanceCriteria?.length || 0)
+    }));
+    this.docTable(ctx, [
+      { header: 'Requirement ID', key: 'reqId', width: 110, align: 'center' },
+      { header: 'Title / Scope', key: 'title', width: 230 },
+      { header: 'Priority', key: 'priority', width: 75, align: 'center' },
+      { header: 'AC Count', key: 'acCount', width: 65, align: 'center' }
+    ], tableRows);
+
+    // 2. Detailed Requirements Specifications
+    this.docSection(ctx, '2. Detailed Requirements');
+    requirements.forEach((req: any, idx: number) => {
+      const reqId = req.requirementId || `REQ-${String(idx + 1).padStart(3, '0')}`;
+      const title = req.title || `Requirement ${idx + 1}`;
+
+      this.docSubSection(ctx, `2.${idx + 1}  [${reqId}] ${title}`);
+      if (req.priority) this.docInlineLabel(ctx, 'Priority', req.priority);
+
+      if (req.summary) {
+        this.docLabelLine(ctx, 'Summary');
+        this.docParagraph(ctx, req.summary, 10);
+      }
+
+      if (req.userStory) {
+        this.docLabelLine(ctx, 'User Story');
+        this.docParagraph(ctx, req.userStory, 10);
+      }
+
+      if (req.acceptanceCriteria && req.acceptanceCriteria.length > 0) {
+        this.docLabelLine(ctx, 'Acceptance Criteria');
+        req.acceptanceCriteria.forEach((ac: any, aci: number) => {
+          this.docNumbered(ctx, aci + 1, this.toText(ac));
+        });
+        ctx.addY(4);
+      }
+
+      if (req.businessRules && req.businessRules.length > 0) {
+        this.docLabelLine(ctx, 'Business Rules');
+        req.businessRules.forEach((br: any) => this.docBullet(ctx, this.toText(br)));
+        ctx.addY(4);
+      }
+
+      if (req.assumptions && req.assumptions.length > 0) {
+        this.docLabelLine(ctx, 'Assumptions');
+        req.assumptions.forEach((a: any) => this.docBullet(ctx, this.toText(a)));
+        ctx.addY(4);
+      }
+
+      if (req.dependencies && req.dependencies.length > 0) {
+        this.docLabelLine(ctx, 'Dependencies');
+        req.dependencies.forEach((d: any) => this.docBullet(ctx, this.toText(d)));
+        ctx.addY(4);
+      }
+
+      if (req.edgeCases && req.edgeCases.length > 0) {
+        this.docLabelLine(ctx, 'Edge Cases');
+        req.edgeCases.forEach((e: any) => this.docBullet(ctx, this.toText(e)));
+        ctx.addY(4);
+      }
+
+      if (idx < requirements.length - 1) {
+        ctx.addY(8);
+        this.docRule(ctx);
+      }
+    });
+
+    this.docApplyHeaderAndFooters(ctx);
+    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+  }
+
+  // ============================================================
+  // 5. TEST CASE PDF (Spec 36)
+  // ============================================================
+  downloadTestCasePdf(items: any[], meta?: any): void {
+    if (!items || items.length === 0) {
+      alert('No test case data available to export.');
+      return;
+    }
+
+    const rawDocName = (meta?.documentName || '').trim();
+    const docName = rawDocName || 'Test Case Specification';
+    const ctx = this.newDocCtx('Test Case', docName, meta);
+
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, `TEST CASE SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Test Cases' },
+      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Generated On',    value: new Date().toLocaleDateString() }
+    ]);
+    this.docRule(ctx);
+
+    // Section 1: Execution Metrics Summary
+    const totalCount = items.length;
+    const highCount  = items.filter(i => (i.priority || '').toUpperCase() === 'HIGH').length;
+    const negCount   = items.filter(i => (i.type || '').toUpperCase().includes('NEG')).length;
+    const posCount   = totalCount - negCount;
+
+    this.docSection(ctx, '1. Test Execution Summary');
+    this.docTable(ctx, [
+      { header: 'Test Execution Metric', key: 'metric', width: 240 },
+      { header: 'Count / Value',         key: 'value',  width: 240, align: 'center' }
+    ], [
+      { metric: 'Total Test Cases Generated', value: String(totalCount) },
+      { metric: 'Positive / Functional Cases', value: String(posCount) },
+      { metric: 'Negative / Boundary Cases',  value: String(negCount) },
+      { metric: 'High Priority Cases',        value: String(highCount) }
+    ]);
+
+    // Section 2: Comprehensive Test Case Table (Spec 36)
+    this.docSection(ctx, '2. Test Case Matrix');
+    const tableData = items.map((item: any, idx: number) => ({
+      tcId: item.tcId || `TC-${String(idx + 1).padStart(3, '0')}`,
+      scenario: item.scenario || item.title || `Test Case ${idx + 1}`,
+      type: (item.type || 'POSITIVE').toUpperCase(),
+      priority: (item.priority || 'MEDIUM').toUpperCase(),
+      expectedResult: item.expectedResult || ''
+    }));
+
+    this.docTable(ctx, [
+      { header: 'TC ID', key: 'tcId', width: 60, align: 'center' },
+      { header: 'Scenario / Objective', key: 'scenario', width: 180 },
+      { header: 'Type', key: 'type', width: 65, align: 'center' },
+      { header: 'Priority', key: 'priority', width: 55, align: 'center' },
+      { header: 'Expected Result', key: 'expectedResult', width: 120 }
+    ], tableData);
+
+    // Section 3: Detailed Test Case Specifications
+    this.docSection(ctx, '3. Detailed Test Case Specifications');
+    items.forEach((item: any, idx: number) => {
+      const tcId     = item.tcId || `TC-${String(idx + 1).padStart(3, '0')}`;
+      const reqId    = item.requirementId || item.sourceReference || '';
+      const scenario = item.scenario || item.title || `Test Case ${idx + 1}`;
+      const type     = (item.type || 'POSITIVE').toUpperCase();
+      const priority = (item.priority || 'MEDIUM').toUpperCase();
+
+      this.docSubSection(ctx, `${tcId}  ${scenario}`);
+      this.docInlineLabel(ctx, 'Type', type);
+      this.docInlineLabel(ctx, 'Priority', priority);
+      if (reqId) this.docInlineLabel(ctx, 'Requirement Ref', reqId);
+
+      // Preconditions
+      const preconds: string[] = Array.isArray(item.preconditions)
+        ? item.preconditions
+        : (item.preconditions ? [String(item.preconditions)] : []);
+      if (preconds.length > 0) {
+        this.docLabelLine(ctx, 'Preconditions');
+        preconds.forEach((pc: string) => this.docBullet(ctx, pc, 1));
+      }
+
+      // Test Steps (Numbered list, Spec 13 & 36)
+      const steps: string[] = Array.isArray(item.steps)
+        ? item.steps
+        : (item.steps ? [String(item.steps)] : []);
+      if (steps.length > 0) {
+        this.docLabelLine(ctx, 'Execution Steps');
+        steps.forEach((s: string, si: number) => this.docNumbered(ctx, si + 1, s));
+      }
+
+      // Expected Result
+      if (item.expectedResult) {
+        this.docLabelLine(ctx, 'Expected Result');
+        this.docParagraph(ctx, item.expectedResult, 12);
+      }
+
+      if (idx < items.length - 1) {
+        ctx.addY(6);
+        this.docRule(ctx);
+      }
+    });
+
+    this.docApplyHeaderAndFooters(ctx);
+    ctx.doc.save(`Test_Cases_${this.sanitizeFilename(docName)}.pdf`);
+  }
+
+  // ============================================================
+  // 6. DEFECT TRIAGE PDF (Spec 37)
+  // ============================================================
+  downloadDefectPdf(data: any, baseFilename = 'defect-triage', meta?: any): void {
+    const defects: any[] = Array.isArray(data?.defects)
+      ? data.defects
+      : (data ? [data] : []);
+
+    if (defects.length === 0) {
+      alert('No defect triage data available to export.');
+      return;
+    }
+
+    const rawDocName = (meta?.documentName || '').trim();
+    const docName = rawDocName || 'Defect Triage Report';
+    const ctx = this.newDocCtx('Defect Triage', docName, meta);
+
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, `DEFECT TRIAGE REPORT${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Work / Module',   value: meta?.work    || meta?.inputType || 'Defect Triage' },
+      { label: 'Total Defects',   value: String(defects.length) },
+      { label: 'Generated On',    value: new Date().toLocaleDateString() }
+    ]);
+    this.docRule(ctx);
+
+    // 1. Executive Summary
+    if (data.executiveSummary || data.summary) {
+      this.docSection(ctx, '1. Executive Summary');
+      this.docParagraph(ctx, data.executiveSummary || data.summary);
+    }
+
+    // 2. Defect Summary Table (Spec 37)
+    this.docSection(ctx, '2. Defect Summary');
+    this.docTable(ctx, [
+      { header: 'Defect ID',  key: 'defectId',  width: 70, align: 'center' },
+      { header: 'Title / Summary', key: 'title', width: 170 },
+      { header: 'Severity',   key: 'severity',  width: 60, align: 'center' },
+      { header: 'Priority',   key: 'priority',  width: 55, align: 'center' },
+      { header: 'Status',     key: 'status',    width: 65, align: 'center' },
+      { header: 'Component',  key: 'component', width: 60 }
+    ], defects.map((d: any, i: number) => ({
+      defectId:  d.defectId  || `DEF-${String(i + 1).padStart(3, '0')}`,
+      title:     d.title     || d.summary || '',
+      severity:  d.severity  || 'MEDIUM',
+      priority:  d.priority  || 'P2',
+      status:    d.status    || 'OPEN',
+      component: d.component || 'Core'
+    })));
+
+    // 3. Detailed Defect Analysis (Spec 37)
+    this.docSection(ctx, '3. Detailed Defect Analysis');
+    defects.forEach((defect: any, idx: number) => {
+      const defId = defect.defectId || `DEF-${String(idx + 1).padStart(3, '0')}`;
+      const defTitle = defect.title || defect.summary || `Defect ${idx + 1}`;
+
+      this.docSubSection(ctx, `3.${idx + 1}  [${defId}] ${defTitle}`);
+      this.docInlineLabel(ctx, 'Severity',   defect.severity   || 'MEDIUM');
+      this.docInlineLabel(ctx, 'Priority',   defect.priority   || 'P2');
+      this.docInlineLabel(ctx, 'Status',     defect.status     || 'OPEN');
+      this.docInlineLabel(ctx, 'Component',  defect.component  || '');
+      if (defect.location) this.docInlineLabel(ctx, 'Location', defect.location);
+
+      // Probable Root Cause
+      const rc = defect.probableRootCause || defect.rootCause || '';
+      if (rc) {
+        this.docLabelLine(ctx, 'Probable Root Cause');
+        this.docParagraph(ctx, rc, 10);
+      }
+
+      // Impact
+      if (defect.impact) {
+        this.docLabelLine(ctx, 'Impact');
+        this.docParagraph(ctx, defect.impact, 10);
+      }
+
+      // Steps to Reproduce / Trigger (Numbered list, Spec 13)
+      const trigger = defect.trigger || defect.stepsToReproduce || '';
+      if (trigger) {
+        this.docLabelLine(ctx, 'Trigger / Steps to Reproduce');
+        const steps = Array.isArray(trigger) ? trigger : [trigger];
+        steps.forEach((s: any, si: number) => this.docNumbered(ctx, si + 1, this.toText(s)));
+      }
+
+      // Suggested Fix (Monospace code block, Spec 33)
+      const fix = defect.fix || defect.suggestedFix || '';
+      if (fix) {
+        this.docCodeBlock(ctx, fix, 'Recommended Fix');
+      }
+
+      // Evidence & Stack Trace (Monospace block, Spec 33 & 37)
+      const evidence = defect.evidence || defect.stackTrace || '';
+      if (evidence) {
+        this.docCodeBlock(ctx, evidence, 'Evidence & Stack Trace Analysis');
+      }
+
+      if (idx < defects.length - 1) {
+        ctx.addY(8);
+        this.docRule(ctx);
+      }
+    });
+
+    this.docApplyHeaderAndFooters(ctx);
+    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+  }
+
+  // ============================================================
+  // 7. RELEASE NOTES PDF (Spec 38)
+  // ============================================================
+  downloadReleaseNotePdf(data: any, baseFilename = 'release-notes', meta?: any): void {
+    const rawDocName = (meta?.documentName || data?.productName || '').trim();
+    const version = data?.version || data?.releaseVersion || '1.0.0';
+    const docName = rawDocName || `Release Notes v${version}`;
+    const ctx = this.newDocCtx('Release Notes', docName, meta);
+
+    // Title & Aligned Metadata Block
+    this.docTitle(ctx, `RELEASE NOTES — VERSION ${version}`);
+    this.docMetaBlock(ctx, [
+      { label: 'Project Name',    value: meta?.project || data?.productName || 'Enterprise AI' },
+      { label: 'Release Version', value: version },
+      { label: 'Release Date',    value: data?.releaseDate || new Date().toLocaleDateString() },
+      { label: 'Generated On',    value: new Date().toLocaleDateString() }
+    ]);
+    this.docRule(ctx);
+
+    let secIdx = 1;
+
+    // 1. Release Overview
+    const summary = data?.summary || data?.executiveSummary || data?.overview || '';
+    if (summary) {
+      this.docSection(ctx, `${secIdx++}. Release Overview`);
+      this.docParagraph(ctx, summary);
+    }
+
+    // 2. New Features (Spec 38: Title & Description per feature)
+    const newFeatures: any[] = Array.isArray(data?.newFeatures) ? data.newFeatures : [];
+    if (newFeatures.length > 0) {
+      this.docSection(ctx, `${secIdx++}. New Features`);
+      newFeatures.forEach((feat: any, fi: number) => {
+        if (typeof feat === 'object' && feat !== null) {
+          const fTitle = feat.title || feat.name || `Feature ${fi + 1}`;
+          const fDesc = feat.description || feat.desc || '';
+          this.docSubSection(ctx, `${fi + 1}. ${fTitle}`);
+          if (fDesc) this.docParagraph(ctx, `Description: ${fDesc}`, 12);
+        } else {
+          this.docNumbered(ctx, fi + 1, this.toText(feat));
+        }
+      });
+      ctx.addY(6);
+    }
+
+    // 3. Enhancements & Improvements
+    const improvements: any[] = Array.isArray(data?.improvements) ? data.improvements : [];
+    if (improvements.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Enhancements & Improvements`);
+      improvements.forEach((imp: any) => this.docBullet(ctx, this.toText(imp)));
+      ctx.addY(6);
+    }
+
+    // 4. Bug Fixes
+    const bugFixes: any[] = Array.isArray(data?.bugFixes) ? data.bugFixes : [];
+    if (bugFixes.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Bug Fixes`);
+      bugFixes.forEach((bf: any) => this.docBullet(ctx, this.toText(bf)));
+      ctx.addY(6);
+    }
+
+    // 5. Breaking Changes
+    const breakingChanges: any[] = Array.isArray(data?.breakingChanges) ? data.breakingChanges : [];
+    if (breakingChanges.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Breaking Changes`);
+      breakingChanges.forEach((bc: any) => this.docBullet(ctx, this.toText(bc)));
+      ctx.addY(6);
+    }
+
+    // 6. Known Issues & Workarounds
+    const knownIssues: any[] = Array.isArray(data?.knownIssues) ? data.knownIssues : [];
+    if (knownIssues.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Known Issues & Workarounds`);
+      knownIssues.forEach((ki: any) => this.docBullet(ctx, this.toText(ki)));
+      ctx.addY(6);
+    }
+
+    // 7. Dependencies & Environmental Impact
+    const impact = data?.impact || data?.dependencies || '';
+    if (impact) {
+      this.docSection(ctx, `${secIdx++}. System Impact & Dependencies`);
+      if (Array.isArray(impact)) {
+        impact.forEach((item: any) => this.docBullet(ctx, this.toText(item)));
+      } else {
+        this.docParagraph(ctx, String(impact));
+      }
+      ctx.addY(6);
+    }
+
+    // 8. Deployment & Migration Notes
+    const deploySteps: any[] = Array.isArray(data?.deploymentNotes)
+      ? data.deploymentNotes
+      : (data?.migrationSteps ? (Array.isArray(data.migrationSteps) ? data.migrationSteps : [data.migrationSteps]) : []);
+    if (deploySteps.length > 0) {
+      this.docSection(ctx, `${secIdx++}. Deployment & Migration Notes`);
+      deploySteps.forEach((ds: any, di: number) => this.docNumbered(ctx, di + 1, this.toText(ds)));
+      ctx.addY(6);
+    }
+
+    this.docApplyHeaderAndFooters(ctx);
+    ctx.doc.save(`Release_Notes_v${this.sanitizeFilename(version)}.pdf`);
+  }
+
+  // ============================================================
+  // 8. AUDIT HISTORY PDF (Spec 39: Client-ready, No raw objects)
+  // ============================================================
+  downloadAuditHistoryPdf(logs: any[], meta?: any): void {
+    if (!logs || logs.length === 0) {
+      alert('No audit logs available to export.');
+      return;
+    }
+
+    const ctx = this.newDocCtx('Audit History', 'Audit & History Report', meta);
+
+    // Title & Aligned Metadata Block (Spec 7 & 39)
+    this.docTitle(ctx, 'AUDIT & HISTORY REPORT');
+    this.docMetaBlock(ctx, [
+      { label: 'Project Scope',   value: meta?.projectFilter && meta.projectFilter !== 'ALL' ? meta.projectFilter : 'All Projects' },
+      { label: 'User Filter',     value: meta?.userFilter && meta.userFilter !== 'ALL' ? meta.userFilter : 'All Users' },
+      { label: 'Exported By',     value: meta?.currentUser || 'System' },
+      { label: 'Total Logs',      value: String(logs.length) },
+      { label: 'Generated On',    value: new Date().toLocaleString() }
+    ]);
+    this.docRule(ctx);
+
+    // Section 1: Executive Overview
+    this.docSection(ctx, '1. Executive Overview');
+    const successCount = logs.filter(l => ['SUCCESS', 'ACCEPTED', 'COMPLETED'].includes((l.status || '').toUpperCase())).length;
+    const failCount = logs.length - successCount;
+    this.docParagraph(ctx, `This document provides an official audit trail of user activities, AI generations, and feature executions across the platform. Total recorded transactions: ${logs.length}. Completed/Accepted: ${successCount}. Non-success/Failed: ${failCount}.`);
+
+    // Section 2: Audit Activity Summary Table (Spec 39: S.No, Date, User, Module, Action/Feature, Status)
+    this.docSection(ctx, '2. Activity Summary Matrix');
+    const tableRows = logs.map((log: any, idx: number) => {
+      const d = log.timestamp ? new Date(log.timestamp) : null;
+      const dateStr = d ? `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—';
+      const projDoc = log.projectName ? `${log.projectName}${log.documentName ? ' / ' + log.documentName : ''}` : (log.documentName || '—');
+      return {
+        sno: String(idx + 1),
+        date: dateStr,
+        user: log.userName || 'System',
+        module: log.feature || 'General',
+        project: projDoc,
+        status: log.status || 'COMPLETED',
+        execTime: `${log.executionTimeMs || 0} ms`
+      };
+    });
+
+    this.docTable(ctx, [
+      { header: 'S.No', key: 'sno', width: 30, align: 'center' },
+      { header: 'Date & Time', key: 'date', width: 80, align: 'center' },
+      { header: 'User', key: 'user', width: 55, align: 'center' },
+      { header: 'Module / Feature', key: 'module', width: 85 },
+      { header: 'Project / Document', key: 'project', width: 120 },
+      { header: 'Status', key: 'status', width: 60, align: 'center' },
+      { header: 'Exec Time', key: 'execTime', width: 50, align: 'center' }
+    ], tableRows);
+
+    // Section 3: Detailed Activity Logs (Spec 39: Human-readable, NO raw dumps)
+    this.docSection(ctx, '3. Detailed Transaction Logs');
+    logs.forEach((log: any, idx: number) => {
+      const d = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A';
+      const feature = log.feature || 'Feature Execution';
+
+      this.docSubSection(ctx, `3.${idx + 1}  ${feature} — ${d}`);
+      this.docInlineLabel(ctx, 'User', log.userName || 'System');
+      this.docInlineLabel(ctx, 'Status', log.status || 'COMPLETED');
+      this.docInlineLabel(ctx, 'Execution Duration', `${log.executionTimeMs || 0} ms`);
+      if (log.projectName) this.docInlineLabel(ctx, 'Project', log.projectName);
+      if (log.documentName) this.docInlineLabel(ctx, 'Document', `${log.documentName} (v${log.documentVersion || '1'})`);
+
+      // Input Prompt
+      if (log.input) {
+        this.docLabelLine(ctx, 'Input Context / Query');
+        this.docParagraph(ctx, this.cleanMarkdown(log.input), 10);
+      }
+
+      // Knowledge Sources
+      if (log.retrievedSources && log.retrievedSources.length > 0) {
+        this.docLabelLine(ctx, `Retrieved Knowledge Sources (${log.retrievedSources.length})`);
+        log.retrievedSources.forEach((src: string, si: number) => {
+          this.docNumbered(ctx, si + 1, this.cleanMarkdown(src).substring(0, 180) + '...');
+        });
+        ctx.addY(4);
+      }
+
+      // Generated AI Result (Formatted cleanly, never raw backend dump!)
+      if (log.parsedOutput) {
+        this.docLabelLine(ctx, 'AI Generation Summary');
+        const po = log.parsedOutput;
+        if (po.summary) this.docParagraph(ctx, `Summary: ${this.cleanMarkdown(po.summary)}`, 10);
+        if (po.userStory) this.docParagraph(ctx, `User Story: ${this.cleanMarkdown(po.userStory)}`, 10);
+        if (po.probableRootCause) this.docParagraph(ctx, `Probable Root Cause: ${this.cleanMarkdown(po.probableRootCause)}`, 10);
+        if (po.suggestedFix) this.docCodeBlock(ctx, po.suggestedFix, 'Suggested Fix');
+        if (Array.isArray(po)) {
+          this.docParagraph(ctx, `Generated Array Output: ${po.length} structured records produced.`, 10);
+        }
+      } else if (log.output) {
+        this.docLabelLine(ctx, 'Output Details');
+        this.docParagraph(ctx, this.cleanMarkdown(log.output).substring(0, 350) + '...', 10);
+      }
+
+      if (idx < logs.length - 1) {
+        ctx.addY(6);
+        this.docRule(ctx);
+      }
+    });
+
+    this.docApplyHeaderAndFooters(ctx);
+    ctx.doc.save(`Audit_History_Report_${this.getTimestampSuffix()}.pdf`);
+  }
+
+  // ==========================================
+  // UNIFIED DOCUMENT PDF ROUTER
+  // ==========================================
+  generateDocumentPdf(
+    type: 'USER_STORY' | 'FUNCTIONAL_DESIGN' | 'TECHNICAL_DESIGN' | 'REQUIREMENT' | 'TEST_CASE' | 'DEFECT' | 'RELEASE_NOTE' | 'AUDIT_HISTORY',
+    data: any,
+    meta?: any
+  ): void {
+    if (type === 'USER_STORY') {
+      this.downloadUserStoryPdf(data, meta);
+    } else if (type === 'FUNCTIONAL_DESIGN') {
+      this.downloadFunctionalDesignPdf(data, meta);
+    } else if (type === 'TECHNICAL_DESIGN') {
+      this.downloadTechnicalDesignPdf(data, meta);
+    } else if (type === 'REQUIREMENT') {
+      const items = Array.isArray(data) ? data : (data.requirements || [data]);
+      this.downloadAllRequirementsPdf(items, 'requirements', meta);
+    } else if (type === 'TEST_CASE') {
+      const items = Array.isArray(data) ? data : (data.items || [data]);
+      this.downloadTestCasePdf(items, meta);
+    } else if (type === 'DEFECT') {
+      this.downloadDefectPdf(data, 'defect-triage', meta);
+    } else if (type === 'RELEASE_NOTE') {
+      this.downloadReleaseNotePdf(data, 'release-notes', meta);
+    } else if (type === 'AUDIT_HISTORY') {
+      const logs = Array.isArray(data) ? data : (data.logs || [data]);
+      this.downloadAuditHistoryPdf(logs, meta);
+    }
   }
 
   // ============================================================
@@ -1781,7 +2431,7 @@ export class ExportService {
   }
 
   private toText(item: any): string {
-    if (!item) return '';
+    if (!item && item !== 0) return '';
     if (typeof item === 'string') return item;
     if (typeof item === 'number' || typeof item === 'boolean') return String(item);
     return item.text || item.scenario || item.rule || item.description || item.name ||
@@ -1818,4 +2468,3 @@ export class ExportService {
     window.URL.revokeObjectURL(url);
   }
 }
-
