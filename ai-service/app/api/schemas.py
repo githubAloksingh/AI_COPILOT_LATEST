@@ -180,8 +180,30 @@ class DefectResult(BaseModel):
     priority: str = "P2"
 
 
+class PublicDefectItem(BaseModel):
+    defectId: str = "DEFECT-001"
+    title: str = ""
+    component: str = ""
+    location: str = ""
+    trigger: str = ""
+    rootCause: str = ""
+    impact: str = ""
+    evidence: str = ""
+    investigation: str = ""
+    fix: str = ""
+
+
+class PublicDefectResult(BaseModel):
+    defects: List[PublicDefectItem] = Field(default_factory=list)
+    summary: str = ""
+    probableRootCause: str = ""
+    evidence: str = ""
+    suggestedInvestigation: str = ""
+    suggestedFix: str = ""
+
+
 class DefectAnalyzeResponse(BaseModel):
-    result: DefectResult
+    result: PublicDefectResult
     sources: List[str] = Field(default_factory=list)
     source_details: List[SourceDto] = Field(default_factory=list)
     model: str
