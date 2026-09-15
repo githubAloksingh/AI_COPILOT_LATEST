@@ -30,8 +30,9 @@ IGNORED_EXTENSIONS = {
     ".ttf", ".eot", ".map"
 }
 
-MAX_TOTAL_CHARS = 1024 * 1024 * 1024
+MAX_TOTAL_CHARS = 20 * 1024 * 1024
 MAX_PER_FILE_CHARS = 1 * 1024 * 1024
+MAX_SOURCE_FILES = 2000
 
 
 class ZipParser(DocumentParser):
@@ -121,6 +122,7 @@ class ZipParser(DocumentParser):
                     return 4
 
                 valid_files.sort(key=file_priority)
+                valid_files = valid_files[:MAX_SOURCE_FILES]
 
                 extracted_sources: List[str] = []
                 code_sections: List[str] = []

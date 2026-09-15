@@ -15,12 +15,12 @@ export class ResponseModal implements OnInit, OnChanges {
   @Input() type: 'requirement' | 'testcase' | 'defect' | 'releasenote' | 'userstory' | 'functionaldesign' | 'technicaldesign' = 'requirement';
   @Input() title = 'Generated AI Response';
   @Input() data: any = null;
-  @Input() sources: any[] = [];
+  @Input() sourceDetails: any[] = [];
   @Input() model = 'gemini-3.7-flash';
   @Input() promptVersion = '';
   @Input() executionTimeMs = 0;
   @Input() saving = false;
-  @Input() meta?: { project?: string; inputType?: string; brd?: string; codebase?: string };
+  @Input() meta?: { project?: string; inputType?: string; brd?: string; codebase?: string; documentName?: string; version?: string };
 
   @Output() close = new EventEmitter<void>();
   /** For requirement type: emits all requirements (bulk) */
@@ -913,10 +913,10 @@ export class ResponseModal implements OnInit, OnChanges {
   /** Collects live project/work/version metadata for PDF headers */
   private getPdfMeta(): any {
     return {
-      documentName: this.title || '',
+      documentName: this.meta?.documentName || '',
       project:      this.meta?.project   || '',
       work:         this.meta?.inputType || '',
-      version:      this.meta?.brd       || ''
+      version:      this.meta?.version || ''
     };
   }
 
@@ -1016,30 +1016,6 @@ export class ResponseModal implements OnInit, OnChanges {
     if (!item || typeof item === 'string' || !item.source) return [];
     if (Array.isArray(item.source)) return item.source;
     return [item.source];
-  }
-
-  // ── Source Table Helpers ───────────────────────────────────────────────────
-  /** Return display name for a source entry (object or string) */
-  getSourceDoc(s: any): string {
-    if (!s) return '—';
-    if (typeof s === 'string') return s || '—';
-    return s.file_name || s.fileName || s.document_id || '—';
-  }
-
-  /** Return a readable snippet for a source entry */
-  getSourceSnippet(s: any): string {
-    if (!s) return '—';
-    if (typeof s === 'string') return s.length > 120 ? s.slice(0, 120) + '…' : s;
-    const raw = s.snippet || '';
-    return raw ? (raw.length > 120 ? raw.slice(0, 120) + '…' : raw) : '—';
-  }
-
-  /** Return relevance from score or chunk_index (chunk_index as a proxy) */
-  getSourceRelevance(s: any): string {
-    if (!s || typeof s === 'string') return '—';
-    if (s.relevance_score != null) return (Math.round(s.relevance_score * 100) / 100).toString();
-    if (s.chunk_index != null) return 'Chunk ' + s.chunk_index;
-    return '—';
   }
 
   // ── Array Edit Helpers ─────────────────────────────────────────────────────

@@ -27,6 +27,34 @@
 
     <!-- Scrollable Modal Body -->
     <div class="modal-body">
+      <div class="section-card sources-card" *ngIf="sourceDetails?.length">
+        <h3>Retrieved Knowledge Sources</h3>
+        <p class="source-context-note">Sources retrieved for the current generation context.</p>
+        <div class="sources-table-wrap">
+          <table class="sources-table">
+            <thead>
+              <tr>
+                <th style="width: 44px;">S.No</th>
+                <th>Source</th>
+                <th>Document</th>
+                <th>Project</th>
+                <th>Version</th>
+                <th>Relevance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let source of sourceDetails; let sourceIndex = index">
+                <td>{{ sourceIndex + 1 }}</td>
+                <td>Chunk {{ source.chunk_index ?? sourceIndex }}</td>
+                <td>{{ source.file_name || '-' }}</td>
+                <td>{{ meta?.project || '-' }}</td>
+                <td>{{ meta?.version || '-' }}</td>
+                <td>-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       
       <!-- ======================================================= -->
       <!-- 1. REQUIREMENT / USER STORY VIEW & EDIT -->
@@ -223,14 +251,12 @@
                       <h3>Assumptions</h3>
                       <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(req, 'assumptions')" title="Add Assumption">+ Add</button>
                     </div>
-
                     <p *ngIf="!req.assumptions || req.assumptions.length === 0" class="empty-list-notice">
                       No assumptions added yet.
                     </p>
-
                     <ul class="styled-list" *ngIf="req.assumptions?.length">
                       <li *ngFor="let item of req.assumptions; let j = index">
-                        <span class="bullet-check" style="color: #64748b;">→</span>
+                        <span class="bullet-check" style="color: #64748b;">➔</span>
                         <div class="item-content-wrap">
                           <div *ngIf="!isEditingSection(req.assumptions, j)" class="item-view-row">
                             <span class="item-text">{{ getItemText(item) }}</span>
@@ -357,34 +383,6 @@
                   </ul>
                 </div>
 
-                <!-- Retrieved Knowledge Sources Table -->
-                <div class="section-card sources-card" *ngIf="sources?.length">
-                  <h3>Retrieved Knowledge Sources</h3>
-                  <div class="sources-table-wrap">
-                    <table class="sources-table">
-                      <thead>
-                        <tr>
-                          <th style="width:44px;">S.No</th>
-                          <th style="min-width:200px;">Source</th>
-                          <th style="min-width:160px;">Document</th>
-                          <th style="min-width:120px;">Project</th>
-                          <th style="width:80px;">Version</th>
-                          <th style="width:100px;">Relevance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr *ngFor="let s of sources; let si = index">
-                          <td>{{ si + 1 }}</td>
-                          <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
-                          <td>{{ getSourceDoc(s) }}</td>
-                          <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
-                          <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
-                          <td>{{ getSourceRelevance(s) }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </div>
 
             </ng-container>
@@ -1996,34 +1994,6 @@
             </table>
           </div>
 
-          <!-- Retrieved Knowledge Sources Table -->
-          <div class="section-card sources-card" *ngIf="sources?.length" style="margin-top: 20px;">
-            <h3>Retrieved Knowledge Sources</h3>
-            <div class="sources-table-wrap">
-              <table class="sources-table">
-                <thead>
-                  <tr>
-                    <th style="width:44px;">S.No</th>
-                    <th style="min-width:200px;">Source</th>
-                    <th style="min-width:160px;">Document</th>
-                    <th style="min-width:120px;">Project</th>
-                    <th style="width:80px;">Version</th>
-                    <th style="width:100px;">Relevance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let s of sources; let si = index">
-                    <td>{{ si + 1 }}</td>
-                    <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
-                    <td>{{ getSourceDoc(s) }}</td>
-                    <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
-                    <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
-                    <td>{{ getSourceRelevance(s) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
         <!-- EDIT MODE -->
@@ -2117,34 +2087,6 @@
             <p *ngIf="!isEditingSection(data, 'suggestedInvestigation')">{{ data.suggestedInvestigation }}</p><textarea *ngIf="isEditingSection(data, 'suggestedInvestigation')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
           </div>
 
-          <!-- Retrieved Knowledge Sources Table -->
-          <div class="section-card sources-card" *ngIf="sources?.length">
-            <h3>Retrieved Knowledge Sources</h3>
-            <div class="sources-table-wrap">
-              <table class="sources-table">
-                <thead>
-                  <tr>
-                    <th style="width:44px;">S.No</th>
-                    <th style="min-width:200px;">Source</th>
-                    <th style="min-width:160px;">Document</th>
-                    <th style="min-width:120px;">Project</th>
-                    <th style="width:80px;">Version</th>
-                    <th style="width:100px;">Relevance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let s of sources; let si = index">
-                    <td>{{ si + 1 }}</td>
-                    <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
-                    <td>{{ getSourceDoc(s) }}</td>
-                    <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
-                    <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
-                    <td>{{ getSourceRelevance(s) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
           </ng-container>
         </div>
 

@@ -49,7 +49,6 @@ public class DocumentController {
         Document doc = ingestionService.uploadDocument(projectId, file, title, customType, uploadedBy, version);
         Path temporaryFile = null;
         try {
-            documentService.saveOriginalFile(doc.getId(), file.getBytes());
             String originalFilename = file.getOriginalFilename();
             String suffix = originalFilename != null && originalFilename.contains(".")
                     ? originalFilename.substring(originalFilename.lastIndexOf('.'))

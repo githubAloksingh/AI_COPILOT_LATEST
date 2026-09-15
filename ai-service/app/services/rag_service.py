@@ -60,11 +60,21 @@ class RagService:
     def _build_context(chunks: List[str]) -> str:
         return "\n\n---\n\n".join(str(chunk or "") for chunk in chunks if str(chunk or "").strip())
 
+    def _retrieve_generation_context(self, query: str, document_id=None, top_k=None):
+        chunks, sources = self.retrieval.retrieve_relevant_context(
+            query=query,
+            top_k=top_k,
+            document_id=document_id
+        )
+        if document_id and not chunks:
+            raise ValueError("No relevant source content was found for the selected document.")
+        return chunks, sources
+
     def generate_requirement(self, req: RequirementGenerateRequest) -> RequirementGenerateResponse:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
         top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=combined_query or "requirement functional requirements user stories acceptance criteria",
             top_k=top_k,
             document_id=req.document_id
@@ -91,7 +101,7 @@ class RagService:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
         top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=combined_query or "user story requirement functional requirements acceptance criteria",
             top_k=top_k,
             document_id=req.document_id
@@ -144,7 +154,7 @@ class RagService:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
         top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=combined_query or "functional design workflow actors preconditions validations rules",
             top_k=top_k,
             document_id=req.document_id
@@ -196,7 +206,7 @@ class RagService:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
         top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=combined_query or "technical design architecture apis data model components security",
             top_k=top_k,
             document_id=req.document_id
@@ -348,7 +358,7 @@ class RagService:
         target_doc_id = doc_ids if doc_ids else None
         top_k = 25 if doc_ids else None
 
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=query_text or "test cases functional edge security performance scenarios",
             top_k=top_k,
             document_id=target_doc_id
@@ -415,7 +425,7 @@ class RagService:
         if req.document_id:
             chunks, sources = self.retrieval.retrieve_document_context(req.document_id)
         else:
-            chunks, sources = self.retrieval.retrieve_relevant_context(
+            chunks, sources = self._retrieve_generation_context(
                 query=combined_input or "defect error stacktrace exception root cause fix investigation"
             )
 
@@ -509,7 +519,7 @@ class RagService:
         start_time = time.time()
         query_text = (req.sprintInformation or "").strip()
         document_ids = [doc_id for doc_id in (req.document_id, req.zip_document_id) if doc_id]
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=query_text or "release notes",
             document_id=document_ids or None
         )
@@ -536,7 +546,7 @@ class RagService:
 
     def generate_daily_status(self, req: DailyStatusGenerateRequest) -> DailyStatusGenerateResponse:
         start_time = time.time()
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=req.sprintInformation or "daily scrum standup status updates",
             document_id=req.document_id
         )

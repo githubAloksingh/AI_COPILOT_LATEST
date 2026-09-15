@@ -46,7 +46,7 @@ export class TechnicalDesignComponent implements OnInit {
   // Generated Response Modal State
   isModalOpen = false;
   generatedResult: any = null;
-  sources: any[] = [];
+  sourceDetails: any[] = [];
   model = 'gemini-3.7-flash';
   executionTimeMs = 0;
 
@@ -187,7 +187,7 @@ export class TechnicalDesignComponent implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sources = aiResponse.sources || [];
+          this.sourceDetails = aiResponse.source_details || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
@@ -222,7 +222,6 @@ export class TechnicalDesignComponent implements OnInit {
       model: this.model,
       promptVersion: 'technical-v2',
       executionTimeMs: this.executionTimeMs,
-      sources: this.sources,
       items: (event.requirements || []).map((req: any) => ({
         requirementId: req.requirementId || null,
         title: req.title || '',

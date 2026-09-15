@@ -765,9 +765,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `USER STORY SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Mode',     value: meta?.work    || meta?.inputType || 'User Stories' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -856,9 +856,7 @@ export class ExportService {
     this.docApplyHeaderAndFooters(ctx);
 
     const firstId = list[0]?.userStoryId || list[0]?.requirementId || 'US-001';
-    const filename = list.length === 1
-      ? `User_Story_${this.sanitizeFilename(firstId)}.pdf`
-      : `User_Stories_${this.sanitizeFilename(docName)}_${this.getTimestampSuffix()}.pdf`;
+    const filename = this.buildPdfFilename('User_Story', meta, list.length === 1 ? firstId : docName);
     ctx.doc.save(filename);
   }
 
@@ -875,9 +873,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `FUNCTIONAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Functional Design' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -1036,7 +1034,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Functional_Design_${this.sanitizeFilename(docName)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Functional_Design', meta, docName));
   }
 
   // ============================================================
@@ -1052,9 +1050,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `TECHNICAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',     value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',     value: meta?.project || '-' },
       { label: 'Module / Work',    value: meta?.work    || meta?.inputType || 'Technical Design' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',     value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -1790,7 +1788,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Technical_Design_${this.sanitizeFilename(docName)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Technical_Design', meta, docName));
   }
 
   // ============================================================
@@ -1806,9 +1804,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
-      { label: 'Source Document', value: meta?.documentName || meta?.brd || 'BRD Document' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Project Name',    value: meta?.project || '-' },
+      { label: 'Source Document', value: meta?.documentName || meta?.brd || '-' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -1867,7 +1865,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Requirements', meta, baseFilename));
   }
 
   downloadAllRequirementsPdf(requirements: any[], baseFilename = 'requirements', meta?: any): void {
@@ -1883,8 +1881,8 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
-      { label: 'Source Document', value: meta?.documentName || meta?.brd || 'BRD Document' },
+      { label: 'Project Name',    value: meta?.project || '-' },
+      { label: 'Source Document', value: meta?.documentName || meta?.brd || '-' },
       { label: 'Total Requirements', value: String(requirements.length) },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
@@ -1963,7 +1961,7 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Requirements', meta, baseFilename));
   }
 
   // ============================================================
@@ -1982,9 +1980,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `TEST CASE SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Test Cases' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -2069,7 +2067,7 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Test_Cases_${this.sanitizeFilename(docName)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Test_Cases', meta, docName));
   }
 
   // ============================================================
@@ -2092,7 +2090,7 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `DEFECT TRIAGE REPORT${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Module',   value: meta?.work    || meta?.inputType || 'Defect Triage' },
       { label: 'Total Defects',   value: String(defects.length) },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
@@ -2176,7 +2174,7 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Defect_Triage', meta, baseFilename));
   }
 
   // ============================================================
@@ -2191,7 +2189,7 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `RELEASE NOTES — VERSION ${version}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || data?.productName || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || data?.productName || '-' },
       { label: 'Release Version', value: version },
       { label: 'Release Date',    value: data?.releaseDate || new Date().toLocaleDateString() },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
@@ -2279,7 +2277,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Release_Notes_v${this.sanitizeFilename(version)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Release_Notes', meta, data?.version || version));
   }
 
   // ============================================================
@@ -2356,15 +2354,6 @@ export class ExportService {
         this.docParagraph(ctx, this.cleanMarkdown(log.input), 10);
       }
 
-      // Knowledge Sources
-      if (log.retrievedSources && log.retrievedSources.length > 0) {
-        this.docLabelLine(ctx, `Retrieved Knowledge Sources (${log.retrievedSources.length})`);
-        log.retrievedSources.forEach((src: string, si: number) => {
-          this.docNumbered(ctx, si + 1, this.cleanMarkdown(src).substring(0, 180) + '...');
-        });
-        ctx.addY(4);
-      }
-
       // Generated AI Result (Formatted cleanly, never raw backend dump!)
       if (log.parsedOutput) {
         this.docLabelLine(ctx, 'AI Generation Summary');
@@ -2428,6 +2417,13 @@ export class ExportService {
   private sanitizeFilename(name: string): string {
     if (!name) return 'document';
     return name.replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 50);
+  }
+
+  private buildPdfFilename(outputType: string, meta: any, fallbackDocument: string): string {
+    const parts = [meta?.project, outputType, meta?.documentName || fallbackDocument, meta?.version]
+      .filter((part) => part !== null && part !== undefined && String(part).trim())
+      .map((part) => this.sanitizeFilename(String(part)));
+    return `${parts.length ? parts.join('_') : this.sanitizeFilename(outputType)}.pdf`;
   }
 
   private toText(item: any): string {

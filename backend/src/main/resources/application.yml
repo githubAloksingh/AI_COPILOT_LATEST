@@ -23,8 +23,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: ${MAX_FILE_SIZE_MB:1024}MB
-      max-request-size: ${MAX_REQUEST_SIZE_MB:1100}MB
+      max-file-size: -1
+      max-request-size: -1
       file-size-threshold: 1MB
 
 server:
@@ -32,7 +32,7 @@ server:
   tomcat:
     connection-timeout: 30m
     max-swallow-size: -1
-    max-http-form-post-size: 1153433600
+    max-http-form-post-size: -1
 
 logging:
   level:

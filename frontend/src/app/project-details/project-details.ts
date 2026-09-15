@@ -288,10 +288,16 @@ export class ProjectDetails implements OnInit, OnDestroy {
       this.api.getDocumentFile(docId).subscribe({
         next: (blob: Blob) => {
           const url = URL.createObjectURL(blob);
-          window.open(url, '_blank', 'noopener,noreferrer');
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = doc.fileName || `document-${docId}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
         },
         error: () => {
-          alert('Unable to open the ZIP file from the server.');
+          alert('Unable to download the ZIP file from the server.');
         }
       });
       return;
