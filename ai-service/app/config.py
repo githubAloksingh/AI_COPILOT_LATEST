@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     top_k: int = 5
     max_upload_size_mb: int = 1024
     defect_context_batch_chars: int = 40000
+    defect_context_top_k: int = 1000
     defect_analysis_workers: int = 4
 
     # App

@@ -439,7 +439,14 @@ class RagService:
         start_time = time.time()
         combined_input = f"{req.title or ''}\n{req.description or ''}\n{req.logs or ''}".strip()
         if req.document_id:
-            chunks, sources = self.retrieval.retrieve_document_context(req.document_id)
+            # A large codebase can contain tens of thousands of indexed chunks.
+            # Defect triage should analyze the most relevant evidence, not send
+            # the entire document to Gemini in dozens of concurrent requests.
+            chunks, sources = self.retrieval.retrieve_relevant_context(
+                query=combined_input or "defect error stacktrace exception root cause fix investigation",
+                top_k=max(1, settings.defect_context_top_k),
+                document_id=req.document_id
+            )
         else:
             chunks, sources = self._retrieve_generation_context(
                 query=combined_input or "defect error stacktrace exception root cause fix investigation"
