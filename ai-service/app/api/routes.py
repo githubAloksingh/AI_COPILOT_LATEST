@@ -338,6 +338,11 @@ def generate_release_notes(req: ReleaseNoteGenerateRequest):
         return rag_service.generate_release_notes(req)
     except Exception as e:
         logger.error("Release note generation failed: %s", e, exc_info=True)
+        if "too large" in str(e).lower() or "token" in str(e).lower() or "context" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Release-notes context is too large: {str(e)}"
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Release note generation failed: {str(e)}"

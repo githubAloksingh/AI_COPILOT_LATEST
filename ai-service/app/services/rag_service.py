@@ -207,9 +207,13 @@ class RagService:
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
 
         if req.document_id:
-            chunks, sources = self.retrieval.retrieve_document_context(str(req.document_id))
+            chunks, sources = self.retrieval.retrieve_relevant_context(
+                query=combined_query or "technical design architecture apis data model components security",
+                top_k=500,
+                document_id=req.document_id
+            )
             if not chunks:
-                raise ValueError("No complete source content was found for the selected BRD document.")
+                raise ValueError("No relevant source content was found for the selected BRD document.")
         else:
             top_k = 15
             chunks, sources = self._retrieve_generation_context(
@@ -546,7 +550,11 @@ class RagService:
             chunks = []
             sources = []
             for document_id in document_ids:
-                document_chunks, document_sources = self.retrieval.retrieve_document_context(document_id)
+                document_chunks, document_sources = self.retrieval.retrieve_relevant_context(
+                    query=query_text or "release notes changes features fixes improvements breaking changes known issues",
+                    top_k=max(1, settings.release_context_top_k),
+                    document_id=document_id
+                )
                 chunks.extend(document_chunks)
                 sources.extend(document_sources)
             if not chunks:
@@ -556,7 +564,20 @@ class RagService:
                 query=query_text or "release notes",
                 document_id=None
             )
-        combined_context = self._build_context(chunks)
+
+        bounded_chunks = []
+        context_chars = 0
+        for chunk in chunks:
+            chunk_text = str(chunk or "")
+            if not chunk_text:
+                continue
+            remaining = settings.release_context_max_chars - context_chars
+            if remaining <= 0:
+                break
+            bounded_chunks.append(chunk_text[:remaining])
+            context_chars += min(len(chunk_text), remaining)
+
+        combined_context = self._build_context(bounded_chunks)
 
         prompt = build_release_notes_prompt(
             version=req.version or "1.0.0",
