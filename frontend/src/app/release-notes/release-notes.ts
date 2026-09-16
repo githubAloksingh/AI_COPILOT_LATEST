@@ -51,7 +51,6 @@ export class ReleaseNotes implements OnInit {
   // Generated Result for Modal
   isModalOpen = false;
   generatedResult: any = null;
-  sources: any[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'release-v2';
   executionTimeMs = 0;
@@ -252,7 +251,6 @@ export class ReleaseNotes implements OnInit {
           if (this.generatedResult && !this.generatedResult.version) {
             this.generatedResult.version = this.version;
           }
-          this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'release-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
@@ -285,7 +283,6 @@ export class ReleaseNotes implements OnInit {
       breakingChanges: event.editedData.breakingChanges || [],
       knownIssues: event.editedData.knownIssues || [],
       technicalNotes: event.editedData.technicalNotes || '',
-      sources: this.sources,
       model: this.model,
       promptVersion: this.promptVersion,
       executionTimeMs: this.executionTimeMs,

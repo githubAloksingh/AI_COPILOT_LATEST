@@ -122,21 +122,6 @@
                   <div class="input-box">{{ log.input }}</div>
                 </div>
 
-                <!-- Retrieved Context Sources -->
-                <div class="detail-section" *ngIf="log.retrievedSources && log.retrievedSources.length > 0">
-                  <div class="section-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    Retrieved Knowledge Sources ({{ log.retrievedSources.length }})
-                  </div>
-                  <div class="sources-list">
-                    <div class="source-item" *ngFor="let src of log.retrievedSources; let i = index">
-                      <span class="src-index">#{{ i + 1 }}</span> {{ src | slice:0:150 }}...
-                    </div>
-                  </div>
-                </div>
-
                 <!-- Structured Output Section -->
                 <div class="detail-section">
                   <div class="section-label output-label">

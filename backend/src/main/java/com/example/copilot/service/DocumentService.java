@@ -90,18 +90,7 @@ public class DocumentService {
         }
 
         if (bytes == null || bytes.length == 0) {
-            String storedPath = doc.getOriginalFilePath();
-            if (storedPath != null && !storedPath.isBlank()) {
-                try {
-                    Path path = Path.of(storedPath).toAbsolutePath().normalize();
-                    Path uploadDirectory = Path.of("uploads").toAbsolutePath().normalize();
-                    if (path.startsWith(uploadDirectory) && Files.isRegularFile(path)) {
-                        return Files.readAllBytes(path);
-                    }
-                } catch (IOException e) {
-                    log.warn("Could not read original file for document {}: {}", id, e.getMessage());
-                }
-            }
+            bytes = readStoredOriginalFile(id, doc);
         }
 
         if (bytes == null || bytes.length == 0) {
@@ -119,25 +108,68 @@ public class DocumentService {
     }
 
     private byte[] migrateLegacyFileToDatabase(Long id, Document doc) {
-        Path directory = Path.of("uploads").toAbsolutePath().normalize();
-        try (java.util.stream.Stream<Path> files = Files.list(directory)) {
-            Path legacyFile = files
-                    .filter(path -> path.getFileName().toString().startsWith("document-" + id + "-"))
-                    .filter(path -> Files.isRegularFile(path) && Files.isReadable(path))
-                    .findFirst()
-                    .orElse(null);
-            if (legacyFile != null) {
-                byte[] bytes = Files.readAllBytes(legacyFile);
-                doc.setFileData(bytes);
-                doc.setOriginalFilePath(null);
-                documentRepository.save(doc);
-                log.info("Migrated legacy original file to MySQL for document ID {} ({} bytes)", id, bytes.length);
-                return bytes;
+        for (Path directory : uploadDirectories()) {
+            if (!Files.isDirectory(directory)) {
+                continue;
             }
-        } catch (IOException e) {
-            log.warn("Could not migrate legacy original file for document {}: {}", id, e.getMessage());
+            try (java.util.stream.Stream<Path> files = Files.list(directory)) {
+                Path legacyFile = files
+                        .filter(path -> isOriginalFileName(path, id))
+                        .filter(path -> Files.isRegularFile(path) && Files.isReadable(path))
+                        .findFirst()
+                        .orElse(null);
+                if (legacyFile != null) {
+                    byte[] bytes = Files.readAllBytes(legacyFile);
+                    doc.setFileData(bytes);
+                    doc.setOriginalFilePath(null);
+                    documentRepository.save(doc);
+                    log.info("Migrated legacy original file to MySQL for document ID {} ({} bytes)", id, bytes.length);
+                    return bytes;
+                }
+            } catch (IOException e) {
+                log.warn("Could not migrate legacy original file for document {} from {}: {}", id, directory, e.getMessage());
+            }
         }
         return null;
+    }
+
+    private byte[] readStoredOriginalFile(Long id, Document doc) {
+        String storedPath = doc.getOriginalFilePath();
+        if (storedPath == null || storedPath.isBlank()) {
+            return null;
+        }
+
+        try {
+            Path storedFile = Path.of(storedPath).toAbsolutePath().normalize();
+            if (Files.isRegularFile(storedFile) && Files.isReadable(storedFile)) {
+                return Files.readAllBytes(storedFile);
+            }
+
+            Path fileName = storedFile.getFileName();
+            if (fileName != null) {
+                for (Path directory : uploadDirectories()) {
+                    Path candidate = directory.resolve(fileName).normalize();
+                    if (candidate.startsWith(directory) && Files.isRegularFile(candidate)) {
+                        return Files.readAllBytes(candidate);
+                    }
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            log.warn("Could not read original file for document {}: {}", id, e.getMessage());
+        }
+        return null;
+    }
+
+    private List<Path> uploadDirectories() {
+        return List.of(
+                Path.of("uploads").toAbsolutePath().normalize(),
+                Path.of("backend", "uploads").toAbsolutePath().normalize());
+    }
+
+    private boolean isOriginalFileName(Path path, Long documentId) {
+        String name = path.getFileName().toString();
+        return name.startsWith("document-" + documentId + "-")
+                || name.startsWith("document-" + documentId + ".");
     }
 
     public Resource getOriginalFileResource(Long id) {

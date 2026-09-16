@@ -15,12 +15,11 @@ export class ResponseModal implements OnInit, OnChanges {
   @Input() type: 'requirement' | 'testcase' | 'defect' | 'releasenote' | 'userstory' | 'functionaldesign' | 'technicaldesign' = 'requirement';
   @Input() title = 'Generated AI Response';
   @Input() data: any = null;
-  @Input() sources: any[] = [];
   @Input() model = 'gemini-3.7-flash';
   @Input() promptVersion = '';
   @Input() executionTimeMs = 0;
   @Input() saving = false;
-  @Input() meta?: { project?: string; inputType?: string; brd?: string; codebase?: string };
+  @Input() meta?: { project?: string; inputType?: string; brd?: string; codebase?: string; documentName?: string; version?: string };
 
   @Output() close = new EventEmitter<void>();
   /** For requirement type: emits all requirements (bulk) */
@@ -85,10 +84,48 @@ export class ResponseModal implements OnInit, OnChanges {
 
   initEditableCopy() {
     if (this.data) {
+      this.normalizeTechnicalDesign(this.data?.technicalDesign);
       this.editableData = JSON.parse(JSON.stringify(this.data));
       const list = this.requirementList;
       this.editableRequirements = JSON.parse(JSON.stringify(list));
       this.collapsedPanels = list.map(() => false);
+    }
+  }
+
+  hasMeaningfulTechnicalContent(value: any): boolean {
+    if (value === null || value === undefined || value === '') return false;
+    if (typeof value === 'string') return value.trim() !== '' && value.trim().toLowerCase() !== 'not specified in brd';
+    if (typeof value !== 'object') return true;
+    if (Array.isArray(value)) return value.some(item => this.hasMeaningfulTechnicalContent(item));
+    return Object.values(value).some(item => this.hasMeaningfulTechnicalContent(item));
+  }
+
+  private normalizeTechnicalDesign(technicalDesign: any): void {
+    if (!technicalDesign || typeof technicalDesign !== 'object') return;
+    for (const [key, value] of Object.entries(technicalDesign)) {
+      if (Array.isArray(value)) {
+        if (key === 'dataModel') {
+          technicalDesign[key] = value.filter((entity: any) =>
+            this.hasMeaningfulTechnicalContent(entity?.entity) ||
+            (Array.isArray(entity?.fields) && entity.fields.some((field: any) =>
+              this.hasMeaningfulTechnicalContent(field?.name) ||
+              this.hasMeaningfulTechnicalContent(field?.type) ||
+              this.hasMeaningfulTechnicalContent(field?.description)
+            ))
+          );
+          technicalDesign[key].forEach((entity: any) => {
+            if (Array.isArray(entity.fields)) {
+              entity.fields = entity.fields.filter((field: any) =>
+                this.hasMeaningfulTechnicalContent(field?.name) ||
+                this.hasMeaningfulTechnicalContent(field?.type) ||
+                this.hasMeaningfulTechnicalContent(field?.description)
+              );
+            }
+          });
+        } else {
+          technicalDesign[key] = value.filter(item => this.hasMeaningfulTechnicalContent(item));
+        }
+      }
     }
   }
 
@@ -913,10 +950,10 @@ export class ResponseModal implements OnInit, OnChanges {
   /** Collects live project/work/version metadata for PDF headers */
   private getPdfMeta(): any {
     return {
-      documentName: this.title || '',
+      documentName: this.meta?.documentName || '',
       project:      this.meta?.project   || '',
       work:         this.meta?.inputType || '',
-      version:      this.meta?.brd       || ''
+      version:      this.meta?.version || ''
     };
   }
 
@@ -1016,30 +1053,6 @@ export class ResponseModal implements OnInit, OnChanges {
     if (!item || typeof item === 'string' || !item.source) return [];
     if (Array.isArray(item.source)) return item.source;
     return [item.source];
-  }
-
-  // ── Source Table Helpers ───────────────────────────────────────────────────
-  /** Return display name for a source entry (object or string) */
-  getSourceDoc(s: any): string {
-    if (!s) return '—';
-    if (typeof s === 'string') return s || '—';
-    return s.file_name || s.fileName || s.document_id || '—';
-  }
-
-  /** Return a readable snippet for a source entry */
-  getSourceSnippet(s: any): string {
-    if (!s) return '—';
-    if (typeof s === 'string') return s.length > 120 ? s.slice(0, 120) + '…' : s;
-    const raw = s.snippet || '';
-    return raw ? (raw.length > 120 ? raw.slice(0, 120) + '…' : raw) : '—';
-  }
-
-  /** Return relevance from score or chunk_index (chunk_index as a proxy) */
-  getSourceRelevance(s: any): string {
-    if (!s || typeof s === 'string') return '—';
-    if (s.relevance_score != null) return (Math.round(s.relevance_score * 100) / 100).toString();
-    if (s.chunk_index != null) return 'Chunk ' + s.chunk_index;
-    return '—';
   }
 
   // ── Array Edit Helpers ─────────────────────────────────────────────────────

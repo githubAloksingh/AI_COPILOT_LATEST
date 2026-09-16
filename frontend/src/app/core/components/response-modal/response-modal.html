@@ -27,7 +27,6 @@
 
     <!-- Scrollable Modal Body -->
     <div class="modal-body">
-      
       <!-- ======================================================= -->
       <!-- 1. REQUIREMENT / USER STORY VIEW & EDIT -->
       <!-- ======================================================= -->
@@ -223,14 +222,12 @@
                       <h3>Assumptions</h3>
                       <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(req, 'assumptions')" title="Add Assumption">+ Add</button>
                     </div>
-
                     <p *ngIf="!req.assumptions || req.assumptions.length === 0" class="empty-list-notice">
                       No assumptions added yet.
                     </p>
-
                     <ul class="styled-list" *ngIf="req.assumptions?.length">
                       <li *ngFor="let item of req.assumptions; let j = index">
-                        <span class="bullet-check" style="color: #64748b;">→</span>
+                        <span class="bullet-check" style="color: #64748b;">➔</span>
                         <div class="item-content-wrap">
                           <div *ngIf="!isEditingSection(req.assumptions, j)" class="item-view-row">
                             <span class="item-text">{{ getItemText(item) }}</span>
@@ -357,34 +354,6 @@
                   </ul>
                 </div>
 
-                <!-- Retrieved Knowledge Sources Table -->
-                <div class="section-card sources-card" *ngIf="sources?.length">
-                  <h3>Retrieved Knowledge Sources</h3>
-                  <div class="sources-table-wrap">
-                    <table class="sources-table">
-                      <thead>
-                        <tr>
-                          <th style="width:44px;">S.No</th>
-                          <th style="min-width:200px;">Source</th>
-                          <th style="min-width:160px;">Document</th>
-                          <th style="min-width:120px;">Project</th>
-                          <th style="width:80px;">Version</th>
-                          <th style="width:100px;">Relevance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr *ngFor="let s of sources; let si = index">
-                          <td>{{ si + 1 }}</td>
-                          <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
-                          <td>{{ getSourceDoc(s) }}</td>
-                          <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
-                          <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
-                          <td>{{ getSourceRelevance(s) }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </div>
 
             </ng-container>
@@ -1073,7 +1042,7 @@
           </div>
 
           <!-- 3. COMPONENT-LEVEL DESIGN -->
-          <div class="section-card" *ngIf="td.components?.length || true">
+          <div class="section-card" *ngIf="td.components?.length">
             <div class="section-heading">
               <h3>3. Component-Level Design</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewComponent(td)" title="Add Component">+ Add Component</button>
@@ -1109,7 +1078,7 @@
           </div>
 
           <!-- 4. FRONTEND TECHNICAL DESIGN -->
-          <div class="section-card" *ngIf="td.frontendDesign">
+          <div class="section-card" *ngIf="hasMeaningfulTechnicalContent(td.frontendDesign)">
             <div class="section-heading">
               <h3>4. Frontend Technical Design</h3>
             </div>
@@ -1160,7 +1129,7 @@
           </div>
 
           <!-- 5. BACKEND TECHNICAL DESIGN -->
-          <div class="section-card" *ngIf="td.backendDesign">
+          <div class="section-card" *ngIf="hasMeaningfulTechnicalContent(td.backendDesign)">
             <div class="section-heading">
               <h3>5. Backend Technical Design</h3>
             </div>
@@ -1207,7 +1176,7 @@
           </div>
 
           <!-- 6. APIS & API CONTRACT -->
-          <div class="section-card" *ngIf="td.apis?.length || true">
+          <div class="section-card" *ngIf="td.apis?.length">
             <div class="section-heading">
               <h3>6. API Contract</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewApi(td)" title="Add API">+ Add API</button>
@@ -1319,7 +1288,7 @@
           </div>
 
           <!-- 7. DATA MODEL / DATABASE DESIGN -->
-          <div class="section-card" *ngIf="td.dataModel?.length || true">
+          <div class="section-card" *ngIf="td.dataModel?.length">
             <div class="section-heading">
               <h3>7. Data Model / Database Design</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewDataModelEntity(td)" title="Add Entity">+ Add Entity</button>
@@ -1398,7 +1367,7 @@
           </div>
 
           <!-- 8. DATA FLOW -->
-          <div class="section-card" *ngIf="td.dataFlow?.length || true">
+          <div class="section-card" *ngIf="td.dataFlow?.length">
             <div class="section-heading">
               <h3>8. End-to-End Data Flow</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewDataFlowStep(td)" title="Add Data Flow Step">+ Add Step</button>
@@ -1578,7 +1547,7 @@
           </div>
 
           <!-- 12. ERROR HANDLING -->
-          <div class="section-card" *ngIf="td.errorHandling?.length || true">
+          <div class="section-card" *ngIf="td.errorHandling?.length">
             <div class="section-heading">
               <h3>12. Error Handling</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewErrorHandling(td)" title="Add Error Scenario">+ Add Scenario</button>
@@ -1618,7 +1587,7 @@
           </div>
 
           <!-- 13. EDGE CASES -->
-          <div class="section-card" *ngIf="td.edgeCases?.length || true">
+          <div class="section-card" *ngIf="td.edgeCases?.length">
             <div class="section-heading">
               <h3>13. Edge Cases</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewEdgeCase(td)" title="Add Edge Case">+ Add Edge Case</button>
@@ -1728,7 +1697,7 @@
             </div>
 
             <!-- Assumptions -->
-            <div class="section-card" *ngIf="td.assumptions?.length || true">
+            <div class="section-card" *ngIf="td.assumptions?.length">
               <div class="section-heading">
                 <h3>17. Assumptions</h3>
                 <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(td, 'assumptions')" title="Add Assumption">+ Add</button>
@@ -1760,7 +1729,7 @@
           </div>
 
           <!-- 18. IMPLEMENTATION PLAN -->
-          <div class="section-card" *ngIf="td.implementationPlan?.length || true">
+          <div class="section-card" *ngIf="td.implementationPlan?.length">
             <div class="section-heading">
               <h3>18. Implementation Plan</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewImplementationStep(td)" title="Add Step">+ Add Step</button>
@@ -1888,7 +1857,7 @@
           <!-- 22. TECHNICAL RISKS & DECISIONS -->
           <div class="grid-2-col">
             <!-- Technical Risks -->
-            <div class="section-card" *ngIf="td.technicalRisks?.length || true">
+            <div class="section-card" *ngIf="td.technicalRisks?.length">
               <div class="section-heading">
                 <h3>22. Technical Risks</h3>
                 <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewTechRisk(td)" title="Add Risk">+ Add</button>
@@ -1914,7 +1883,7 @@
             </div>
 
             <!-- Technical Decisions -->
-            <div class="section-card" *ngIf="td.technicalDecisions?.length || true">
+            <div class="section-card" *ngIf="td.technicalDecisions?.length">
               <div class="section-heading">
                 <h3>23. Technical Decisions</h3>
                 <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewTechDecision(td)" title="Add Decision">+ Add</button>
@@ -1996,34 +1965,6 @@
             </table>
           </div>
 
-          <!-- Retrieved Knowledge Sources Table -->
-          <div class="section-card sources-card" *ngIf="sources?.length" style="margin-top: 20px;">
-            <h3>Retrieved Knowledge Sources</h3>
-            <div class="sources-table-wrap">
-              <table class="sources-table">
-                <thead>
-                  <tr>
-                    <th style="width:44px;">S.No</th>
-                    <th style="min-width:200px;">Source</th>
-                    <th style="min-width:160px;">Document</th>
-                    <th style="min-width:120px;">Project</th>
-                    <th style="width:80px;">Version</th>
-                    <th style="width:100px;">Relevance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let s of sources; let si = index">
-                    <td>{{ si + 1 }}</td>
-                    <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
-                    <td>{{ getSourceDoc(s) }}</td>
-                    <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
-                    <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
-                    <td>{{ getSourceRelevance(s) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
         <!-- EDIT MODE -->
@@ -2117,34 +2058,6 @@
             <p *ngIf="!isEditingSection(data, 'suggestedInvestigation')">{{ data.suggestedInvestigation }}</p><textarea *ngIf="isEditingSection(data, 'suggestedInvestigation')" [(ngModel)]="sectionDraft" class="inline-textarea" rows="5"></textarea>
           </div>
 
-          <!-- Retrieved Knowledge Sources Table -->
-          <div class="section-card sources-card" *ngIf="sources?.length">
-            <h3>Retrieved Knowledge Sources</h3>
-            <div class="sources-table-wrap">
-              <table class="sources-table">
-                <thead>
-                  <tr>
-                    <th style="width:44px;">S.No</th>
-                    <th style="min-width:200px;">Source</th>
-                    <th style="min-width:160px;">Document</th>
-                    <th style="min-width:120px;">Project</th>
-                    <th style="width:80px;">Version</th>
-                    <th style="width:100px;">Relevance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let s of sources; let si = index">
-                    <td>{{ si + 1 }}</td>
-                    <td class="source-snippet-cell">{{ getSourceSnippet(s) }}</td>
-                    <td>{{ getSourceDoc(s) }}</td>
-                    <td>{{ (s?.project || s?.meta?.project || '—') }}</td>
-                    <td>{{ (s?.version || s?.meta?.version || '—') }}</td>
-                    <td>{{ getSourceRelevance(s) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
           </ng-container>
         </div>
 
@@ -2248,9 +2161,6 @@
           <button type="button" class="btn btn-secondary btn-icon-action" (click)="downloadCsv()" [disabled]="saving" title="Download CSV (.csv)" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
             📄
           </button>
-          <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadTestCasePdf()" [disabled]="saving" title="Download PDF" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
-            📥
-          </button>
         </ng-container>
         <ng-container *ngIf="type === 'defect'">
           <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadDefectExcel()" [disabled]="saving" title="Excel" aria-label="Excel" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
@@ -2258,9 +2168,6 @@
           </button>
           <button type="button" class="btn btn-secondary btn-icon-action" (click)="downloadDefectCsv()" [disabled]="saving" title="CSV" aria-label="CSV" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
             📄
-          </button>
-          <button type="button" class="btn btn-primary btn-icon-action" (click)="downloadDefectPdf()" [disabled]="saving" title="Download PDF" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; font-size: 1.2rem;">
-            📥
           </button>
         </ng-container>
         <ng-container *ngIf="type !== 'testcase' && type !== 'defect'">
@@ -2344,9 +2251,6 @@
         <button type="button" class="btn btn-secondary btn-download" (click)="downloadCsv()">
           📄 Download CSV
         </button>
-        <button type="button" class="btn btn-primary btn-download" (click)="downloadTestCasePdf()">
-          📥 Download PDF
-        </button>
       </ng-container>
       <ng-container *ngIf="type === 'defect'">
         <button type="button" class="btn btn-primary btn-download" (click)="downloadDefectExcel()">
@@ -2354,9 +2258,6 @@
         </button>
         <button type="button" class="btn btn-secondary btn-download" (click)="downloadDefectCsv()">
           📄 Download CSV
-        </button>
-        <button type="button" class="btn btn-primary btn-download" (click)="downloadDefectPdf()">
-          📥 Download PDF
         </button>
       </ng-container>
       <ng-container *ngIf="type !== 'testcase' && type !== 'defect'">

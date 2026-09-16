@@ -197,7 +197,7 @@ export class ExportService {
     const checkPageBreak = (need: number): void => {
       if (y + need > pageHeight - margin - 35) {
         doc.addPage(orientation);
-        y = margin + 20; // Extra room for running top header on pages > 1
+        y = margin + 8; // Compact top spacing to use page space efficiently
       }
     };
 
@@ -215,7 +215,7 @@ export class ExportService {
     const { doc, margin, contentWidth } = ctx;
     const cleanT = this.cleanMarkdown(title).toUpperCase();
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
+    doc.setFontSize(21);
     doc.setTextColor(15, 23, 42); // Deep slate
     const lines = doc.splitTextToSize(cleanT, contentWidth);
     doc.text(lines, margin, ctx.getY() + 18);
@@ -282,11 +282,11 @@ export class ExportService {
 
   /** Main Section Heading (16 pt Bold, Specs 4, 5, 8, 9, with orphan prevention Specs 43 & 44) */
   private docSection(ctx: any, title: string): void {
-    ctx.checkPageBreak(55); // Lookahead ensures heading is NEVER left alone at bottom of page
+    ctx.checkPageBreak(48); // Keep headings tight with their content while preserving readability
     const { doc, margin, contentWidth } = ctx;
     const cleanT = this.cleanMarkdown(title);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
+    doc.setFontSize(15.5);
     doc.setTextColor(15, 23, 42);
     const lines = doc.splitTextToSize(cleanT, contentWidth);
     doc.text(lines, margin, ctx.getY() + 14);
@@ -295,11 +295,11 @@ export class ExportService {
 
   /** Subsection Heading (13 pt Bold, Specs 4, 5, 8, 9) */
   private docSubSection(ctx: any, title: string): void {
-    ctx.checkPageBreak(40);
+    ctx.checkPageBreak(36);
     const { doc, margin, contentWidth } = ctx;
     const cleanT = this.cleanMarkdown(title);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
+    doc.setFontSize(12.5);
     doc.setTextColor(30, 41, 59);
     const lines = doc.splitTextToSize(cleanT, contentWidth);
     doc.text(lines, margin, ctx.getY() + 11);
@@ -325,7 +325,7 @@ export class ExportService {
     const { doc, margin, contentWidth } = ctx;
     const cleanT = this.cleanMarkdown(text);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
+    doc.setFontSize(9.8);
     doc.setTextColor(30, 41, 59);
 
     const avail = contentWidth - indent;
@@ -472,7 +472,7 @@ export class ExportService {
     lines.forEach((line: string) => {
       if (lineY > ctx.pageHeight - ctx.margin - 35) {
         ctx.doc.addPage(ctx.orientation);
-        ctx.setY(ctx.margin + 20);
+        ctx.setY(ctx.margin + 8);
         lineY = ctx.getY() + 10;
       }
       doc.text(line, margin + 9, lineY);
@@ -485,96 +485,90 @@ export class ExportService {
   /** Professional Flowchart / Visual Architecture Diagram (Specs 28–32) */
   private docFlowchart(ctx: any, title: string, steps: { label: string; desc?: string; component?: string }[]): void {
     if (!steps || steps.length === 0) return;
-    const { doc, margin, contentWidth } = ctx;
+    const { doc, margin, contentWidth, pageHeight } = ctx;
 
     const boxW = Math.min(340, contentWidth - 30);
     const boxX = margin + (contentWidth - boxW) / 2;
-    const padY = 6;
     const arrowH = 18;
 
-    // Calculate box heights
+    // Measure the complete diagram before drawing so it can stay on one page.
     const boxHeights: number[] = steps.map(s => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       const descLines = s.desc ? doc.splitTextToSize(this.cleanMarkdown(s.desc), boxW - 18) : [];
-      return Math.max(34, 18 + (descLines.length * 11) + (padY * 2));
+      return Math.max(34, 18 + (descLines.length * 11) + 12);
     });
+    const baseHeight = 28 + boxHeights.reduce((sum, height) => sum + height, 0) + ((steps.length - 1) * arrowH) + 14;
+    const bottomY = pageHeight - margin - 35;
+    let startY = ctx.getY();
 
-    const totalDiagramHeight = 28 + boxHeights.reduce((sum, h) => sum + h + arrowH, 0) - arrowH + 14;
+    // Keep the diagram with the section whenever it can fit on the current page,
+    // but avoid forcing a blank page for modest spacing overhead.
+    if (startY + baseHeight > bottomY - 18) {
+      doc.addPage(ctx.orientation);
+      ctx.setY(margin + 8);
+      startY = ctx.getY();
+    }
 
-    // Page break protection: move whole diagram to next page if it doesn't fit (Spec 32)
-    ctx.checkPageBreak(Math.min(totalDiagramHeight, 420));
+    const availableHeight = bottomY - startY;
+    const scale = Math.min(1, availableHeight / baseHeight);
+    const scaledBoxW = boxW * scale;
+    const scaledBoxX = margin + (contentWidth - scaledBoxW) / 2;
+    const scaledArrowH = arrowH * scale;
+    const scaledBoxHeights = boxHeights.map(height => height * scale);
+    const diagramHeight = baseHeight * scale;
 
-    const startY = ctx.getY();
-
-    // Light subtle background container (Spec 29)
-    doc.setFillColor(248, 250, 252); // #f8fafc
-    doc.setDrawColor(203, 213, 225); // #cbd5e1
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
     doc.setLineWidth(0.75);
-    doc.roundedRect(margin, startY, contentWidth, totalDiagramHeight, 6, 6, 'FD');
+    doc.roundedRect(margin, startY, contentWidth, diagramHeight, 6, 6, 'FD');
 
-    // Title inside container
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(Math.max(7, 11 * scale));
     doc.setTextColor(15, 23, 42);
-    doc.text(this.cleanMarkdown(title), margin + 14, startY + 16);
+    doc.text(this.cleanMarkdown(title), margin + (14 * scale), startY + (16 * scale));
 
-    let curY = startY + 28;
+    let curY = startY + (28 * scale);
+    steps.forEach((step, index) => {
+      const bH = scaledBoxHeights[index];
+      const innerPad = Math.max(3, 9 * scale);
 
-    steps.forEach((step, idx) => {
-      const bH = boxHeights[idx];
-
-      // Draw box card (Spec 30)
       doc.setFillColor(255, 255, 255);
-      doc.setDrawColor(2, 132, 199); // #0284c7 accent border
-      doc.setLineWidth(1);
-      doc.roundedRect(boxX, curY, boxW, bH, 4, 4, 'FD');
+      doc.setDrawColor(2, 132, 199);
+      doc.setLineWidth(Math.max(0.5, scale));
+      doc.roundedRect(scaledBoxX, curY, scaledBoxW, bH, 4 * scale, 4 * scale, 'FD');
 
-      // Step Tag / Component Header
       const compLabel = step.component ? `[${this.cleanMarkdown(step.component)}] ` : '';
       const stepTitle = `${compLabel}${this.cleanMarkdown(step.label)}`;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9.5);
+      doc.setFontSize(Math.max(5.5, 9.5 * scale));
       doc.setTextColor(2, 132, 199);
-      doc.text(stepTitle, boxX + 9, curY + 13);
+      doc.text(stepTitle, scaledBoxX + innerPad, curY + (13 * scale));
 
-      // Description text
       if (step.desc) {
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
+        doc.setFontSize(Math.max(5, 8.5 * scale));
         doc.setTextColor(51, 65, 85);
-        const dLines = doc.splitTextToSize(this.cleanMarkdown(step.desc), boxW - 18);
-        dLines.forEach((dl: string, di: number) => {
-          doc.text(dl, boxX + 9, curY + 25 + (di * 11));
+        const dLines = doc.splitTextToSize(this.cleanMarkdown(step.desc), scaledBoxW - (18 * scale));
+        dLines.forEach((line: string, lineIndex: number) => {
+          doc.text(line, scaledBoxX + innerPad, curY + (25 * scale) + (lineIndex * 11 * scale));
         });
       }
 
       curY += bH;
-
-      // Draw connecting arrow if not last box (Spec 31)
-      if (idx < steps.length - 1) {
-        const arrowCenterX = boxX + (boxW / 2);
-        const arrowStartY = curY;
-        const arrowEndY = curY + arrowH;
-
+      if (index < steps.length - 1) {
+        const arrowCenterX = scaledBoxX + (scaledBoxW / 2);
+        const arrowEndY = curY + scaledArrowH;
         doc.setDrawColor(100, 116, 139);
-        doc.setLineWidth(1.2);
-        doc.line(arrowCenterX, arrowStartY, arrowCenterX, arrowEndY);
-
-        // Triangular arrowhead pointing down
+        doc.setLineWidth(Math.max(0.5, 1.2 * scale));
+        doc.line(arrowCenterX, curY, arrowCenterX, arrowEndY);
         doc.setFillColor(100, 116, 139);
-        doc.triangle(
-          arrowCenterX, arrowEndY,
-          arrowCenterX - 3.5, arrowEndY - 5,
-          arrowCenterX + 3.5, arrowEndY - 5,
-          'FD'
-        );
-
-        curY += arrowH;
+        doc.triangle(arrowCenterX, arrowEndY, arrowCenterX - (3.5 * scale), arrowEndY - (5 * scale), arrowCenterX + (3.5 * scale), arrowEndY - (5 * scale), 'FD');
+        curY += scaledArrowH;
       }
     });
 
-    ctx.setY(startY + totalDiagramHeight + 16);
+    ctx.setY(startY + diagramHeight + 16);
   }
 
   /** Master Table Engine (Specs 14–23: auto-width normalization, cell padding, top alignment, repeated headers, row break protection) */
@@ -583,10 +577,12 @@ export class ExportService {
     cols: { header: string; key: string; width: number; align?: 'left' | 'center' | 'right' }[],
     rows: any[]
   ): void {
-    if (!rows || rows.length === 0) return;
+    rows = (rows || []).filter(row =>
+      row && Object.values(row).some(value => value !== null && value !== undefined && String(value).trim() !== '')
+    );
+    if (rows.length === 0) return;
     const { doc, margin, contentWidth, pageHeight } = ctx;
 
-    // 1. Proportional Width Auto-Scaling (Spec 15): guarantees sum(width) === contentWidth
     const rawTotalW = cols.reduce((sum, c) => sum + c.width, 0);
     const scaledCols = cols.map(c => ({
       ...c,
@@ -597,16 +593,14 @@ export class ExportService {
     const padX = 7;
     const padY = 6;
     const headerH = 22;
+    const rowBreakBuffer = 16;
 
     const renderHeader = () => {
       const hy = ctx.getY();
       let cx = margin;
 
-      // Header background fill
-      doc.setFillColor(241, 245, 249); // #f1f5f9
+      doc.setFillColor(241, 245, 249);
       doc.rect(margin, hy, contentWidth, headerH, 'F');
-
-      // Header borders
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.75);
       doc.rect(margin, hy, contentWidth, headerH, 'S');
@@ -624,85 +618,153 @@ export class ExportService {
           : cx + padX;
         doc.text(lines[0] || '', tx, hy + 15);
 
-        // Vertical divider
         doc.line(cx + col.width, hy, cx + col.width, hy + headerH);
         cx += col.width;
       });
-
       ctx.addY(headerH);
     };
 
+    const ensureTableFits = (nextY: number) => {
+      if (nextY + rowBreakBuffer > pageHeight - margin - 35) {
+        doc.addPage(ctx.orientation);
+        ctx.setY(margin + 8);
+      }
+    };
+
+    ensureTableFits(ctx.getY() + headerH + 10);
     renderHeader();
 
-    rows.forEach((row, rowIdx) => {
-      // Measure line counts for each column
+    rows.forEach((row, rowIndex) => {
       let maxLines = 1;
-      const cellLinesArr: string[][] = scaledCols.map(col => {
-        const rawVal = row[col.key] != null ? String(row[col.key]) : '';
-        const cleanVal = this.cleanMarkdown(rawVal);
-        const lines = doc.splitTextToSize(cleanVal, col.width - (padX * 2));
-        if (lines.length > maxLines) maxLines = lines.length;
+      const cellLines = scaledCols.map(col => {
+        const lines = doc.splitTextToSize(this.cleanMarkdown(row[col.key] == null ? '' : String(row[col.key])), col.width - (padX * 2));
+        maxLines = Math.max(maxLines, lines.length);
         return lines;
       });
-
-      const rowH = Math.max(20, (maxLines * 12.5) + (padY * 2));
-
-      // Row Break Protection (Spec 21): Never split row across pages; Repeat Header on next page (Spec 20)
-      if (ctx.getY() + rowH > pageHeight - margin - 35) {
+      const rowHeight = Math.max(20, maxLines * 12.5 + padY * 2);
+      if (ctx.getY() + rowHeight > pageHeight - margin - 35) {
         doc.addPage(ctx.orientation);
-        ctx.setY(margin + 20);
+        ctx.setY(margin + 8);
         renderHeader();
       }
-
       const rowY = ctx.getY();
-
-      // Alternate row fill
-      if (rowIdx % 2 === 1) {
+      if (rowIndex % 2 === 1) {
         doc.setFillColor(248, 250, 252);
-        doc.rect(margin, rowY, contentWidth, rowH, 'F');
+        doc.rect(margin, rowY, contentWidth, rowHeight, 'F');
       }
-
-      // Outer & Bottom Border
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.5);
-      doc.rect(margin, rowY, contentWidth, rowH, 'S');
-
-      // Render cells (TOP ALIGNED per Spec 23)
+      doc.rect(margin, rowY, contentWidth, rowHeight, 'S');
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(30, 41, 59);
-
-      let cx = margin;
-      scaledCols.forEach((col, ci) => {
-        const lines = cellLinesArr[ci];
-        lines.forEach((line: string, li: number) => {
-          const tx = col.align === 'center'
-            ? cx + Math.max(padX, (col.width - doc.getTextWidth(line)) / 2)
-            : cx + padX;
-          doc.text(line, tx, rowY + padY + 8.5 + (li * 12.5));
+      let currentX = margin;
+      scaledCols.forEach((col, columnIndex) => {
+        cellLines[columnIndex].forEach((line: string, lineIndex: number) => {
+          const x = col.align === 'center' ? currentX + Math.max(padX, (col.width - doc.getTextWidth(line)) / 2) : currentX + padX;
+          doc.text(line, x, rowY + padY + 8.5 + lineIndex * 12.5);
         });
-
-        // Vertical divider
-        doc.line(cx + col.width, rowY, cx + col.width, rowY + rowH);
-        cx += col.width;
+        doc.line(currentX + col.width, rowY, currentX + col.width, rowY + rowHeight);
+        currentX += col.width;
       });
-
-      ctx.addY(rowH);
+      ctx.addY(rowHeight);
     });
-
     ctx.addY(14);
+    return;
   }
 
-  /** Running Headers (on pages > 1, Spec 40) & Footers (every page, Specs 41 & 42) */
-  private docApplyHeaderAndFooters(ctx: any): void {
-    const { doc, margin, pageWidth, pageHeight, docType, meta } = ctx;
-    const total = doc.getNumberOfPages();
-    const projectName = meta?.project || meta?.documentName || 'AI Work Copilot';
+  /*
+        const padY = 6;
+        const boxHeights: number[] = steps.map(s => {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          const descLines = s.desc ? doc.splitTextToSize(this.cleanMarkdown(s.desc), boxW - 18) : [];
+          return Math.max(34, 18 + (descLines.length * 11) + (padY * 2));
+        });
+        const baseHeight = 28 + boxHeights.reduce((sum, height) => sum + height, 0) + ((steps.length - 1) * arrowH) + 14;
+        const bottomY = pageHeight - margin - 35;
+        let stepIndex = 0;
+        let pagePart = 0;
 
-    for (let i = 1; i <= total; i++) {
-      doc.setPage(i);
+        while (stepIndex < steps.length) {
+          const availableHeight = Math.max(120, bottomY - ctx.getY());
+          const chunkStart = stepIndex;
+          let chunkHeight = 28 + 14;
 
-      // Running Header on pages > 1 (Spec 40)
+          while (stepIndex < steps.length) {
+            const nextHeight = boxHeights[stepIndex] + (stepIndex > chunkStart ? arrowH : 0);
+            if (stepIndex > chunkStart && chunkHeight + nextHeight > availableHeight) break;
+            chunkHeight += nextHeight;
+            stepIndex += 1;
+          }
+
+          if (chunkStart === stepIndex) {
+            doc.addPage(ctx.orientation);
+            ctx.setY(margin + 20);
+            continue;
+          }
+
+          const chunk = steps.slice(chunkStart, stepIndex);
+          const startY = ctx.getY();
+
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(203, 213, 225);
+          doc.setLineWidth(0.75);
+          doc.roundedRect(margin, startY, contentWidth, chunkHeight, 6, 6, 'FD');
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.setTextColor(15, 23, 42);
+          doc.text(`${this.cleanMarkdown(title)}${pagePart ? ' (continued)' : ''}`, margin + 14, startY + 16);
+
+          let curY = startY + 28;
+          chunk.forEach((step, chunkIndex) => {
+            const originalIndex = chunkStart + chunkIndex;
+            const bH = boxHeights[originalIndex];
+
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(2, 132, 199);
+            doc.setLineWidth(1);
+            doc.roundedRect(boxX, curY, boxW, bH, 4, 4, 'FD');
+
+            const compLabel = step.component ? `[${this.cleanMarkdown(step.component)}] ` : '';
+            const stepTitle = `${compLabel}${this.cleanMarkdown(step.label)}`;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(2, 132, 199);
+            doc.text(stepTitle, boxX + 9, curY + 13);
+
+            if (step.desc) {
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(8.5);
+              doc.setTextColor(51, 65, 85);
+              const dLines = doc.splitTextToSize(this.cleanMarkdown(step.desc), boxW - 18);
+              dLines.forEach((line: string, lineIndex: number) => {
+                doc.text(line, boxX + 9, curY + 25 + (lineIndex * 11));
+              });
+            }
+
+            curY += bH;
+            if (chunkIndex < chunk.length - 1) {
+              const arrowCenterX = boxX + (boxW / 2);
+              const arrowEndY = curY + arrowH;
+              doc.setDrawColor(100, 116, 139);
+              doc.setLineWidth(1.2);
+              doc.line(arrowCenterX, curY, arrowCenterX, arrowEndY);
+              doc.setFillColor(100, 116, 139);
+              doc.triangle(arrowCenterX, arrowEndY, arrowCenterX - 3.5, arrowEndY - 5, arrowCenterX + 3.5, arrowEndY - 5, 'FD');
+              curY += arrowH;
+            }
+          });
+
+          ctx.setY(startY + chunkHeight + 16);
+          pagePart += 1;
+          if (stepIndex < steps.length) {
+            doc.addPage(ctx.orientation);
+            ctx.setY(margin + 20);
+          }
+        }
+      }
       if (i > 1) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.5);
@@ -743,7 +805,33 @@ export class ExportService {
     }
   }
 
-  /** Alias for backward compatibility */
+  // Alias for backward compatibility
+  */
+
+  private docApplyHeaderAndFooters(ctx: any): void {
+    const { doc, margin, pageWidth, pageHeight, docType, meta } = ctx;
+    const total = doc.getNumberOfPages();
+    const projectName = meta?.project || meta?.documentName || 'AI Work Copilot';
+    for (let page = 1; page <= total; page++) {
+      doc.setPage(page);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      if (page > 1) {
+        doc.text(this.cleanMarkdown(projectName), margin, 32);
+        const typeText = this.cleanMarkdown(docType).toUpperCase();
+        doc.text(typeText, pageWidth - margin - doc.getTextWidth(typeText), 32);
+        doc.setDrawColor(226, 232, 240);
+        doc.line(margin, 38, pageWidth - margin, 38);
+      }
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, pageHeight - 34, pageWidth - margin, pageHeight - 34);
+      doc.text(`AI Work Copilot  |  Project: ${this.cleanMarkdown(projectName)}`, margin, pageHeight - 20);
+      const pageText = `Page ${page} of ${total}`;
+      doc.text(pageText, pageWidth - margin - doc.getTextWidth(pageText), pageHeight - 20);
+    }
+  }
+
   private docApplyFooters(ctx: any): void {
     this.docApplyHeaderAndFooters(ctx);
   }
@@ -765,9 +853,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `USER STORY SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Mode',     value: meta?.work    || meta?.inputType || 'User Stories' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -856,9 +944,7 @@ export class ExportService {
     this.docApplyHeaderAndFooters(ctx);
 
     const firstId = list[0]?.userStoryId || list[0]?.requirementId || 'US-001';
-    const filename = list.length === 1
-      ? `User_Story_${this.sanitizeFilename(firstId)}.pdf`
-      : `User_Stories_${this.sanitizeFilename(docName)}_${this.getTimestampSuffix()}.pdf`;
+    const filename = this.buildPdfFilename('User_Story', meta, list.length === 1 ? firstId : docName);
     ctx.doc.save(filename);
   }
 
@@ -875,9 +961,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `FUNCTIONAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Functional Design' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -1036,7 +1122,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Functional_Design_${this.sanitizeFilename(docName)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Functional_Design', meta, docName));
   }
 
   // ============================================================
@@ -1052,9 +1138,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `TECHNICAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',     value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',     value: meta?.project || '-' },
       { label: 'Module / Work',    value: meta?.work    || meta?.inputType || 'Technical Design' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',     value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -1790,7 +1876,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Technical_Design_${this.sanitizeFilename(docName)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Technical_Design', meta, docName));
   }
 
   // ============================================================
@@ -1806,9 +1892,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
-      { label: 'Source Document', value: meta?.documentName || meta?.brd || 'BRD Document' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Project Name',    value: meta?.project || '-' },
+      { label: 'Source Document', value: meta?.documentName || meta?.brd || '-' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -1867,7 +1953,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Requirements', meta, baseFilename));
   }
 
   downloadAllRequirementsPdf(requirements: any[], baseFilename = 'requirements', meta?: any): void {
@@ -1883,8 +1969,8 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
-      { label: 'Source Document', value: meta?.documentName || meta?.brd || 'BRD Document' },
+      { label: 'Project Name',    value: meta?.project || '-' },
+      { label: 'Source Document', value: meta?.documentName || meta?.brd || '-' },
       { label: 'Total Requirements', value: String(requirements.length) },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
@@ -1963,7 +2049,7 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Requirements', meta, baseFilename));
   }
 
   // ============================================================
@@ -1982,9 +2068,9 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `TEST CASE SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Test Cases' },
-      { label: 'Document Version', value: meta?.version || '1.0' },
+      { label: 'Document Version', value: meta?.version || '-' },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
     ]);
     this.docRule(ctx);
@@ -2069,7 +2155,7 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Test_Cases_${this.sanitizeFilename(docName)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Test_Cases', meta, docName));
   }
 
   // ============================================================
@@ -2092,7 +2178,7 @@ export class ExportService {
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `DEFECT TRIAGE REPORT${rawDocName ? ' — ' + rawDocName : ''}`);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Module',   value: meta?.work    || meta?.inputType || 'Defect Triage' },
       { label: 'Total Defects',   value: String(defects.length) },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
@@ -2176,7 +2262,7 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`${baseFilename}-${this.getTimestampSuffix()}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Defect_Triage', meta, baseFilename));
   }
 
   // ============================================================
@@ -2190,8 +2276,14 @@ export class ExportService {
 
     // Title & Aligned Metadata Block
     this.docTitle(ctx, `RELEASE NOTES — VERSION ${version}`);
+    const { doc, margin } = ctx;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text('Generated and Approved by Newgen', margin, ctx.getY() + 4);
+    ctx.addY(18);
     this.docMetaBlock(ctx, [
-      { label: 'Project Name',    value: meta?.project || data?.productName || 'Enterprise AI' },
+      { label: 'Project Name',    value: meta?.project || data?.productName || '-' },
       { label: 'Release Version', value: version },
       { label: 'Release Date',    value: data?.releaseDate || new Date().toLocaleDateString() },
       { label: 'Generated On',    value: new Date().toLocaleDateString() }
@@ -2268,6 +2360,13 @@ export class ExportService {
       ctx.addY(6);
     }
 
+    // Technical Notes, Deployment, and Migration Guidance
+    if (data?.technicalNotes) {
+      this.docSection(ctx, `${secIdx++}. Technical Notes & Operational Guidance`);
+      this.docParagraph(ctx, String(data.technicalNotes));
+      ctx.addY(6);
+    }
+
     // 8. Deployment & Migration Notes
     const deploySteps: any[] = Array.isArray(data?.deploymentNotes)
       ? data.deploymentNotes
@@ -2279,7 +2378,7 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(`Release_Notes_v${this.sanitizeFilename(version)}.pdf`);
+    ctx.doc.save(this.buildPdfFilename('Release_Notes', meta, data?.version || version));
   }
 
   // ============================================================
@@ -2356,15 +2455,6 @@ export class ExportService {
         this.docParagraph(ctx, this.cleanMarkdown(log.input), 10);
       }
 
-      // Knowledge Sources
-      if (log.retrievedSources && log.retrievedSources.length > 0) {
-        this.docLabelLine(ctx, `Retrieved Knowledge Sources (${log.retrievedSources.length})`);
-        log.retrievedSources.forEach((src: string, si: number) => {
-          this.docNumbered(ctx, si + 1, this.cleanMarkdown(src).substring(0, 180) + '...');
-        });
-        ctx.addY(4);
-      }
-
       // Generated AI Result (Formatted cleanly, never raw backend dump!)
       if (log.parsedOutput) {
         this.docLabelLine(ctx, 'AI Generation Summary');
@@ -2430,6 +2520,13 @@ export class ExportService {
     return name.replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 50);
   }
 
+  private buildPdfFilename(outputType: string, meta: any, fallbackDocument: string): string {
+    const parts = [meta?.project, outputType, meta?.documentName || fallbackDocument, meta?.version]
+      .filter((part) => part !== null && part !== undefined && String(part).trim())
+      .map((part) => this.sanitizeFilename(String(part)));
+    return `${parts.length ? parts.join('_') : this.sanitizeFilename(outputType)}.pdf`;
+  }
+
   private toText(item: any): string {
     if (!item && item !== 0) return '';
     if (typeof item === 'string') return item;
@@ -2442,9 +2539,6 @@ export class ExportService {
   private formatItemSource(item: any): string {
     if (!item || typeof item === 'string') return '';
     const parts: string[] = [];
-    if (item.grounding && item.grounding !== 'EXPLICIT') {
-      parts.push(`Grounding: ${item.grounding}`);
-    }
     if (item.source) {
       const srcList = Array.isArray(item.source) ? item.source : [item.source];
       if (srcList.length > 0) parts.push(`Source: ${srcList.join(', ')}`);

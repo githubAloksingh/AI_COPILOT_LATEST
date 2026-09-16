@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { jsPDF } from 'jspdf';
 import { ExportService } from './export.service';
 
 describe('ExportService - Master PDF Specification Compliance', () => {
@@ -19,7 +20,14 @@ describe('ExportService - Master PDF Specification Compliance', () => {
     expect(cleaned).toBe('Heading 3 with bold and italic and code and  rocket');
   });
 
-  it('2. generates User Story PDF without error', () => {
+  it('2. removes grounding metadata from exported user story source tags', () => {
+    const result = (service as any).formatItemSource({ grounding: 'DERIVED', source: ['BRD §4.2'] });
+
+    expect(result).toBe('[Source: BRD §4.2]');
+    expect(result).not.toContain('Grounding');
+  });
+
+  it('3. generates User Story PDF without error', () => {
     const mockStories = [
       {
         userStoryId: 'US-001',
@@ -159,7 +167,7 @@ describe('ExportService - Master PDF Specification Compliance', () => {
     }).not.toThrow();
   });
 
-  it('8. generates Release Notes PDF without error', () => {
+  it('8. generates Release Notes PDF without error and includes the fixed approval text', () => {
     const mockRn = {
       version: '2.0.0',
       summary: 'Major release containing PDF presentation overhaul.',
@@ -169,9 +177,24 @@ describe('ExportService - Master PDF Specification Compliance', () => {
       bugFixes: ['Fixed text clipping in wide tables']
     };
 
+    const originalNewDocCtx = (service as any).newDocCtx.bind(service);
+    const textSpy = vi.fn();
+    (service as any).newDocCtx = (...args: any[]) => {
+      const ctx = originalNewDocCtx(...args);
+      const originalText = ctx.doc.text.bind(ctx.doc);
+      ctx.doc.text = (...callArgs: any[]) => {
+        textSpy(...callArgs);
+        return originalText(...callArgs);
+      };
+      return ctx;
+    };
+
     expect(() => {
       service.downloadReleaseNotePdf(mockRn, 'release-notes', { project: 'Test Project' });
     }).not.toThrow();
+
+    expect(textSpy.mock.calls.some(call => call.some(arg => typeof arg === 'string' && arg.includes('Generated and Approved by Newgen')))).toBe(true);
+    (service as any).newDocCtx = originalNewDocCtx;
   });
 
   it('9. generates Audit History PDF without raw backend objects', () => {

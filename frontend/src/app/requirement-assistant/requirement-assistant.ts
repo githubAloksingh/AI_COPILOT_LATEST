@@ -47,7 +47,6 @@ export class RequirementAssistant implements OnInit {
   // Generated Result
   isModalOpen = false;
   generatedResult: any = null;
-  sources: any[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'requirement-v2';
   executionTimeMs = 0;
@@ -186,7 +185,6 @@ export class RequirementAssistant implements OnInit {
         if (res.success && res.data) {
           const aiResponse = res.data;
           this.generatedResult = aiResponse.result || aiResponse;
-          this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'requirement-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
@@ -224,7 +222,6 @@ export class RequirementAssistant implements OnInit {
       model: this.model,
       promptVersion: this.promptVersion,
       executionTimeMs: this.executionTimeMs,
-      sources: this.sources,
       items: (event.requirements || []).map((req: any) => ({
         requirementId: req.requirementId || null,
         title: req.title || '',

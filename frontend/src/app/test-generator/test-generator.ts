@@ -55,7 +55,6 @@ export class TestGenerator implements OnInit {
   // Generated Result for Modal
   isModalOpen = false;
   generatedResult: any[] = [];
-  sources: string[] = [];
   model = 'gemini-3.7-flash';
   promptVersion = 'testcase-v2';
   executionTimeMs = 0;
@@ -322,7 +321,6 @@ export class TestGenerator implements OnInit {
                 return cleanTc;
               })
             : [];
-          this.sources = aiResponse.sources || [];
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.promptVersion = aiResponse.prompt_version || 'testcase-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
@@ -384,7 +382,6 @@ export class TestGenerator implements OnInit {
     const acceptPayload = {
       requirement: requirementTitle,
       testCases: sanitizedItems,
-      sources: this.sources,
       model: this.model,
       promptVersion: this.promptVersion,
       executionTimeMs: this.executionTimeMs,

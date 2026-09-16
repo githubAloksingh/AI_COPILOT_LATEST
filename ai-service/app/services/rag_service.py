@@ -60,11 +60,21 @@ class RagService:
     def _build_context(chunks: List[str]) -> str:
         return "\n\n---\n\n".join(str(chunk or "") for chunk in chunks if str(chunk or "").strip())
 
+    def _retrieve_generation_context(self, query: str, document_id=None, top_k=None):
+        chunks, sources = self.retrieval.retrieve_relevant_context(
+            query=query,
+            top_k=top_k,
+            document_id=document_id
+        )
+        if document_id and not chunks:
+            raise ValueError("No relevant source content was found for the selected document.")
+        return chunks, sources
+
     def generate_requirement(self, req: RequirementGenerateRequest) -> RequirementGenerateResponse:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
         top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=combined_query or "requirement functional requirements user stories acceptance criteria",
             top_k=top_k,
             document_id=req.document_id
@@ -91,7 +101,7 @@ class RagService:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
         top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=combined_query or "user story requirement functional requirements acceptance criteria",
             top_k=top_k,
             document_id=req.document_id
@@ -144,7 +154,7 @@ class RagService:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
         top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=combined_query or "functional design workflow actors preconditions validations rules",
             top_k=top_k,
             document_id=req.document_id
@@ -195,12 +205,19 @@ class RagService:
     def generate_technical_design(self, req: RequirementGenerateRequest) -> RequirementGenerateResponse:
         start_time = time.time()
         combined_query = f"{req.title or ''}\n{req.description or ''}".strip()
-        top_k = 15 if req.document_id else None
-        chunks, sources = self.retrieval.retrieve_relevant_context(
-            query=combined_query or "technical design architecture apis data model components security",
-            top_k=top_k,
-            document_id=req.document_id
-        )
+
+        if req.document_id:
+            chunks, sources = self.retrieval.retrieve_document_context(str(req.document_id))
+            if not chunks:
+                raise ValueError("No complete source content was found for the selected BRD document.")
+        else:
+            top_k = 15
+            chunks, sources = self._retrieve_generation_context(
+                query=combined_query or "technical design architecture apis data model components security",
+                top_k=top_k,
+                document_id=req.document_id
+            )
+
         combined_context = self._build_context(chunks)
 
         prompt = build_technical_design_prompt(combined_query or "Technical Design requirement", combined_context)
@@ -279,7 +296,16 @@ class RagService:
         result = self._validate_and_sanitize_grounding(raw_result, combined_context)
         exec_time_ms = int((time.time() - start_time) * 1000)
 
-        source_strings = [s.snippet or s.file_name or "" for s in sources if s.snippet or s.file_name]
+        source_strings = []
+        for s in sources or []:
+            if isinstance(s, dict):
+                snippet = s.get("snippet") or s.get("file_name") or s.get("fileName") or ""
+                file_name = s.get("file_name") or s.get("fileName") or ""
+            else:
+                snippet = getattr(s, "snippet", None) or ""
+                file_name = getattr(s, "file_name", None) or getattr(s, "fileName", None) or ""
+            if snippet or file_name:
+                source_strings.append(snippet or file_name)
 
         return RequirementGenerateResponse(
             result=result,
@@ -348,7 +374,7 @@ class RagService:
         target_doc_id = doc_ids if doc_ids else None
         top_k = 25 if doc_ids else None
 
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=query_text or "test cases functional edge security performance scenarios",
             top_k=top_k,
             document_id=target_doc_id
@@ -415,7 +441,7 @@ class RagService:
         if req.document_id:
             chunks, sources = self.retrieval.retrieve_document_context(req.document_id)
         else:
-            chunks, sources = self.retrieval.retrieve_relevant_context(
+            chunks, sources = self._retrieve_generation_context(
                 query=combined_input or "defect error stacktrace exception root cause fix investigation"
             )
 
@@ -509,10 +535,20 @@ class RagService:
         start_time = time.time()
         query_text = (req.sprintInformation or "").strip()
         document_ids = [doc_id for doc_id in (req.document_id, req.zip_document_id) if doc_id]
-        chunks, sources = self.retrieval.retrieve_relevant_context(
-            query=query_text or "release notes",
-            document_id=document_ids or None
-        )
+        if document_ids:
+            chunks = []
+            sources = []
+            for document_id in document_ids:
+                document_chunks, document_sources = self.retrieval.retrieve_document_context(document_id)
+                chunks.extend(document_chunks)
+                sources.extend(document_sources)
+            if not chunks:
+                raise ValueError("No relevant source content was found for the selected document.")
+        else:
+            chunks, sources = self._retrieve_generation_context(
+                query=query_text or "release notes",
+                document_id=None
+            )
         combined_context = self._build_context(chunks)
 
         prompt = build_release_notes_prompt(
@@ -536,7 +572,7 @@ class RagService:
 
     def generate_daily_status(self, req: DailyStatusGenerateRequest) -> DailyStatusGenerateResponse:
         start_time = time.time()
-        chunks, sources = self.retrieval.retrieve_relevant_context(
+        chunks, sources = self._retrieve_generation_context(
             query=req.sprintInformation or "daily scrum standup status updates",
             document_id=req.document_id
         )
