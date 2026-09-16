@@ -2539,9 +2539,6 @@ export class ExportService {
   private formatItemSource(item: any): string {
     if (!item || typeof item === 'string') return '';
     const parts: string[] = [];
-    if (item.grounding && item.grounding !== 'EXPLICIT') {
-      parts.push(`Grounding: ${item.grounding}`);
-    }
     if (item.source) {
       const srcList = Array.isArray(item.source) ? item.source : [item.source];
       if (srcList.length > 0) parts.push(`Source: ${srcList.join(', ')}`);

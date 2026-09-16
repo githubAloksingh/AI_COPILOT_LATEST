@@ -20,7 +20,14 @@ describe('ExportService - Master PDF Specification Compliance', () => {
     expect(cleaned).toBe('Heading 3 with bold and italic and code and  rocket');
   });
 
-  it('2. generates User Story PDF without error', () => {
+  it('2. removes grounding metadata from exported user story source tags', () => {
+    const result = (service as any).formatItemSource({ grounding: 'DERIVED', source: ['BRD §4.2'] });
+
+    expect(result).toBe('[Source: BRD §4.2]');
+    expect(result).not.toContain('Grounding');
+  });
+
+  it('3. generates User Story PDF without error', () => {
     const mockStories = [
       {
         userStoryId: 'US-001',
