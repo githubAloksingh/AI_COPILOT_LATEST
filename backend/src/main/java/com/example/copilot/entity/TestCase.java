@@ -21,6 +21,12 @@ public class TestCase extends BaseEntity {
 
     private String tcId;
     private Long requirementId;
+
+    @Column(nullable = false)
+    private String type = "FUNCTIONAL";
+
+    @Column(nullable = false)
+    private String priority = "MEDIUM";
     
     @Column(columnDefinition = "TEXT")
     private String scenario;
