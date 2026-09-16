@@ -16,33 +16,24 @@ export class ExportService {
       return;
     }
 
-    const rows = items.map((item, index) => {
-      const tcId = item.tcId || `TC-${String(index + 1).padStart(3, '0')}`;
-      const scenario = item.scenario || '';
-      const preconditions = item.preconditions ? (Array.isArray(item.preconditions) ? item.preconditions.join('\n') : item.preconditions) : '';
-      const steps = item.steps ? (Array.isArray(item.steps) ? item.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : item.steps) : '';
-      const expectedResult = item.expectedResult || '';
+    const headers = ['Test Case ID', 'Scenario / Title', 'Type', 'Priority', 'Preconditions', 'Test Steps', 'Expected Result'];
+    const rows = items.map((item, index) => [
+      this.firstValue(item, ['tcId', 'testCaseId'], `TC-${String(index + 1).padStart(3, '0')}`),
+      this.excelText(item?.scenario ?? item?.title),
+      this.excelText(item?.type, 'FUNCTIONAL'),
+      this.excelText(item?.priority, 'MEDIUM'),
+      this.excelText(item?.preconditions),
+      this.excelNumberedText(item?.steps),
+      this.excelText(item?.expectedResult ?? item?.expectedBehavior)
+    ]);
 
-      return {
-        'Test Case ID': tcId,
-        'Scenario / Title': scenario,
-        'Preconditions': preconditions,
-        'Test Steps': steps,
-        'Expected Result': expectedResult
-      };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [
-      { wch: 15 },
-      { wch: 45 },
-      { wch: 30 },
-      { wch: 45 },
-      { wch: 35 }
-    ];
+    const ws = this.createWorksheet(headers, rows, [
+      16, 42, 16, 14, 34, 52, 42
+    ]);
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Test Cases');
+    XLSX.utils.book_append_sheet(wb, this.createSummarySheet('Test Case Export', rows.length, headers), 'Summary');
     XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
   }
 
@@ -56,28 +47,79 @@ export class ExportService {
       return;
     }
 
-    const rows = defects.map((defect: any, index: number) => ({
-      'Defect ID': defect.defectId || `DEF-${String(index + 1).padStart(3, '0')}`,
-      'Title': defect.title || '',
-      'Component': defect.component || '',
-      'Location': defect.location || '',
-      'Trigger': defect.trigger || '',
-      'Root Cause': defect.rootCause || defect.probableRootCause || '',
-      'Impact': defect.impact || '',
-      'Evidence': defect.evidence || '',
-      'Investigation': defect.investigation || defect.suggestedInvestigation || '',
-      'Suggested Fix': defect.fix || defect.suggestedFix || ''
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [
-      { wch: 16 }, { wch: 36 }, { wch: 22 }, { wch: 22 }, { wch: 28 },
-      { wch: 48 }, { wch: 36 }, { wch: 48 }, { wch: 48 }, { wch: 48 }
+    const headers = [
+      'Defect ID', 'Title', 'Component',
+      'Location', 'Trigger', 'Root Cause', 'Impact', 'Evidence',
+      'Investigation', 'Suggested Fix'
     ];
+    const rows = defects.map((defect: any, index: number) => [
+      this.firstValue(defect, ['defectId', 'id'], `DEF-${String(index + 1).padStart(3, '0')}`),
+      this.excelText(defect?.title),
+      this.excelText(defect?.component),
+      this.excelText(defect?.location),
+      this.excelText(defect?.trigger),
+      this.excelText(defect?.rootCause ?? defect?.probableRootCause),
+      this.excelText(defect?.impact),
+      this.excelText(defect?.evidence),
+      this.excelText(defect?.investigation ?? defect?.suggestedInvestigation),
+      this.excelText(defect?.fix ?? defect?.suggestedFix)
+    ]);
+
+    const ws = this.createWorksheet(headers, rows, [
+      16, 36, 22, 22, 28, 48, 36, 48, 48, 48
+    ]);
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Defect Triage');
+    XLSX.utils.book_append_sheet(wb, this.createSummarySheet('Defect Triage Export', rows.length, headers), 'Summary');
     XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
+  }
+
+  private createWorksheet(headers: string[], rows: any[][], widths: number[]): XLSX.WorkSheet {
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = widths.map(wch => ({ wch }));
+    ws['!rows'] = [{ hpt: 30 }, ...rows.map(() => ({ hpt: 54 }))];
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({
+      s: { r: 0, c: 0 },
+      e: { r: rows.length, c: headers.length - 1 }
+    }) };
+    return ws;
+  }
+
+  private createSummarySheet(title: string, rowCount: number, headers: string[]): XLSX.WorkSheet {
+    const ws = XLSX.utils.aoa_to_sheet([
+      [title],
+      ['Generated', new Date()],
+      ['Records', rowCount],
+      [],
+      ['Exported columns'],
+      ...headers.map(header => [header])
+    ]);
+    ws['!cols'] = [{ wch: 26 }, { wch: 28 }];
+    ws['!rows'] = [{ hpt: 28 }];
+    return ws;
+  }
+
+  private firstValue(item: any, keys: string[], fallback: string): string {
+    for (const key of keys) {
+      if (item?.[key] !== null && item?.[key] !== undefined && String(item[key]).trim()) {
+        return String(item[key]);
+      }
+    }
+    return fallback;
+  }
+
+  private excelText(value: any, fallback = ''): string {
+    if (value === null || value === undefined || value === '') return fallback;
+    if (Array.isArray(value)) return value.map(item => this.excelText(item)).filter(Boolean).join('\n');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+
+  private excelNumberedText(value: any): string {
+    const text = this.excelText(value);
+    if (!Array.isArray(value)) return text;
+    return value.map((item, index) => `${index + 1}. ${this.excelText(item)}`).join('\n');
   }
 
   downloadDefectCsv(data: any, baseFilename = 'defect-triage'): void {
