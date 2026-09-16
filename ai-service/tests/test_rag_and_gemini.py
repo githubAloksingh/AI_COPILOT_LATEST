@@ -38,10 +38,11 @@ def test_prompt_builders_include_guardrails():
     assert "500 Error" in defect_prompt
 
 
-def test_technical_design_uses_full_selected_brd_context(monkeypatch):
+def test_technical_design_uses_500_relevant_selected_brd_chunks(monkeypatch):
     class FakeRetrieval:
-        def retrieve_document_context(self, document_id):
+        def retrieve_relevant_context(self, query, top_k=None, document_id=None):
             assert document_id == "42"
+            assert top_k == 500
             return [
                 "Section 1: System must allow user login with email and password.",
                 "Section 2: Admin can review failed login attempts and lock accounts after 5 attempts."
@@ -49,9 +50,6 @@ def test_technical_design_uses_full_selected_brd_context(monkeypatch):
                 {"document_id": "42", "file_name": "selected_brd.pdf", "chunk_index": 0, "snippet": "Section 1"},
                 {"document_id": "42", "file_name": "selected_brd.pdf", "chunk_index": 1, "snippet": "Section 2"}
             ]
-
-        def retrieve_relevant_context(self, query, top_k=None, document_id=None):
-            raise AssertionError("Technical Design generation must use the full selected BRD document context, not a filtered relevance search.")
 
     class FakeGemini:
         def generate_dict(self, prompt):
