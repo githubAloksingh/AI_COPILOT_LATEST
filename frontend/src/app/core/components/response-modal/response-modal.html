@@ -1042,7 +1042,7 @@
           </div>
 
           <!-- 3. COMPONENT-LEVEL DESIGN -->
-          <div class="section-card" *ngIf="td.components?.length || true">
+          <div class="section-card" *ngIf="td.components?.length">
             <div class="section-heading">
               <h3>3. Component-Level Design</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewComponent(td)" title="Add Component">+ Add Component</button>
@@ -1078,7 +1078,7 @@
           </div>
 
           <!-- 4. FRONTEND TECHNICAL DESIGN -->
-          <div class="section-card" *ngIf="td.frontendDesign">
+          <div class="section-card" *ngIf="hasMeaningfulTechnicalContent(td.frontendDesign)">
             <div class="section-heading">
               <h3>4. Frontend Technical Design</h3>
             </div>
@@ -1129,7 +1129,7 @@
           </div>
 
           <!-- 5. BACKEND TECHNICAL DESIGN -->
-          <div class="section-card" *ngIf="td.backendDesign">
+          <div class="section-card" *ngIf="hasMeaningfulTechnicalContent(td.backendDesign)">
             <div class="section-heading">
               <h3>5. Backend Technical Design</h3>
             </div>
@@ -1176,7 +1176,7 @@
           </div>
 
           <!-- 6. APIS & API CONTRACT -->
-          <div class="section-card" *ngIf="td.apis?.length || true">
+          <div class="section-card" *ngIf="td.apis?.length">
             <div class="section-heading">
               <h3>6. API Contract</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewApi(td)" title="Add API">+ Add API</button>
@@ -1288,7 +1288,7 @@
           </div>
 
           <!-- 7. DATA MODEL / DATABASE DESIGN -->
-          <div class="section-card" *ngIf="td.dataModel?.length || true">
+          <div class="section-card" *ngIf="td.dataModel?.length">
             <div class="section-heading">
               <h3>7. Data Model / Database Design</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewDataModelEntity(td)" title="Add Entity">+ Add Entity</button>
@@ -1367,7 +1367,7 @@
           </div>
 
           <!-- 8. DATA FLOW -->
-          <div class="section-card" *ngIf="td.dataFlow?.length || true">
+          <div class="section-card" *ngIf="td.dataFlow?.length">
             <div class="section-heading">
               <h3>8. End-to-End Data Flow</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewDataFlowStep(td)" title="Add Data Flow Step">+ Add Step</button>
@@ -1547,7 +1547,7 @@
           </div>
 
           <!-- 12. ERROR HANDLING -->
-          <div class="section-card" *ngIf="td.errorHandling?.length || true">
+          <div class="section-card" *ngIf="td.errorHandling?.length">
             <div class="section-heading">
               <h3>12. Error Handling</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewErrorHandling(td)" title="Add Error Scenario">+ Add Scenario</button>
@@ -1587,7 +1587,7 @@
           </div>
 
           <!-- 13. EDGE CASES -->
-          <div class="section-card" *ngIf="td.edgeCases?.length || true">
+          <div class="section-card" *ngIf="td.edgeCases?.length">
             <div class="section-heading">
               <h3>13. Edge Cases</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewEdgeCase(td)" title="Add Edge Case">+ Add Edge Case</button>
@@ -1697,7 +1697,7 @@
             </div>
 
             <!-- Assumptions -->
-            <div class="section-card" *ngIf="td.assumptions?.length || true">
+            <div class="section-card" *ngIf="td.assumptions?.length">
               <div class="section-heading">
                 <h3>17. Assumptions</h3>
                 <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewListItem(td, 'assumptions')" title="Add Assumption">+ Add</button>
@@ -1729,7 +1729,7 @@
           </div>
 
           <!-- 18. IMPLEMENTATION PLAN -->
-          <div class="section-card" *ngIf="td.implementationPlan?.length || true">
+          <div class="section-card" *ngIf="td.implementationPlan?.length">
             <div class="section-heading">
               <h3>18. Implementation Plan</h3>
               <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewImplementationStep(td)" title="Add Step">+ Add Step</button>
@@ -1857,7 +1857,7 @@
           <!-- 22. TECHNICAL RISKS & DECISIONS -->
           <div class="grid-2-col">
             <!-- Technical Risks -->
-            <div class="section-card" *ngIf="td.technicalRisks?.length || true">
+            <div class="section-card" *ngIf="td.technicalRisks?.length">
               <div class="section-heading">
                 <h3>22. Technical Risks</h3>
                 <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewTechRisk(td)" title="Add Risk">+ Add</button>
@@ -1883,7 +1883,7 @@
             </div>
 
             <!-- Technical Decisions -->
-            <div class="section-card" *ngIf="td.technicalDecisions?.length || true">
+            <div class="section-card" *ngIf="td.technicalDecisions?.length">
               <div class="section-heading">
                 <h3>23. Technical Decisions</h3>
                 <button type="button" class="btn-text-action add-criterion-btn" (click)="addNewTechDecision(td)" title="Add Decision">+ Add</button>

@@ -165,7 +165,7 @@ export class TechnicalDesignComponent implements OnInit {
     this.cdr.markForCheck();
 
     const desc = this.inputMode === 'kb'
-      ? (this.customPrompt.trim() || 'Generate technical architecture design, database schemas, API contracts, and component integrations.')
+      ? (this.customPrompt.trim() || 'Generate a technical design strictly from the selected BRD. Include only technical details supported by that BRD.')
       : this.manualText.trim();
 
     const payload: any = {

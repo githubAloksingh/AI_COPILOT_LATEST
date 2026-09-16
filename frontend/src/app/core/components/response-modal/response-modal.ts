@@ -84,10 +84,48 @@ export class ResponseModal implements OnInit, OnChanges {
 
   initEditableCopy() {
     if (this.data) {
+      this.normalizeTechnicalDesign(this.data?.technicalDesign);
       this.editableData = JSON.parse(JSON.stringify(this.data));
       const list = this.requirementList;
       this.editableRequirements = JSON.parse(JSON.stringify(list));
       this.collapsedPanels = list.map(() => false);
+    }
+  }
+
+  hasMeaningfulTechnicalContent(value: any): boolean {
+    if (value === null || value === undefined || value === '') return false;
+    if (typeof value === 'string') return value.trim() !== '' && value.trim().toLowerCase() !== 'not specified in brd';
+    if (typeof value !== 'object') return true;
+    if (Array.isArray(value)) return value.some(item => this.hasMeaningfulTechnicalContent(item));
+    return Object.values(value).some(item => this.hasMeaningfulTechnicalContent(item));
+  }
+
+  private normalizeTechnicalDesign(technicalDesign: any): void {
+    if (!technicalDesign || typeof technicalDesign !== 'object') return;
+    for (const [key, value] of Object.entries(technicalDesign)) {
+      if (Array.isArray(value)) {
+        if (key === 'dataModel') {
+          technicalDesign[key] = value.filter((entity: any) =>
+            this.hasMeaningfulTechnicalContent(entity?.entity) ||
+            (Array.isArray(entity?.fields) && entity.fields.some((field: any) =>
+              this.hasMeaningfulTechnicalContent(field?.name) ||
+              this.hasMeaningfulTechnicalContent(field?.type) ||
+              this.hasMeaningfulTechnicalContent(field?.description)
+            ))
+          );
+          technicalDesign[key].forEach((entity: any) => {
+            if (Array.isArray(entity.fields)) {
+              entity.fields = entity.fields.filter((field: any) =>
+                this.hasMeaningfulTechnicalContent(field?.name) ||
+                this.hasMeaningfulTechnicalContent(field?.type) ||
+                this.hasMeaningfulTechnicalContent(field?.description)
+              );
+            }
+          });
+        } else {
+          technicalDesign[key] = value.filter(item => this.hasMeaningfulTechnicalContent(item));
+        }
+      }
     }
   }
 
