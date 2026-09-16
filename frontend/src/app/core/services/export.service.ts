@@ -16,19 +16,17 @@ export class ExportService {
       return;
     }
 
-    const headers = ['Test Case ID', 'Scenario / Title', 'Type', 'Priority', 'Preconditions', 'Test Steps', 'Expected Result'];
+    const headers = ['Test Case ID', 'Scenario / Title', 'Preconditions', 'Test Steps', 'Expected Result'];
     const rows = items.map((item, index) => [
       this.firstValue(item, ['tcId', 'testCaseId'], `TC-${String(index + 1).padStart(3, '0')}`),
       this.excelText(item?.scenario ?? item?.title),
-      this.excelText(item?.type, 'FUNCTIONAL'),
-      this.excelText(item?.priority, 'MEDIUM'),
       this.excelText(item?.preconditions),
       this.excelNumberedText(item?.steps),
       this.excelText(item?.expectedResult ?? item?.expectedBehavior)
     ]);
 
     const ws = this.createWorksheet(headers, rows, [
-      16, 42, 16, 14, 34, 52, 42
+      16, 42, 34, 52, 42
     ]);
 
     const wb = XLSX.utils.book_new();
