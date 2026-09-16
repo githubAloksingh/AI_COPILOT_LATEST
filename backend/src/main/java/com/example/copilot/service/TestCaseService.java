@@ -159,6 +159,8 @@ public class TestCaseService {
                 tc.setTcId(item.getScenario() != null && !item.getScenario().isEmpty() ? 
                         "TC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase() : "TC-001");
                 tc.setRequirementId(request.getRequirementId());
+                tc.setType("FUNCTIONAL");
+                tc.setPriority("MEDIUM");
                 tc.setScenario(item.getScenario());
                 tc.setPreconditions(item.getPreconditions());
                 tc.setSteps(item.getSteps());
