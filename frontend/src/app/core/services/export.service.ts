@@ -1,11 +1,23 @@
 import { Injectable } from '@angular/core';
 import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ExportService {
+
+  private newgenLogo: HTMLImageElement | null = null;
+
+  constructor() {
+    if (typeof Image !== 'undefined') {
+      const logo = new Image();
+      logo.onload = () => {
+        this.newgenLogo = logo;
+      };
+      logo.src = 'logo.png';
+    }
+  }
 
   // ==========================================
   // EXCEL EXPORT (TEST CASES - .xlsx)
@@ -76,12 +88,48 @@ export class ExportService {
   private createWorksheet(headers: string[], rows: any[][], widths: number[]): XLSX.WorkSheet {
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = widths.map(wch => ({ wch }));
-    ws['!rows'] = [{ hpt: 30 }, ...rows.map(() => ({ hpt: 54 }))];
+    ws['!rows'] = [
+      { hpt: 30 },
+      ...rows.map((row, rowIndex) => ({ hpt: this.getExcelRowHeight(row, widths, rowIndex) }))
+    ];
+    this.applyExcelWrapping(ws, headers.length, rows.length);
     ws['!autofilter'] = { ref: XLSX.utils.encode_range({
       s: { r: 0, c: 0 },
       e: { r: rows.length, c: headers.length - 1 }
     }) };
     return ws;
+  }
+
+  private applyExcelWrapping(ws: XLSX.WorkSheet, columnCount: number, rowCount: number): void {
+    for (let rowIndex = 0; rowIndex <= rowCount; rowIndex++) {
+      for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+        const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+        const cell = ws[address];
+        if (cell) {
+          cell.s = {
+            alignment: {
+              horizontal: rowIndex === 0 ? 'center' : 'left',
+              vertical: 'top',
+              wrapText: true
+            },
+            font: rowIndex === 0 ? { bold: true } : undefined
+          };
+        }
+      }
+    }
+  }
+
+  private getExcelRowHeight(row: any[], widths: number[], rowIndex: number): number {
+    const lineCount = row.reduce((maxLines, value, columnIndex) => {
+      const text = value === null || value === undefined ? '' : String(value);
+      const width = Math.max(8, widths[columnIndex] || 16);
+      const wrappedLines = text.split('\n').reduce((total, line) => {
+        return total + Math.max(1, Math.ceil(line.length / width));
+      }, 0);
+      return Math.max(maxLines, wrappedLines);
+    }, 1);
+
+    return Math.min(360, Math.max(rowIndex === 0 ? 30 : 30, lineCount * 15 + 6));
   }
 
   private createSummarySheet(title: string, rowCount: number, headers: string[]): XLSX.WorkSheet {
@@ -866,10 +914,22 @@ export class ExportService {
       }
       doc.setDrawColor(226, 232, 240);
       doc.line(margin, pageHeight - 34, pageWidth - margin, pageHeight - 34);
-      doc.text(`AI Work Copilot  |  Project: ${this.cleanMarkdown(projectName)}`, margin, pageHeight - 20);
+      this.addNewgenFooterLogo(doc, margin, pageHeight - 20);
       const pageText = `Page ${page} of ${total}`;
       doc.text(pageText, pageWidth - margin - doc.getTextWidth(pageText), pageHeight - 20);
     }
+  }
+
+  private addNewgenFooterLogo(doc: any, x: number, baselineY: number): void {
+    if (this.newgenLogo) {
+      doc.addImage(this.newgenLogo, 'PNG', x, baselineY - 12, 42, 13);
+      return;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(243, 111, 33);
+    doc.text('newgen', x, baselineY);
   }
 
   private docApplyFooters(ctx: any): void {
