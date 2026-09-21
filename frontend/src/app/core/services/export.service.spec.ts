@@ -167,6 +167,16 @@ describe('ExportService - Master PDF Specification Compliance', () => {
     }).not.toThrow();
   });
 
+  it('7a. preserves numbered defect investigation steps on separate Excel lines', () => {
+    const raw = '1. Inspect `application.yml` and confirm the datasource config. 2. Verify whether the environment variable is loaded before startup. 3. Check the failing service call path.';
+
+    const normalized = (service as any).excelText(raw);
+
+    expect(normalized).toContain('\n2. Verify whether');
+    expect(normalized).toContain('\n3. Check the failing service call path.');
+    expect(normalized.startsWith('1. Inspect')).toBe(true);
+  });
+
   it('8. generates Release Notes PDF without error and includes the fixed approval text', () => {
     const mockRn = {
       version: '2.0.0',

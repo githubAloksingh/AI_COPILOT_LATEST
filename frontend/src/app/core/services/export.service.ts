@@ -159,7 +159,13 @@ export class ExportService {
     if (value === null || value === undefined || value === '') return fallback;
     if (Array.isArray(value)) return value.map(item => this.excelText(item)).filter(Boolean).join('\n');
     if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
+    const text = String(value);
+    return this.normalizeExcelNumberedList(text);
+  }
+
+  private normalizeExcelNumberedList(text: string): string {
+    if (!text) return text;
+    return text.replace(/(?<=\S)\s+(?=\d+\.\s)/g, '\n');
   }
 
   private excelNumberedText(value: any): string {
