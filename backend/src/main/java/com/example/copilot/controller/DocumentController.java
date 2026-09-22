@@ -55,6 +55,7 @@ public class DocumentController {
                     : ".bin";
             temporaryFile = Files.createTempFile("document-upload-", suffix);
             file.transferTo(temporaryFile);
+            documentService.saveOriginalFile(doc.getId(), temporaryFile);
             ingestionService.processDocumentAsync(doc.getId(), temporaryFile, originalFilename, file.getContentType());
         } catch (Exception e) {
             if (temporaryFile != null) {

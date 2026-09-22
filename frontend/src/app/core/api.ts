@@ -17,7 +17,7 @@ export interface ApiResponse<T> {
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = this.resolveBaseUrl();
+  public baseUrl = this.resolveBaseUrl();
 
   private resolveBaseUrl(): string {
     const defaultUrl = (environment && environment.apiUrl) ? environment.apiUrl : 'http://localhost:8080/api';
@@ -158,6 +158,10 @@ export class ApiService {
 
   getDocumentFileUrl(id: number): string {
     return `${this.baseUrl}/documents/${id}/file`;
+  }
+
+  getDocumentDownloadUrl(id: number): string {
+    return `${this.baseUrl}/documents/${id}/download`;
   }
 
   // AI Copilot features - Preview Generation

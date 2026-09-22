@@ -37,3 +37,121 @@
 .mt-4 {
   margin-top: 32px;
 }
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    min-width: 1080px;
+    border-collapse: collapse;
+
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      background-color: #f8fafc;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    td {
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+  }
+}
+
+.category-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.download-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #ea580c;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #fff7ed;
+    border-color: #ea580c;
+    color: #c2410c;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(234, 88, 12, 0.15);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    pointer-events: none;
+  }
+}
+
+.mini-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fdba74;
+  border-top-color: #ea580c;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  &.status-success {
+    background-color: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+  }
+
+  &.status-failed {
+    background-color: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+
+  &.status-info {
+    background-color: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+  }
+}
+
+.empty-cell {
+  color: #cbd5e1;
+  font-weight: 500;
+  display: inline-block;
+  padding: 0 4px;
+}
+

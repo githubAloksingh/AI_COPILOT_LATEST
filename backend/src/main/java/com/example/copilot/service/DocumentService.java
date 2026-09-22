@@ -40,47 +40,67 @@ public class DocumentService {
     }
 
     /**
-     * Stores the exact original PDF/file binary directly into the MySQL document table (file_data LONGBLOB column).
-     * No filesystem or disk storage is used.
+     * Stores the exact original PDF/file binary directly into the MySQL document table (file_data LONGBLOB column)
+     * AND writes a copy to the persistent uploads/ disk directory.
      */
     public void saveOriginalFile(Long documentId, byte[] bytes) {
-        Document doc = getDocumentById(documentId);
-        doc.setFileData(bytes);
-        doc.setOriginalFilePath(null);
-        documentRepository.save(doc);
-        log.info("Saved original file binary ({} bytes) directly into MySQL for document ID {}",
-                bytes != null ? bytes.length : 0, documentId);
+        saveOriginalFile(documentId, bytes, null);
     }
 
     public void saveOriginalFile(Long documentId, Path sourcePath) throws IOException {
-        Document doc = getDocumentById(documentId);
-        Path uploadDirectory = Path.of("uploads").toAbsolutePath().normalize();
-        Files.createDirectories(uploadDirectory);
+        byte[] bytes = null;
+        if (sourcePath != null && Files.exists(sourcePath)) {
+            try {
+                bytes = Files.readAllBytes(sourcePath);
+            } catch (Exception ignored) {
+            }
+        }
+        saveOriginalFile(documentId, bytes, sourcePath);
+    }
 
-        String fileName = doc.getFileName() != null ? doc.getFileName() : "document.bin";
-        String suffix = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.')) : ".bin";
-        Path destination = uploadDirectory.resolve("document-" + documentId + suffix).normalize();
-        if (!destination.getParent().equals(uploadDirectory)) {
-            throw new IOException("Invalid upload destination");
+    public void saveOriginalFile(Long documentId, byte[] bytes, Path sourcePath) {
+        Document doc = getDocumentById(documentId);
+        String savedFilePath = null;
+
+        try {
+            Path uploadDirectory = getPrimaryUploadDirectory();
+            Files.createDirectories(uploadDirectory);
+
+            String fileName = doc.getFileName() != null ? doc.getFileName() : "document.bin";
+            String suffix = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.')) : ".bin";
+            Path destination = uploadDirectory.resolve("document-" + documentId + suffix).normalize();
+
+            if (sourcePath != null && Files.exists(sourcePath)) {
+                Files.copy(sourcePath, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                savedFilePath = destination.toString();
+            } else if (bytes != null && bytes.length > 0) {
+                Files.write(destination, bytes);
+                savedFilePath = destination.toString();
+            }
+        } catch (Exception e) {
+            log.warn("Could not save original file to disk for document ID {}: {}", documentId, e.getMessage());
         }
 
-        Files.copy(sourcePath, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        doc.setFileData(null);
-        doc.setOriginalFilePath(destination.toString());
+        if (bytes != null && bytes.length > 0) {
+            doc.setFileData(bytes);
+        }
+        if (savedFilePath != null) {
+            doc.setOriginalFilePath(savedFilePath);
+        }
         documentRepository.save(doc);
-        log.info("Stored original file on disk ({} bytes) for document ID {}", Files.size(destination), documentId);
+        log.info("Saved original file ({} bytes) in MySQL and on disk at '{}' for document ID {}",
+                bytes != null ? bytes.length : 0, savedFilePath, documentId);
     }
 
     /**
      * Compatibility overload for callers passing filename.
      */
     public void saveOriginalFile(Long documentId, String originalFilename, byte[] bytes) {
-        saveOriginalFile(documentId, bytes);
+        saveOriginalFile(documentId, bytes, null);
     }
 
     /**
-     * Retrieves the exact original uploaded PDF/file bytes directly from MySQL.
-     * Does NOT touch Render Disk, ChromaDB, or extracted text.
+     * Retrieves the exact original uploaded PDF/file bytes directly from MySQL or disk.
      */
     public byte[] getOriginalFileBytes(Long id) {
         Document doc = getDocumentById(id);
@@ -160,10 +180,24 @@ public class DocumentService {
         return null;
     }
 
+    private Path getPrimaryUploadDirectory() {
+        Path backendUploads = Path.of("backend", "uploads").toAbsolutePath().normalize();
+        if (Files.isDirectory(backendUploads)) {
+            return backendUploads;
+        }
+        Path rootUploads = Path.of("uploads").toAbsolutePath().normalize();
+        if (Files.isDirectory(rootUploads)) {
+            return rootUploads;
+        }
+        return backendUploads;
+    }
+
     private List<Path> uploadDirectories() {
         return List.of(
                 Path.of("uploads").toAbsolutePath().normalize(),
-                Path.of("backend", "uploads").toAbsolutePath().normalize());
+                Path.of("backend", "uploads").toAbsolutePath().normalize(),
+                Path.of("..", "uploads").toAbsolutePath().normalize(),
+                Path.of("..", "backend", "uploads").toAbsolutePath().normalize());
     }
 
     private boolean isOriginalFileName(Path path, Long documentId) {

@@ -1,23 +1,46 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api';
+
+export interface ActivityRow {
+  sNo: number;
+  projectId: number | null;
+  documentId: number | null;
+  projectName: string;
+  knowledgeBase: string;
+  category: string;
+  userStory: string | null;
+  functionalDesign: string | null;
+  technicalDesign: string | null;
+  requirementAnalysis: string | null;
+  testGenerator: string | null;
+  defectTriage: string | null;
+  releaseNotes: string | null;
+  lastUpdated: number;
+}
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
 export class Dashboard implements OnInit {
   stats: any = null;
   recentActivity: any[] = [];
+  activityRows: ActivityRow[] = [];
+  allDocuments: any[] = [];
+  allProjects: any[] = [];
+  downloadingSNo: number | null = null;
   loading = true;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
+    this.loadProjects();
+    this.loadDocuments();
+
     this.api.getStats().subscribe({
       next: (res) => {
         if (res.success) {
@@ -34,12 +57,268 @@ export class Dashboard implements OnInit {
 
     this.api.getRecentActivity().subscribe({
       next: (res) => {
-        if (res.success) {
+        if (res.success && res.data) {
           this.recentActivity = res.data;
+          this.processActivityRows(this.recentActivity);
         }
         this.cdr.markForCheck();
       }
     });
+
+    this.api.getAuditLogs('ALL').subscribe({
+      next: (res) => {
+        if (res.success && res.data && res.data.length > 0) {
+          this.processActivityRows(res.data);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
+  }
+
+  loadProjects() {
+    this.api.getProjects().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.allProjects = res.data;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
+  }
+
+  loadDocuments() {
+    this.api.getDocuments().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.allDocuments = res.data;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
+  }
+
+  processActivityRows(logs: any[]) {
+    if (!logs || logs.length === 0) {
+      return;
+    }
+
+    const activityMap = new Map<string, ActivityRow>();
+
+    // Process from oldest to newest so newest statuses take precedence
+    const sorted = [...logs].sort((a, b) => {
+      const ta = new Date(a.createdAt || a.timestamp || 0).getTime();
+      const tb = new Date(b.createdAt || b.timestamp || 0).getTime();
+      return ta - tb;
+    });
+
+    for (const log of sorted) {
+      const proj = (log.projectName && log.projectName.trim()) ? log.projectName.trim() : 'General';
+      const doc = (log.documentName && log.documentName.trim()) ? log.documentName.trim() : '—';
+      const groupKey = `${proj}:::${doc}`;
+
+      if (!activityMap.has(groupKey)) {
+        activityMap.set(groupKey, {
+          sNo: 0,
+          projectId: log.projectId ? Number(log.projectId) : null,
+          documentId: log.documentId ? Number(log.documentId) : null,
+          projectName: proj,
+          knowledgeBase: doc,
+          category: this.formatCategory(log),
+          userStory: null,
+          functionalDesign: null,
+          technicalDesign: null,
+          requirementAnalysis: null,
+          testGenerator: null,
+          defectTriage: null,
+          releaseNotes: null,
+          lastUpdated: new Date(log.createdAt || log.timestamp || 0).getTime()
+        });
+      }
+
+      const row = activityMap.get(groupKey)!;
+      if (!row.projectId && log.projectId) {
+        row.projectId = Number(log.projectId);
+      }
+      if (!row.documentId && log.documentId) {
+        row.documentId = Number(log.documentId);
+      }
+
+      const logTime = new Date(log.createdAt || log.timestamp || 0).getTime();
+      if (logTime > row.lastUpdated) {
+        row.lastUpdated = logTime;
+      }
+
+      const cat = this.formatCategory(log);
+      if (cat && cat !== '—' && (row.category === '—' || !row.category)) {
+        row.category = cat;
+      }
+
+      const feat = (log.feature || '').toLowerCase().trim();
+      const status = log.status || 'COMPLETED';
+
+      if (feat.includes('user story')) {
+        row.userStory = status;
+      } else if (feat.includes('functional design')) {
+        row.functionalDesign = status;
+      } else if (feat.includes('technical design')) {
+        row.technicalDesign = status;
+      } else if (feat.includes('requirement')) {
+        row.requirementAnalysis = status;
+      } else if (feat.includes('test')) {
+        row.testGenerator = status;
+      } else if (feat.includes('defect')) {
+        row.defectTriage = status;
+      } else if (feat.includes('release')) {
+        row.releaseNotes = status;
+      }
+    }
+
+    // Sort by most recent activity timestamp descending
+    const rows = Array.from(activityMap.values()).sort((a, b) => b.lastUpdated - a.lastUpdated);
+
+    rows.forEach((r, idx) => {
+      r.sNo = idx + 1;
+    });
+
+    this.activityRows = rows;
+  }
+
+  downloadFiles(row: ActivityRow, event?: MouseEvent) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    const filesToDownload: any[] = [];
+    const seenDocIds = new Set<number>();
+
+    // 1. Resolve Project ID
+    let resolvedProjectId: number | null = row.projectId;
+    if (!resolvedProjectId && row.projectName && row.projectName !== 'General' && row.projectName !== '—') {
+      const matchProj = this.allProjects.find(
+        (p) => (p.projectName || '').trim().toLowerCase() === row.projectName.trim().toLowerCase()
+      );
+      if (matchProj) {
+        resolvedProjectId = Number(matchProj.id);
+      }
+    }
+
+    // 2. If row specifies an exact document, download ONLY that document
+    if (row.knowledgeBase && row.knowledgeBase !== '—' && row.knowledgeBase !== 'Direct Text Input') {
+      const matchDoc = this.allDocuments.find(
+        (d) => (d.fileName || '').trim().toLowerCase() === row.knowledgeBase.trim().toLowerCase()
+      );
+      if (matchDoc) {
+        filesToDownload.push(matchDoc);
+      }
+    }
+
+    // 3. Only if no specific document was matched from the row, download corresponding project documents
+    if (filesToDownload.length === 0 && resolvedProjectId) {
+      const projectDocs = this.allDocuments.filter((d) => Number(d.projectId) === resolvedProjectId);
+
+      // Identify corresponding BRD file
+      const brdDoc = projectDocs.find((d) => {
+        if (seenDocIds.has(Number(d.id))) return false;
+        const ft = (d.fileType || '').toUpperCase();
+        const fn = (d.fileName || '').toLowerCase();
+        return ft === 'BRD' || fn.endsWith('.pdf') || fn.endsWith('.docx') || fn.endsWith('.doc') || fn.endsWith('.txt');
+      });
+
+      if (brdDoc) {
+        seenDocIds.add(Number(brdDoc.id));
+        filesToDownload.push(brdDoc);
+      }
+
+      // Identify corresponding Codebase file
+      const codebaseDoc = projectDocs.find((d) => {
+        if (seenDocIds.has(Number(d.id))) return false;
+        const ft = (d.fileType || '').toUpperCase();
+        const fn = (d.fileName || '').toLowerCase();
+        return ft === 'ZIP' || ft === 'CODEBASE' || fn.endsWith('.zip');
+      });
+
+      if (codebaseDoc) {
+        seenDocIds.add(Number(codebaseDoc.id));
+        filesToDownload.push(codebaseDoc);
+      }
+
+      // Fallback: If neither was categorized but project has docs, add them
+      if (filesToDownload.length === 0 && projectDocs.length > 0) {
+        for (const pd of projectDocs) {
+          if (!seenDocIds.has(Number(pd.id))) {
+            seenDocIds.add(Number(pd.id));
+            filesToDownload.push(pd);
+          }
+        }
+      }
+    }
+
+    // 4. Handle missing files gracefully
+    if (filesToDownload.length === 0) {
+      alert(`No uploaded BRD or Codebase files available for ${row.projectName !== '—' ? row.projectName : 'this activity'}.`);
+      return;
+    }
+
+    // 5. Trigger direct browser download for each resolved file (staggered to prevent browser cancellation)
+    this.downloadingSNo = row.sNo;
+    this.cdr.markForCheck();
+
+    filesToDownload.forEach((doc, idx) => {
+      setTimeout(() => {
+        const downloadUrl = this.api.getDocumentDownloadUrl(Number(doc.id));
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = doc.fileName || `document-${doc.id}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        if (idx === filesToDownload.length - 1) {
+          setTimeout(() => {
+            this.downloadingSNo = null;
+            this.cdr.markForCheck();
+          }, 400);
+        }
+      }, idx * 600);
+    });
+  }
+
+  formatCategory(log: any): string {
+    const raw = log.inputType || log.category || '';
+    if (!raw) {
+      if (log.documentName) {
+        const lower = log.documentName.toLowerCase();
+        if (lower.endsWith('.zip')) return 'Codebase';
+        if (lower.endsWith('.pdf') || lower.endsWith('.doc') || lower.endsWith('.docx') || lower.endsWith('.txt')) return 'BRD';
+      }
+      return 'BRD';
+    }
+
+    const trimmed = raw.trim();
+    if (trimmed.toUpperCase() === 'KNOWLEDGE_BASE') return 'Knowledge Base';
+    if (trimmed.toLowerCase().includes('codebase') || trimmed.toUpperCase() === 'ZIP') return 'Codebase';
+    if (trimmed.toLowerCase().includes('brd')) return 'BRD';
+    return trimmed;
+  }
+
+  getStatusBadgeClass(status: string): string {
+    if (!status) return '';
+    const s = status.toUpperCase();
+    if (s === 'SUCCESS' || s === 'ACCEPTED' || s === 'COMPLETED') {
+      return 'status-badge status-success';
+    }
+    if (s === 'FAILED' || s === 'ERROR' || s === 'REJECTED') {
+      return 'status-badge status-failed';
+    }
+    return 'status-badge status-info';
+  }
+
+  formatStatus(status: string): string {
+    if (!status) return '—';
+    return status.toUpperCase();
   }
 
   formatDate(timestamp: string) {
@@ -48,3 +327,4 @@ export class Dashboard implements OnInit {
     return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
   }
 }
+

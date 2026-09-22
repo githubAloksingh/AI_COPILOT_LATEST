@@ -73,12 +73,31 @@ public class IngestionService {
 
         String finalName = (title != null && !title.trim().isEmpty()) ? title.trim() : originalFileName;
 
+        Long resolvedProjectId = projectId;
+        if (resolvedProjectId != null && !projectRepository.existsById(resolvedProjectId)) {
+            java.util.Optional<com.example.copilot.entity.Project> fallbackProject = projectRepository.findAll().stream().findFirst();
+            if (fallbackProject.isPresent()) {
+                log.warn("Project with ID {} not found. Associating document with existing project ID {}", resolvedProjectId, fallbackProject.get().getId());
+                resolvedProjectId = fallbackProject.get().getId();
+            } else {
+                log.warn("Project with ID {} not found and no projects exist. Creating default project.", resolvedProjectId);
+                com.example.copilot.entity.Project defaultProj = new com.example.copilot.entity.Project();
+                defaultProj.setProjectName("Core Banking & Payments");
+                defaultProj.setDepartment("Engineering");
+                defaultProj.setProjectOwner("System Admin");
+                defaultProj.setCreatedBy("System");
+                defaultProj.setStatus("ACTIVE");
+                defaultProj = projectRepository.save(defaultProj);
+                resolvedProjectId = defaultProj.getId();
+            }
+        }
+
         String calculatedVersion = version;
 
-        if (projectId != null && (version == null || version.isEmpty() || "v1".equalsIgnoreCase(version))) {
+        if (resolvedProjectId != null && (version == null || version.isEmpty() || "v1".equalsIgnoreCase(version))) {
 
             java.util.List<Document> existing = documentRepository
-                    .findByProjectIdAndFileNameOrderByCreatedAtDesc(projectId, finalName);
+                    .findByProjectIdAndFileNameOrderByCreatedAtDesc(resolvedProjectId, finalName);
 
             if (existing != null && !existing.isEmpty()) {
 
@@ -119,7 +138,7 @@ public class IngestionService {
 
         Document doc = new Document();
 
-        doc.setProjectId(projectId);
+        doc.setProjectId(resolvedProjectId);
 
         doc.setFileName(finalName);
 
@@ -160,27 +179,19 @@ public class IngestionService {
 
         try {
 
-            documentService.saveOriginalFile(documentId, filePath);
+            // Persist original file bytes to MySQL LONGBLOB and uploads/ disk folder
+            // so the original file is always viewable and downloadable regardless of state.
+            byte[] fileBytes = Files.readAllBytes(filePath);
+            documentService.saveOriginalFile(documentId, fileBytes, filePath);
 
             AiIngestionResponse response = aiServiceClient.ingestDocument(
-
                     documentId,
-
                     originalFileName,
-
                     fileType,
-
                     filePath
-
             );
 
-            document.setStatus("COMPLETED");
-
-            document.setErrorMessage(null);
-
-            document.setChunkCount(response.getChunk_count());
-
-            documentRepository.save(document);
+            documentRepository.updateStatusAndChunkCount(documentId, "COMPLETED", null, response.getChunk_count());
 
             // Persist chunks directly into MySQL document_chunk table
 
@@ -237,19 +248,11 @@ public class IngestionService {
 
             log.error("Failed to process document ID {}: {}", documentId, e.getMessage(), e);
 
-            document.setStatus("FAILED");
-
             String err = e.getMessage() != null ? e.getMessage() : "Unknown error during ingestion";
-
             if (err.length() > 500) {
-
                 err = err.substring(0, 500) + "...";
-
             }
-
-            document.setErrorMessage(err);
-
-            documentRepository.save(document);
+            documentRepository.updateStatusAndChunkCount(documentId, "FAILED", err, 0);
 
             String projectName = "General";
 

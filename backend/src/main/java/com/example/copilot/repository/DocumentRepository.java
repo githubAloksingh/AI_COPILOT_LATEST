@@ -14,4 +14,14 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @org.springframework.data.jpa.repository.Query("SELECT d.fileData FROM Document d WHERE d.id = :id")
     byte[] findFileDataById(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query("UPDATE Document d SET d.status = :status, d.errorMessage = :errorMessage, d.chunkCount = :chunkCount WHERE d.id = :id")
+    void updateStatusAndChunkCount(
+            @org.springframework.data.repository.query.Param("id") Long id,
+            @org.springframework.data.repository.query.Param("status") String status,
+            @org.springframework.data.repository.query.Param("errorMessage") String errorMessage,
+            @org.springframework.data.repository.query.Param("chunkCount") Integer chunkCount
+    );
 }

@@ -135,6 +135,10 @@ export class ProjectDetails implements OnInit, OnDestroy {
   }
 
   openUploadModal() {
+    if (!this.projectId) {
+      alert('No active project found. Please select or create a project in Knowledge Base.');
+      return;
+    }
     this.uploadForm = {
       title: '',
       type: 'BRD',
