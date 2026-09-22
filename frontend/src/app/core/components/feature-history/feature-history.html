@@ -15,7 +15,6 @@
       <div class="spinner-sm"></div>
       <span>Loading history for selected project...</span>
     </div>
-
     <!-- Error State -->
     <div *ngIf="errorMessage && !loading" class="history-error">
       ⚠️ {{ errorMessage }}
@@ -24,7 +23,7 @@
     <!-- No History Found -->
     <div *ngIf="!loading && !errorMessage && historyItems.length === 0" class="history-empty">
       <div class="empty-icon">📂</div>
-      <p class="empty-text">{{ isUserStory ? 'No User Stories generated yet.' : 'No history found.' }}</p>
+      <p class="empty-text">{{ isReleaseNotes ? 'No Release Notes generated yet.' : (isDefectTriage ? 'No Defect Triage generated yet.' : (isTestGenerator ? 'No Test Generator generated yet.' : (isRequirementAssistant ? 'No Requirement Assistant outputs generated yet.' : (isFunctionalDesign ? 'No Functional Designs generated yet.' : (isTechnicalDesign ? 'No Technical Design generated yet.' : (isUserStory ? 'No User Stories generated yet.' : 'No history found.')))))) }}</p>
     </div>
 
     <!-- History Table -->
@@ -34,8 +33,8 @@
           <tr>
             <th class="col-sno">S.No</th>
             <th class="col-project">Project Name</th>
-            <th class="col-doc">{{ isUserStory ? 'BRD Name' : 'BRD / Codebase Name' }}</th>
-            <th class="col-version">{{ isUserStory ? 'User Story Version' : 'Version' }}</th>
+            <th class="col-doc">{{ (isUserStory || isTechnicalDesign || isFunctionalDesign || isRequirementAssistant || isTestGenerator || isDefectTriage || isReleaseNotes) ? 'BRD Name' : 'BRD / Codebase Name' }}</th>
+            <th class="col-version">{{ isReleaseNotes ? 'Release Notes Version' : (isDefectTriage ? 'Defect Triage Version' : (isTestGenerator ? 'Test Generator Version' : (isRequirementAssistant ? 'Requirement Assistant Version' : (isFunctionalDesign ? 'Functional Design Version' : (isTechnicalDesign ? 'Technical Design Version' : (isUserStory ? 'User Story Version' : 'Version')))))) }}</th>
             <th class="col-view">View</th>
             <th class="col-download">Download</th>
           </tr>
@@ -47,17 +46,17 @@
               <strong>{{ item.projectName }}</strong>
             </td>
             <td class="col-doc">
-              <span class="doc-badge" [ngClass]="isUserStory ? 'badge-brd' : (item.fileType === 'ZIP' ? 'badge-zip' : 'badge-brd')">
-                {{ (!isUserStory && item.fileType === 'ZIP') ? '📦' : '📄' }}
+              <span class="doc-badge" [ngClass]="(isUserStory || isTechnicalDesign || isFunctionalDesign || isRequirementAssistant || isTestGenerator || isDefectTriage || isReleaseNotes) ? 'badge-brd' : (item.fileType === 'ZIP' ? 'badge-zip' : 'badge-brd')">
+                {{ (!(isUserStory || isTechnicalDesign || isFunctionalDesign || isRequirementAssistant || isTestGenerator || isDefectTriage || isReleaseNotes) && item.fileType === 'ZIP') ? '📦' : '📄' }}
               </span>
               <span class="doc-name">{{ item.documentName }}</span>
             </td>
             <td class="col-version">
-              <span class="version-tag">{{ item.version || '1.0' }}</span>
+              <span class="version-tag">{{ item.version || ((isDefectTriage || isReleaseNotes) ? '' : '1.0') }}</span>
             </td>
             <td class="col-view">
               <button 
-                *ngIf="isUserStory || item.fileType !== 'ZIP'"
+                *ngIf="isUserStory || isTechnicalDesign || isFunctionalDesign || isRequirementAssistant || isTestGenerator || isDefectTriage || isReleaseNotes || item.fileType !== 'ZIP'"
                 type="button" 
                 class="btn-action-icon btn-view" 
                 (click)="viewDocument(item)" 

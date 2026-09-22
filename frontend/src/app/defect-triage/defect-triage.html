@@ -114,6 +114,8 @@
 <div style="margin-top: 24px;">
   <app-feature-history
     [projectId]="selectedProjectId"
+    [documentId]="selectedDocId"
+    [documentName]="selectedDoc?.fileName || ''"
     feature="defect_triage">
   </app-feature-history>
 </div>

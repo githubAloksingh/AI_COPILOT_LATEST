@@ -8,6 +8,8 @@ import com.example.copilot.dto.ai.AiTestCaseResponse;
 import com.example.copilot.entity.TestCase;
 import com.example.copilot.repository.TestCaseRepository;
 import com.example.copilot.util.UserContext;
+import com.example.copilot.repository.AuditLogRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,13 +27,60 @@ public class TestCaseService {
     private final AiServiceClient aiServiceClient;
     private final TestCaseRepository testCaseRepository;
     private final AuditService auditService;
+    private final AuditLogRepository auditLogRepository;
+    private final ObjectMapper objectMapper;
+
+    public String calculateNextTestGeneratorVersion(Long projectId, String projectName, Long docId, String docName) {
+        List<String> testGeneratorAliases = java.util.Arrays.asList("test generator", "test_generator", "test case",
+                "testcase");
+        List<com.example.copilot.entity.AuditLog> existingLogs = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                projectId, projectName, docId, docName, testGeneratorAliases);
+        int maxMinor = -1;
+        int count = 0;
+        if (existingLogs != null) {
+            for (com.example.copilot.entity.AuditLog l : existingLogs) {
+                if ("GENERATE".equalsIgnoreCase(l.getAction())) {
+                    count++;
+                    String ver = l.getDocumentVersion();
+                    if (ver != null && ver.matches("^1\\.(\\d+)$")) {
+                        try {
+                            int minor = Integer.parseInt(ver.substring(2));
+                            if (minor > maxMinor) {
+                                maxMinor = minor;
+                            }
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                }
+            }
+        }
+        if (maxMinor >= 0) {
+            return "1." + (maxMinor + 1);
+        }
+        if (count == 0) {
+            return "1.0";
+        } else {
+            return "1." + count;
+        }
+    }
 
     public AiTestCaseResponse generateTestCases(TestCaseRequest request) {
         long startTime = System.currentTimeMillis();
         String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
+        Long docId = parseDocId(request.getDocumentId());
+        String calculatedVersion = calculateNextTestGeneratorVersion(request.getProjectId(), request.getProjectName(),
+                docId, request.getDocumentName());
         try {
             AiTestCaseResponse resp = aiServiceClient.generateTestCases(request);
             long duration = System.currentTimeMillis() - startTime;
+            String outputJson = "";
+            if (resp.getResult() != null) {
+                try {
+                    outputJson = objectMapper.writeValueAsString(resp.getResult());
+                } catch (Exception ex) {
+                    outputJson = resp.getResult().toString();
+                }
+            }
             auditService.logAuditFull(
                     "Test Generator",
                     "GENERATE",
@@ -41,17 +90,16 @@ public class TestCaseService {
                     resp.getSources(),
                     resp.getModel(),
                     resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "",
+                    outputJson,
                     "SUCCESS",
                     duration,
                     null,
                     request.getProjectName(),
                     request.getDocumentName(),
-                    request.getDocumentVersion(),
+                    calculatedVersion,
                     inputType,
                     request.getProjectId(),
-                    parseDocId(request.getDocumentId())
-            );
+                    docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
@@ -70,11 +118,10 @@ public class TestCaseService {
                     e.getMessage(),
                     request.getProjectName(),
                     request.getDocumentName(),
-                    request.getDocumentVersion(),
+                    calculatedVersion,
                     inputType,
                     request.getProjectId(),
-                    parseDocId(request.getDocumentId())
-            );
+                    docId);
             log.error("Error generating test cases preview: ", e);
             throw new RuntimeException("Failed to generate test cases: " + e.getMessage(), e);
         }
@@ -90,8 +137,9 @@ public class TestCaseService {
                 TestCase tc = new TestCase();
                 tc.setProjectId(request.getProjectId());
                 tc.setDocumentId(request.getDocumentId());
-                tc.setTcId(item.getScenario() != null && !item.getScenario().isEmpty() ? 
-                        "TC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase() : "TC-001");
+                tc.setTcId(item.getScenario() != null && !item.getScenario().isEmpty()
+                        ? "TC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()
+                        : "TC-001");
                 tc.setRequirementId(request.getRequirementId());
                 tc.setType("FUNCTIONAL");
                 tc.setPriority("MEDIUM");
@@ -107,7 +155,14 @@ public class TestCaseService {
         long execTime = request.getExecutionTimeMs() != null ? request.getExecutionTimeMs() : 0L;
         String model = request.getModel() != null ? request.getModel() : "gemini-3.7-flash";
         String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "testcase-v1";
-        String outputStr = items != null ? items.toString() : "";
+        String outputStr = "";
+        if (items != null) {
+            try {
+                outputStr = objectMapper.writeValueAsString(items);
+            } catch (Exception ex) {
+                outputStr = items.toString();
+            }
+        }
 
         auditService.logAuditFull(
                 "Test Generator",
@@ -127,14 +182,14 @@ public class TestCaseService {
                 request.getDocumentVersion(),
                 "Test Suite",
                 request.getProjectId(),
-                request.getDocumentId()
-        );
+                request.getDocumentId());
 
         return savedTestCases;
     }
 
     private Long parseDocId(String docIdStr) {
-        if (docIdStr == null || docIdStr.trim().isEmpty()) return null;
+        if (docIdStr == null || docIdStr.trim().isEmpty())
+            return null;
         try {
             return Long.parseLong(docIdStr.trim());
         } catch (NumberFormatException e) {

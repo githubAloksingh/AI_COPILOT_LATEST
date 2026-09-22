@@ -47,10 +47,44 @@ public class HistoryController {
 
         List<String> featureAliases = mapFeatureToAliases(feature.trim());
         boolean isUserStory = featureAliases.contains("user story");
+        boolean isTechnicalDesign = featureAliases.contains("technical design");
+        boolean isFunctionalDesign = featureAliases.contains("functional design");
+        boolean isRequirementAssistant = featureAliases.contains("requirement assistant");
+        boolean isTestGenerator = featureAliases.contains("test generator");
+        boolean isDefectTriage = featureAliases.contains("defect triage");
+        boolean isReleaseNotes = featureAliases.contains("release notes");
 
         // For User Story: If no BRD document is selected, return empty history
         if (isUserStory && documentId == null) {
             return ApiResponse.success(Collections.emptyList(), "No User Stories generated yet.");
+        }
+
+        // For Technical Design: If no BRD document is selected, return empty history
+        if (isTechnicalDesign && documentId == null) {
+            return ApiResponse.success(Collections.emptyList(), "No Technical Design generated yet.");
+        }
+
+        // For Functional Design: If no BRD document is selected, return empty history
+        if (isFunctionalDesign && documentId == null) {
+            return ApiResponse.success(Collections.emptyList(), "No Functional Designs generated yet.");
+        }
+
+        // For Requirement Assistant: If no BRD document is selected, return empty history
+        if (isRequirementAssistant && documentId == null) {
+            return ApiResponse.success(Collections.emptyList(), "No Requirement Assistant outputs generated yet.");
+        }
+
+        // For Test Generator: If no BRD document is selected, return empty history
+        if (isTestGenerator && documentId == null) {
+            return ApiResponse.success(Collections.emptyList(), "No Test Generator generated yet.");
+        }
+
+        if (isDefectTriage && documentId == null) {
+            return ApiResponse.success(Collections.emptyList(), "No Defect Triage generated yet.");
+        }
+
+        if (isReleaseNotes && documentId == null) {
+            return ApiResponse.success(Collections.emptyList(), "No Release Notes generated yet.");
         }
 
         // Preload documents for this project to resolve document linkages fast
@@ -80,9 +114,107 @@ public class HistoryController {
 
         List<HistoryItemDto> result = new ArrayList<>();
 
+        if (isDefectTriage) {
+            int generatedVersion = 0;
+            for (AuditLog l : logs) {
+                if (!"ACCEPTED".equalsIgnoreCase(l.getStatus()) || l.getOutput() == null || l.getOutput().trim().isEmpty()) {
+                    continue;
+                }
+                String version = l.getDocumentVersion();
+                if (version == null || !version.matches("^1\\.(\\d+)$")) {
+                    version = "1." + generatedVersion;
+                }
+                result.add(HistoryItemDto.builder()
+                        .id(l.getId())
+                        .projectId(projectId)
+                        .projectName(project.getProjectName())
+                        .documentId(l.getDocumentId())
+                        .documentName(l.getDocumentName())
+                        .version(version)
+                        .feature("defect_triage")
+                        .action(l.getAction())
+                        .fileType("JSON")
+                        .canView(true)
+                        .viewUrl("/api/history/" + l.getId() + "/content")
+                        .downloadUrl("/api/history/" + l.getId() + "/download")
+                        .content(l.getOutput())
+                        .createdAt(l.getCreatedAt())
+                        .build());
+                    generatedVersion++;
+            }
+            return ApiResponse.success(result, "History retrieved successfully");
+        }
+
+        if (isReleaseNotes) {
+            int generatedVersion = 0;
+            for (AuditLog l : logs) {
+                if (!"ACCEPTED".equalsIgnoreCase(l.getStatus()) || l.getOutput() == null || l.getOutput().trim().isEmpty()) {
+                    continue;
+                }
+                String version = l.getDocumentVersion();
+                if (version == null || !version.matches("^1\\.(\\d+)$")) {
+                    version = "1." + generatedVersion;
+                }
+                result.add(HistoryItemDto.builder()
+                        .id(l.getId())
+                        .projectId(projectId)
+                        .projectName(project.getProjectName())
+                        .documentId(l.getDocumentId())
+                        .documentName(l.getDocumentName())
+                        .version(version)
+                        .feature("release_notes")
+                        .action(l.getAction())
+                        .fileType("PDF")
+                        .canView(true)
+                        .viewUrl("/api/history/" + l.getId() + "/content")
+                        .downloadUrl("/api/history/" + l.getId() + "/download")
+                        .content(l.getOutput())
+                        .createdAt(l.getCreatedAt())
+                        .build());
+                generatedVersion++;
+            }
+            return ApiResponse.success(result, "History retrieved successfully");
+        }
+
         if (isUserStory) {
             // USER STORY SPECIFIC LOGIC:
             // Load only actual persisted User Story generations for the selected BRD
+            int sNo = 1;
+            for (AuditLog l : logs) {
+                if (!"GENERATE".equalsIgnoreCase(l.getAction())) {
+                    continue;
+                }
+                String docName = selectedDoc != null ? selectedDoc.getFileName() : l.getDocumentName();
+                if (docName == null || docName.trim().isEmpty()) {
+                    docName = "BRD";
+                }
+
+                String version = "1." + (sNo - 1);
+
+                result.add(HistoryItemDto.builder()
+                        .id(l.getId())
+                        .projectId(projectId)
+                        .projectName(project.getProjectName())
+                        .documentId(selectedDoc != null ? selectedDoc.getId() : l.getDocumentId())
+                        .documentName(docName)
+                        .version(version)
+                        .feature("user_story")
+                        .action(l.getAction())
+                        .fileType("PDF")
+                        .canView(true)
+                        .viewUrl("/api/history/" + l.getId() + "/content")
+                        .downloadUrl("/api/history/" + l.getId() + "/download")
+                        .content(l.getOutput())
+                        .createdAt(l.getCreatedAt())
+                        .build());
+                sNo++;
+            }
+            return ApiResponse.success(result, "History retrieved successfully");
+        }
+
+        if (isTechnicalDesign) {
+            // TECHNICAL DESIGN SPECIFIC LOGIC:
+            // Load only actual persisted Technical Design generations for the selected BRD
             int sNo = 1;
             for (AuditLog l : logs) {
                 if (!"GENERATE".equalsIgnoreCase(l.getAction())) {
@@ -105,7 +237,124 @@ public class HistoryController {
                         .documentId(selectedDoc != null ? selectedDoc.getId() : l.getDocumentId())
                         .documentName(docName)
                         .version(version)
-                        .feature("user_story")
+                        .feature("technical_design")
+                        .action(l.getAction())
+                        .fileType("PDF")
+                        .canView(true)
+                        .viewUrl("/api/history/" + l.getId() + "/content")
+                        .downloadUrl("/api/history/" + l.getId() + "/download")
+                        .content(l.getOutput())
+                        .createdAt(l.getCreatedAt())
+                        .build());
+                sNo++;
+            }
+            return ApiResponse.success(result, "History retrieved successfully");
+        }
+
+        if (isFunctionalDesign) {
+            // FUNCTIONAL DESIGN SPECIFIC LOGIC:
+            // Load only actual persisted Functional Design generations for the selected BRD
+            int sNo = 1;
+            for (AuditLog l : logs) {
+                if (!"GENERATE".equalsIgnoreCase(l.getAction())) {
+                    continue;
+                }
+                String docName = selectedDoc != null ? selectedDoc.getFileName() : l.getDocumentName();
+                if (docName == null || docName.trim().isEmpty()) {
+                    docName = "BRD";
+                }
+
+                String version = l.getDocumentVersion();
+                if (version == null || version.trim().isEmpty() || "v1".equalsIgnoreCase(version.trim())) {
+                    version = "1." + (sNo - 1);
+                }
+
+                result.add(HistoryItemDto.builder()
+                        .id(l.getId())
+                        .projectId(projectId)
+                        .projectName(project.getProjectName())
+                        .documentId(selectedDoc != null ? selectedDoc.getId() : l.getDocumentId())
+                        .documentName(docName)
+                        .version(version)
+                        .feature("functional_design")
+                        .action(l.getAction())
+                        .fileType("PDF")
+                        .canView(true)
+                        .viewUrl("/api/history/" + l.getId() + "/content")
+                        .downloadUrl("/api/history/" + l.getId() + "/download")
+                        .content(l.getOutput())
+                        .createdAt(l.getCreatedAt())
+                        .build());
+                sNo++;
+            }
+            return ApiResponse.success(result, "History retrieved successfully");
+        }
+
+        if (isRequirementAssistant) {
+            // REQUIREMENT ASSISTANT SPECIFIC LOGIC:
+            // Load only actual persisted Requirement Assistant generations for the selected BRD
+            int sNo = 1;
+            for (AuditLog l : logs) {
+                if (!"GENERATE".equalsIgnoreCase(l.getAction())) {
+                    continue;
+                }
+                String docName = selectedDoc != null ? selectedDoc.getFileName() : l.getDocumentName();
+                if (docName == null || docName.trim().isEmpty()) {
+                    docName = "BRD";
+                }
+
+                String version = l.getDocumentVersion();
+                if (version == null || version.trim().isEmpty() || "v1".equalsIgnoreCase(version.trim())) {
+                    version = "1." + (sNo - 1);
+                }
+
+                result.add(HistoryItemDto.builder()
+                        .id(l.getId())
+                        .projectId(projectId)
+                        .projectName(project.getProjectName())
+                        .documentId(selectedDoc != null ? selectedDoc.getId() : l.getDocumentId())
+                        .documentName(docName)
+                        .version(version)
+                        .feature("requirement_assistant")
+                        .action(l.getAction())
+                        .fileType("PDF")
+                        .canView(true)
+                        .viewUrl("/api/history/" + l.getId() + "/content")
+                        .downloadUrl("/api/history/" + l.getId() + "/download")
+                        .content(l.getOutput())
+                        .createdAt(l.getCreatedAt())
+                        .build());
+                sNo++;
+            }
+            return ApiResponse.success(result, "History retrieved successfully");
+        }
+
+        if (isTestGenerator) {
+            // TEST GENERATOR SPECIFIC LOGIC:
+            // Load only actual persisted Test Generator generations for the selected BRD
+            int sNo = 1;
+            for (AuditLog l : logs) {
+                if (!"GENERATE".equalsIgnoreCase(l.getAction())) {
+                    continue;
+                }
+                String docName = selectedDoc != null ? selectedDoc.getFileName() : l.getDocumentName();
+                if (docName == null || docName.trim().isEmpty()) {
+                    docName = "BRD";
+                }
+
+                String version = l.getDocumentVersion();
+                if (version == null || version.trim().isEmpty() || "v1".equalsIgnoreCase(version.trim())) {
+                    version = "1." + (sNo - 1);
+                }
+
+                result.add(HistoryItemDto.builder()
+                        .id(l.getId())
+                        .projectId(projectId)
+                        .projectName(project.getProjectName())
+                        .documentId(selectedDoc != null ? selectedDoc.getId() : l.getDocumentId())
+                        .documentName(docName)
+                        .version(version)
+                        .feature("test_generator")
                         .action(l.getAction())
                         .fileType("PDF")
                         .canView(true)
@@ -202,7 +451,12 @@ public class HistoryController {
         }
         String content = logItem.getOutput();
         String version = logItem.getDocumentVersion() != null ? logItem.getDocumentVersion() : "1.0";
-        String filename = "User_Stories_v" + version + ".json";
+        String feat = logItem.getFeature() != null ? logItem.getFeature().toLowerCase() : "";
+        String baseName = feat.contains("technical") ? "Technical_Design"
+                : (feat.contains("functional") ? "Functional_Design"
+                : (feat.contains("requirement") ? "Requirement_Assistant"
+                : (feat.contains("test") ? "Test_Cases" : "User_Stories")));
+        String filename = baseName + "_v" + version + ".json";
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")

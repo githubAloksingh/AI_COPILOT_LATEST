@@ -15,6 +15,7 @@ import { FeatureHistoryComponent } from '../core/components/feature-history/feat
 })
 export class RequirementAssistant implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
+  @ViewChild('featureHistory') featureHistory?: FeatureHistoryComponent;
 
   // Input Mode: 'manual' OR 'kb'
   inputMode: 'manual' | 'kb' = 'kb';
@@ -189,6 +190,7 @@ export class RequirementAssistant implements OnInit {
           this.promptVersion = aiResponse.prompt_version || 'requirement-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
+          this.featureHistory?.refresh();
         } else {
           this.error = res.message || 'Generation failed. Please try again.';
         }
@@ -243,6 +245,7 @@ export class RequirementAssistant implements OnInit {
           }
           const count = bulkPayload.items.length;
           this.showToast(`${count} requirement${count > 1 ? 's' : ''} saved successfully to database! Recorded in Audit History.`, 'success');
+          this.featureHistory?.refresh();
         } else {
           this.error = res.message || 'Failed to save requirements.';
         }

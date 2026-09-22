@@ -31,4 +31,5 @@ public class DefectAcceptRequest {
     private String model;
     private String promptVersion;
     private Long executionTimeMs;
+    private Map<String, Object> result;
 }

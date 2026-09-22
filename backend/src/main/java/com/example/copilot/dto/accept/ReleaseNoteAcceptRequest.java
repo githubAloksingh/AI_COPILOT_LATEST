@@ -2,6 +2,7 @@ package com.example.copilot.dto.accept;
 
 import lombok.Data;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class ReleaseNoteAcceptRequest {
@@ -24,4 +25,5 @@ public class ReleaseNoteAcceptRequest {
     private String model;
     private String promptVersion;
     private Long executionTimeMs;
+    private Map<String, Object> result;
 }

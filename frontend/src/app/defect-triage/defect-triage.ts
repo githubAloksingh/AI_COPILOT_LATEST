@@ -275,6 +275,7 @@ export class DefectTriage implements OnInit {
       evidence: event.editedData.evidence,
       suggestedInvestigation: event.editedData.suggestedInvestigation,
       suggestedFix: event.editedData.suggestedFix,
+      result: event.editedData,
       relatedDefects: event.editedData.defects || [],
       confidence: event.editedData.confidence || 'HIGH',
       severity: event.editedData.severity || 'MEDIUM',
