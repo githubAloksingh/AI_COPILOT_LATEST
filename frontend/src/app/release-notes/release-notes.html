@@ -166,6 +166,8 @@
 <div style="margin-top: 24px;">
   <app-feature-history
     [projectId]="inputMode === 'kb' ? selectedProjectId : null"
+    [documentId]="inputMode === 'kb' ? selectedBrdId : null"
+    [documentName]="selectedBrdDocument?.fileName || ''"
     feature="release_notes">
   </app-feature-history>
 </div>

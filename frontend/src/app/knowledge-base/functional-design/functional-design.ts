@@ -15,6 +15,7 @@ import { FeatureHistoryComponent } from '../../core/components/feature-history/f
 })
 export class FunctionalDesignComponent implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
+  @ViewChild('featureHistory') featureHistory?: FeatureHistoryComponent;
 
   inputMode: 'kb' | 'manual' = 'kb';
 
@@ -189,6 +190,7 @@ export class FunctionalDesignComponent implements OnInit {
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
+          this.featureHistory?.refresh();
         } else {
           this.error = res.message || 'Failed to generate Functional Design. Please try again.';
         }
@@ -241,6 +243,7 @@ export class FunctionalDesignComponent implements OnInit {
             this.responseModal.notifySuccess(event.isEdited);
           }
           this.showToast('Functional Design saved to database and recorded in Audit History.', 'success');
+          this.featureHistory?.refresh();
         } else {
           this.error = res.message || 'Failed to save functional design.';
         }

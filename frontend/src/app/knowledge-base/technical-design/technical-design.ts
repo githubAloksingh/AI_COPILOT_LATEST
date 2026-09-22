@@ -15,6 +15,7 @@ import { FeatureHistoryComponent } from '../../core/components/feature-history/f
 })
 export class TechnicalDesignComponent implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
+  @ViewChild('featureHistory') featureHistory?: FeatureHistoryComponent;
 
   inputMode: 'kb' | 'manual' = 'kb';
 
@@ -189,6 +190,9 @@ export class TechnicalDesignComponent implements OnInit {
           this.model = aiResponse.model || 'gemini-3.7-flash';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
+          setTimeout(() => {
+            this.featureHistory?.refresh();
+          }, 300);
         } else {
           this.error = res.message || 'Failed to generate Technical Design. Please try again.';
         }
@@ -241,6 +245,9 @@ export class TechnicalDesignComponent implements OnInit {
             this.responseModal.notifySuccess(event.isEdited);
           }
           this.showToast('Technical Design saved to database and recorded in Audit History.', 'success');
+          setTimeout(() => {
+            this.featureHistory?.refresh();
+          }, 300);
         } else {
           this.error = res.message || 'Failed to save technical design.';
         }

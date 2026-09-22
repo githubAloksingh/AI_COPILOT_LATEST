@@ -6,11 +6,15 @@ import com.example.copilot.dto.accept.ReleaseNoteAcceptRequest;
 import com.example.copilot.dto.ai.AiReleaseNoteResponse;
 import com.example.copilot.entity.ReleaseNote;
 import com.example.copilot.repository.ReleaseNoteRepository;
+import com.example.copilot.repository.AuditLogRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.copilot.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Arrays;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -20,6 +24,25 @@ public class ReleaseNoteService {
     private final AiServiceClient aiServiceClient;
     private final ReleaseNoteRepository releaseNoteRepository;
     private final AuditService auditService;
+    private final AuditLogRepository auditLogRepository;
+    private final ObjectMapper objectMapper;
+
+    private String calculateNextVersion(ReleaseNoteAcceptRequest request) {
+        List<String> aliases = Arrays.asList("release notes", "release_notes", "release note", "release_note");
+        List<com.example.copilot.entity.AuditLog> records = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                request.getProjectId(), request.getProjectName(), request.getDocumentId(), request.getDocumentName(), aliases);
+        int maxMinor = -1;
+        int acceptedCount = 0;
+        for (com.example.copilot.entity.AuditLog record : records) {
+            if (!"ACCEPTED".equalsIgnoreCase(record.getStatus())) continue;
+            acceptedCount++;
+            String version = record.getDocumentVersion();
+            if (version != null && version.matches("^1\\.(\\d+)$")) {
+                maxMinor = Math.max(maxMinor, Integer.parseInt(version.substring(2)));
+            }
+        }
+        return "1." + (maxMinor >= 0 ? maxMinor + 1 : acceptedCount);
+    }
 
     public AiReleaseNoteResponse generateReleaseNotes(ReleaseNoteRequest request) {
         long startTime = System.currentTimeMillis();
@@ -77,10 +100,11 @@ public class ReleaseNoteService {
 
     @Transactional
     public ReleaseNote acceptReleaseNotes(ReleaseNoteAcceptRequest request) {
+        String generatedVersion = calculateNextVersion(request);
         ReleaseNote releaseNote = new ReleaseNote();
         releaseNote.setProjectId(request.getProjectId());
         releaseNote.setDocumentId(request.getDocumentId());
-        releaseNote.setVersion(request.getVersion() != null ? request.getVersion() : "1.0.0");
+        releaseNote.setVersion(generatedVersion);
         releaseNote.setSprintInformation(request.getSprintInformation());
         releaseNote.setSummary(request.getSummary());
         releaseNote.setNewFeatures(request.getNewFeatures());
@@ -95,7 +119,12 @@ public class ReleaseNoteService {
         long execTime = request.getExecutionTimeMs() != null ? request.getExecutionTimeMs() : 0L;
         String model = request.getModel() != null ? request.getModel() : "gemini-3.7-flash";
         String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "release-v1";
-        String outputStr = request.getSummary() != null ? request.getSummary() : "";
+        String outputStr;
+        try {
+            outputStr = request.getResult() != null ? objectMapper.writeValueAsString(request.getResult()) : request.getSummary();
+        } catch (Exception e) {
+            outputStr = request.getSummary() != null ? request.getSummary() : "";
+        }
 
         auditService.logAuditFull(
                 "Release Notes",
@@ -112,8 +141,8 @@ public class ReleaseNoteService {
                 null,
                 request.getProjectName(),
                 request.getDocumentName(),
-                request.getDocumentVersion(),
-                "Sprint Release Notes",
+                generatedVersion,
+                "Release Notes",
                 request.getProjectId(),
                 request.getDocumentId()
         );

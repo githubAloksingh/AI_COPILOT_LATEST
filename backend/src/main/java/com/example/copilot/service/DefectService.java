@@ -6,6 +6,8 @@ import com.example.copilot.dto.accept.DefectAcceptRequest;
 import com.example.copilot.dto.ai.AiDefectResponse;
 import com.example.copilot.entity.Defect;
 import com.example.copilot.repository.DefectRepository;
+import com.example.copilot.repository.AuditLogRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.copilot.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -23,6 +26,25 @@ public class DefectService {
     private final AiServiceClient aiServiceClient;
     private final DefectRepository defectRepository;
     private final AuditService auditService;
+    private final AuditLogRepository auditLogRepository;
+    private final ObjectMapper objectMapper;
+
+    private String calculateNextVersion(DefectAcceptRequest request) {
+        List<String> aliases = java.util.Arrays.asList("defect triage", "defect_triage", "defect");
+        List<com.example.copilot.entity.AuditLog> records = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                request.getProjectId(), request.getProjectName(), request.getDocumentId(), request.getDocumentName(), aliases);
+        int maxMinor = -1;
+        int acceptedCount = 0;
+        for (com.example.copilot.entity.AuditLog record : records) {
+            if (!"ACCEPTED".equalsIgnoreCase(record.getStatus())) continue;
+            acceptedCount++;
+            String version = record.getDocumentVersion();
+            if (version != null && version.matches("^1\\.(\\d+)$")) {
+                maxMinor = Math.max(maxMinor, Integer.parseInt(version.substring(2)));
+            }
+        }
+        return "1." + (maxMinor >= 0 ? maxMinor + 1 : acceptedCount);
+    }
 
     public AiDefectResponse analyzeUploadedFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -137,7 +159,13 @@ public class DefectService {
         long execTime = request.getExecutionTimeMs() != null ? request.getExecutionTimeMs() : 0L;
         String model = request.getModel() != null ? request.getModel() : "gemini-3.7-flash";
         String promptVersion = request.getPromptVersion() != null ? request.getPromptVersion() : "defect-v1";
-        String outputStr = request.getProbableRootCause() != null ? request.getProbableRootCause() : "";
+        String version = calculateNextVersion(request);
+        String outputStr;
+        try {
+            outputStr = request.getResult() != null ? objectMapper.writeValueAsString(request.getResult()) : request.getProbableRootCause();
+        } catch (Exception e) {
+            outputStr = request.getProbableRootCause() != null ? request.getProbableRootCause() : "";
+        }
 
         auditService.logAuditFull(
                 "Defect Triage",
@@ -154,8 +182,8 @@ public class DefectService {
                 null,
                 request.getProjectName(),
                 request.getDocumentName(),
-                request.getDocumentVersion(),
-                "Defect Triage Report",
+                version,
+                "Defect Triage",
                 request.getProjectId(),
                 request.getDocumentId()
         );

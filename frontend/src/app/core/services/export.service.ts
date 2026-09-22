@@ -1077,8 +1077,32 @@ export class ExportService {
   // ============================================================
   // 2. FUNCTIONAL DESIGN PDF (Spec 26)
   // ============================================================
-  downloadFunctionalDesignPdf(data: any, meta?: any): void {
-    if (!data) { alert('No functional design data available to export.'); return; }
+  buildFunctionalDesignDoc(data: any, meta?: any): { ctx: any; filename: string } | null {
+    if (!data) return null;
+
+    const rawFd = data.functionalDesign || (Array.isArray(data.requirements) && data.requirements.length > 0 ? data.requirements[0] : data);
+    const fd = { ...rawFd };
+
+    if (!fd.objective && !fd.purpose) {
+      fd.objective = fd.summary || fd.description || (typeof fd.userStory === 'string' ? fd.userStory.replace(/^Objective:\s*/i, '') : '');
+    }
+    if (typeof fd.objective === 'string') {
+      if (fd.objective.includes('RequirementResponseDto') || fd.objective.includes('RequirementItemDto')) {
+        fd.objective = '';
+      } else {
+        fd.objective = fd.objective.replace(/^Objective:\s*/i, '').trim();
+      }
+    }
+    if ((!fd.scope || (Array.isArray(fd.scope) && fd.scope.length === 0)) && fd.objective) {
+      fd.scope = [fd.objective];
+    }
+    if (!fd.validations && fd.acceptanceCriteria) {
+      fd.validations = fd.acceptanceCriteria;
+    }
+    if (!fd.errorHandling && fd.edgeCases) {
+      fd.errorHandling = fd.edgeCases;
+    }
+    data = fd;
 
     const rawDocName = (data.title || meta?.documentName || '').trim();
     const docName = rawDocName || 'Functional Specification';
@@ -1248,14 +1272,30 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(this.buildPdfFilename('Functional_Design', meta, docName));
+    const filename = this.buildPdfFilename('Functional_Design', meta, docName);
+    return { ctx, filename };
+  }
+
+  generateFunctionalDesignPdfBlob(data: any, meta?: any): Blob | null {
+    const built = this.buildFunctionalDesignDoc(data, meta);
+    if (!built) return null;
+    return built.ctx.doc.output('blob');
+  }
+
+  downloadFunctionalDesignPdf(data: any, meta?: any): void {
+    const built = this.buildFunctionalDesignDoc(data, meta);
+    if (!built) {
+      alert('No functional design data available to export.');
+      return;
+    }
+    built.ctx.doc.save(built.filename);
   }
 
   // ============================================================
   // 3. TECHNICAL DESIGN PDF (Specs 27–35: Flowcharts, APIs, DB Schema)
   // ============================================================
-  downloadTechnicalDesignPdf(data: any, meta?: any): void {
-    if (!data) { alert('No technical design data available to export.'); return; }
+  buildTechnicalDesignDoc(data: any, meta?: any): { ctx: any; filename: string } | null {
+    if (!data) return null;
 
     const rawDocName = (data.title || meta?.documentName || '').trim();
     const docName = rawDocName || 'Technical Specification';
@@ -2002,7 +2042,23 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(this.buildPdfFilename('Technical_Design', meta, docName));
+    const filename = this.buildPdfFilename('Technical_Design', meta, docName);
+    return { ctx, filename };
+  }
+
+  generateTechnicalDesignPdfBlob(data: any, meta?: any): Blob | null {
+    const built = this.buildTechnicalDesignDoc(data, meta);
+    if (!built) return null;
+    return built.ctx.doc.output('blob');
+  }
+
+  downloadTechnicalDesignPdf(data: any, meta?: any): void {
+    const built = this.buildTechnicalDesignDoc(data, meta);
+    if (!built) {
+      alert('No technical design data available to export.');
+      return;
+    }
+    built.ctx.doc.save(built.filename);
   }
 
   // ============================================================
@@ -2082,10 +2138,9 @@ export class ExportService {
     ctx.doc.save(this.buildPdfFilename('Requirements', meta, baseFilename));
   }
 
-  downloadAllRequirementsPdf(requirements: any[], baseFilename = 'requirements', meta?: any): void {
+  buildAllRequirementsDoc(requirements: any[], baseFilename = 'requirements', meta?: any): { ctx: any; filename: string } | null {
     if (!requirements || requirements.length === 0) {
-      alert('No requirements available to export.');
-      return;
+      return null;
     }
 
     const rawDocName = (meta?.documentName || '').trim();
@@ -2175,16 +2230,31 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(this.buildPdfFilename('Requirements', meta, baseFilename));
+    const filename = this.buildPdfFilename('Requirements', meta, baseFilename);
+    return { ctx, filename };
+  }
+
+  generateAllRequirementsPdfBlob(requirements: any[], baseFilename = 'requirements', meta?: any): Blob | null {
+    const built = this.buildAllRequirementsDoc(requirements, baseFilename, meta);
+    if (!built) return null;
+    return built.ctx.doc.output('blob');
+  }
+
+  downloadAllRequirementsPdf(requirements: any[], baseFilename = 'requirements', meta?: any): void {
+    const built = this.buildAllRequirementsDoc(requirements, baseFilename, meta);
+    if (!built) {
+      alert('No requirements available to export.');
+      return;
+    }
+    built.ctx.doc.save(built.filename);
   }
 
   // ============================================================
   // 5. TEST CASE PDF (Spec 36)
   // ============================================================
-  downloadTestCasePdf(items: any[], meta?: any): void {
+  buildTestCaseDoc(items: any[], meta?: any): { ctx: any; filename: string } | null {
     if (!items || items.length === 0) {
-      alert('No test case data available to export.');
-      return;
+      return null;
     }
 
     const rawDocName = (meta?.documentName || '').trim();
@@ -2281,20 +2351,35 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(this.buildPdfFilename('Test_Cases', meta, docName));
+    const filename = this.buildPdfFilename('Test_Cases', meta, docName);
+    return { ctx, filename };
+  }
+
+  generateTestCasePdfBlob(items: any[], meta?: any): Blob | null {
+    const built = this.buildTestCaseDoc(items, meta);
+    if (!built) return null;
+    return built.ctx.doc.output('blob');
+  }
+
+  downloadTestCasePdf(items: any[], meta?: any): void {
+    const built = this.buildTestCaseDoc(items, meta);
+    if (!built) {
+      alert('No test case data available to export.');
+      return;
+    }
+    built.ctx.doc.save(built.filename);
   }
 
   // ============================================================
   // 6. DEFECT TRIAGE PDF (Spec 37)
   // ============================================================
-  downloadDefectPdf(data: any, baseFilename = 'defect-triage', meta?: any): void {
+  private buildDefectTriageDoc(data: any, baseFilename = 'defect-triage', meta?: any): { ctx: any; filename: string } | null {
     const defects: any[] = Array.isArray(data?.defects)
       ? data.defects
       : (data ? [data] : []);
 
     if (defects.length === 0) {
-      alert('No defect triage data available to export.');
-      return;
+      return null;
     }
 
     const rawDocName = (meta?.documentName || '').trim();
@@ -2388,13 +2473,27 @@ export class ExportService {
     });
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(this.buildPdfFilename('Defect_Triage', meta, baseFilename));
+    return { ctx, filename: this.buildPdfFilename('Defect_Triage', meta, baseFilename) };
+  }
+
+  generateDefectPdfBlob(data: any, baseFilename = 'defect-triage', meta?: any): Blob | null {
+    const built = this.buildDefectTriageDoc(data, baseFilename, meta);
+    return built ? built.ctx.doc.output('blob') : null;
+  }
+
+  downloadDefectPdf(data: any, baseFilename = 'defect-triage', meta?: any): void {
+    const built = this.buildDefectTriageDoc(data, baseFilename, meta);
+    if (!built) {
+      alert('No defect triage data available to export.');
+      return;
+    }
+    built.ctx.doc.save(built.filename);
   }
 
   // ============================================================
   // 7. RELEASE NOTES PDF (Spec 38)
   // ============================================================
-  downloadReleaseNotePdf(data: any, baseFilename = 'release-notes', meta?: any): void {
+  private buildReleaseNoteDoc(data: any, baseFilename = 'release-notes', meta?: any): { ctx: any; filename: string } | null {
     const rawDocName = (meta?.documentName || data?.productName || '').trim();
     const version = data?.version || data?.releaseVersion || '1.0.0';
     const docName = rawDocName || `Release Notes v${version}`;
@@ -2504,7 +2603,21 @@ export class ExportService {
     }
 
     this.docApplyHeaderAndFooters(ctx);
-    ctx.doc.save(this.buildPdfFilename('Release_Notes', meta, data?.version || version));
+    return { ctx, filename: this.buildPdfFilename('Release_Notes', meta, data?.version || version) };
+  }
+
+  generateReleaseNotePdfBlob(data: any, baseFilename = 'release-notes', meta?: any): Blob | null {
+    const built = this.buildReleaseNoteDoc(data, baseFilename, meta);
+    return built ? built.ctx.doc.output('blob') : null;
+  }
+
+  downloadReleaseNotePdf(data: any, baseFilename = 'release-notes', meta?: any): void {
+    const built = this.buildReleaseNoteDoc(data, baseFilename, meta);
+    if (!built) {
+      alert('No release notes data available to export.');
+      return;
+    }
+    built.ctx.doc.save(built.filename);
   }
 
   // ============================================================

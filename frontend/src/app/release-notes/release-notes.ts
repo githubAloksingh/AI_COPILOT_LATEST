@@ -283,6 +283,7 @@ export class ReleaseNotes implements OnInit {
       breakingChanges: event.editedData.breakingChanges || [],
       knownIssues: event.editedData.knownIssues || [],
       technicalNotes: event.editedData.technicalNotes || '',
+      result: event.editedData,
       model: this.model,
       promptVersion: this.promptVersion,
       executionTimeMs: this.executionTimeMs,

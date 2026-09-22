@@ -32,27 +32,68 @@ public class RequirementService {
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
 
+    public String calculateNextRequirementAssistantVersion(Long projectId, String projectName, Long docId, String docName) {
+        List<String> requirementAliases = java.util.Arrays.asList("requirement assistant", "requirement_assistant", "requirement", "requirements");
+        List<com.example.copilot.entity.AuditLog> existingLogs = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                projectId, projectName, docId, docName, requirementAliases
+        );
+        int maxMinor = -1;
+        int count = 0;
+        if (existingLogs != null) {
+            for (com.example.copilot.entity.AuditLog l : existingLogs) {
+                if ("GENERATE".equalsIgnoreCase(l.getAction())) {
+                    count++;
+                    String ver = l.getDocumentVersion();
+                    if (ver != null && ver.matches("^1\\.(\\d+)$")) {
+                        try {
+                            int minor = Integer.parseInt(ver.substring(2));
+                            if (minor > maxMinor) {
+                                maxMinor = minor;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+        if (maxMinor >= 0) {
+            return "1." + (maxMinor + 1);
+        }
+        if (count == 0) {
+            return "1.0";
+        } else {
+            return "1." + count;
+        }
+    }
+
     public AiRequirementResponse generateRequirement(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
         String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
+        Long docId = parseDocId(request.getDocumentId());
+        String calculatedVersion = calculateNextRequirementAssistantVersion(request.getProjectId(), request.getProjectName(), docId, request.getDocumentName());
         try {
             AiRequirementResponse resp = aiServiceClient.generateRequirement(request);
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
+            String outputJson = "";
+            if (resp.getResult() != null) {
+                try {
+                    outputJson = objectMapper.writeValueAsString(resp.getResult());
+                } catch (Exception ex) {
+                    outputJson = resp.getResult().toString();
+                }
+            }
             auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    outputJson, "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Requirement Assistant", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             log.error("Error generating requirement preview: ", e);
             throw new RuntimeException("Failed to generate requirement: " + e.getMessage(), e);
@@ -127,54 +168,136 @@ public class RequirementService {
         }
     }
 
+    public String calculateNextFunctionalDesignVersion(Long projectId, String projectName, Long docId, String docName) {
+        List<String> functionalDesignAliases = java.util.Arrays.asList("functional design", "functional_design");
+        List<com.example.copilot.entity.AuditLog> existingLogs = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                projectId, projectName, docId, docName, functionalDesignAliases
+        );
+        int maxMinor = -1;
+        int count = 0;
+        if (existingLogs != null) {
+            for (com.example.copilot.entity.AuditLog l : existingLogs) {
+                if ("GENERATE".equalsIgnoreCase(l.getAction())) {
+                    count++;
+                    String ver = l.getDocumentVersion();
+                    if (ver != null && ver.matches("^1\\.(\\d+)$")) {
+                        try {
+                            int minor = Integer.parseInt(ver.substring(2));
+                            if (minor > maxMinor) {
+                                maxMinor = minor;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+        if (maxMinor >= 0) {
+            return "1." + (maxMinor + 1);
+        }
+        if (count == 0) {
+            return "1.0";
+        } else {
+            return "1." + count;
+        }
+    }
+
     public AiRequirementResponse generateFunctionalDesign(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
         String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
+        Long docId = parseDocId(request.getDocumentId());
+        String calculatedVersion = calculateNextFunctionalDesignVersion(request.getProjectId(), request.getProjectName(), docId, request.getDocumentName());
         try {
             AiRequirementResponse resp = aiServiceClient.generateFunctionalDesign(request);
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
+            String outputJson = "";
+            if (resp.getResult() != null) {
+                try {
+                    outputJson = objectMapper.writeValueAsString(resp.getResult());
+                } catch (Exception ex) {
+                    outputJson = resp.getResult().toString();
+                }
+            }
             auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    outputJson, "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Functional Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             log.error("Error generating functional design preview: ", e);
             throw new RuntimeException("Failed to generate functional design: " + e.getMessage(), e);
         }
     }
 
+    public String calculateNextTechnicalDesignVersion(Long projectId, String projectName, Long docId, String docName) {
+        List<String> technicalDesignAliases = java.util.Arrays.asList("technical design", "technical_design");
+        List<com.example.copilot.entity.AuditLog> existingLogs = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                projectId, projectName, docId, docName, technicalDesignAliases
+        );
+        int maxMinor = -1;
+        int count = 0;
+        if (existingLogs != null) {
+            for (com.example.copilot.entity.AuditLog l : existingLogs) {
+                if ("GENERATE".equalsIgnoreCase(l.getAction())) {
+                    count++;
+                    String ver = l.getDocumentVersion();
+                    if (ver != null && ver.matches("^1\\.(\\d+)$")) {
+                        try {
+                            int minor = Integer.parseInt(ver.substring(2));
+                            if (minor > maxMinor) {
+                                maxMinor = minor;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+        if (maxMinor >= 0) {
+            return "1." + (maxMinor + 1);
+        }
+        if (count == 0) {
+            return "1.0";
+        } else {
+            return "1." + count;
+        }
+    }
+
     public AiRequirementResponse generateTechnicalDesign(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
         String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
+        Long docId = parseDocId(request.getDocumentId());
+        String calculatedVersion = calculateNextTechnicalDesignVersion(request.getProjectId(), request.getProjectName(), docId, request.getDocumentName());
         try {
             AiRequirementResponse resp = aiServiceClient.generateTechnicalDesign(request);
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
+            String outputJson = "";
+            if (resp.getResult() != null) {
+                try {
+                    outputJson = objectMapper.writeValueAsString(resp.getResult());
+                } catch (Exception ex) {
+                    outputJson = resp.getResult().toString();
+                }
+            }
             auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    outputJson, "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("Technical Design", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             log.error("Error generating technical design preview: ", e);
             throw new RuntimeException("Failed to generate technical design: " + e.getMessage(), e);

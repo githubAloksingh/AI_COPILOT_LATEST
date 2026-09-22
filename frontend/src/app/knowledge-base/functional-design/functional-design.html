@@ -149,10 +149,14 @@
   (reject)="onReject()">
 </app-response-modal>
 
-<!-- Feature History (shown when project is selected in KB mode) -->
-<div style="margin-top: 24px;">
+<!-- Feature History (shown when BRD is selected in KB mode) -->
+<div style="margin-top: 24px;" *ngIf="inputMode === 'kb' && selectedDocumentId">
   <app-feature-history
-    [projectId]="inputMode === 'kb' ? selectedProjectId : null"
+    #featureHistory
+    [projectId]="selectedProjectId"
+    [documentId]="selectedDocumentId"
+    [documentName]="selectedDocument?.fileName"
+    [projectName]="selectedProject?.projectName"
     feature="functional_design">
   </app-feature-history>
 </div>

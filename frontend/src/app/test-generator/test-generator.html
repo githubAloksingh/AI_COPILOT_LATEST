@@ -290,10 +290,14 @@
   (reject)="onReject()">
 </app-response-modal>
 
-<!-- Feature History (shown when project is selected) -->
-<div class="page-history-wrap">
+<!-- Feature History (shown when project and BRD are selected in KB mode) -->
+<div class="page-history-wrap" *ngIf="mainOption === 'kb' && selectedBrdId">
   <app-feature-history
-    [projectId]="mainOption === 'kb' ? selectedProjectId : null"
+    #featureHistory
+    [projectId]="selectedProjectId"
+    [documentId]="selectedBrdId"
+    [documentName]="selectedBrdDoc?.fileName"
+    [projectName]="selectedProject?.projectName"
     feature="test_generator">
   </app-feature-history>
 </div>

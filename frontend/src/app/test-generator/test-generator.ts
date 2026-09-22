@@ -15,6 +15,7 @@ import { FeatureHistoryComponent } from '../core/components/feature-history/feat
 })
 export class TestGenerator implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
+  @ViewChild('featureHistory') featureHistory?: FeatureHistoryComponent;
 
   // Top-level input option: 'kb' (Option A) | 'manual' (Option B)
   mainOption: 'kb' | 'manual' = 'kb';
@@ -325,6 +326,8 @@ export class TestGenerator implements OnInit {
           this.promptVersion = aiResponse.prompt_version || 'testcase-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
+          // Refresh history after generation is recorded
+          setTimeout(() => this.featureHistory?.refresh(), 500);
         } else {
           this.error = res.message || 'Test case generation failed. Please try again.';
         }
@@ -401,6 +404,8 @@ export class TestGenerator implements OnInit {
             this.responseModal.notifySuccess(event.isEdited);
           }
           this.showToast('Test cases accepted successfully. Saved to database & recorded in Audit History.', 'success');
+          // Refresh history after accept is recorded
+          setTimeout(() => this.featureHistory?.refresh(), 500);
         } else {
           this.error = res.message || 'Failed to save test cases.';
         }
