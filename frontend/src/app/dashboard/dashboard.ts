@@ -286,6 +286,77 @@ export class Dashboard implements OnInit {
     });
   }
 
+  getCategoryLabel(row: ActivityRow): string {
+    if (!row) return '';
+
+    // 1. Resolve document from row
+    let doc: any = null;
+    if (row.documentId) {
+      doc = this.allDocuments.find((d) => Number(d.id) === row.documentId);
+    }
+    if (!doc && row.knowledgeBase && row.knowledgeBase !== '—' && row.knowledgeBase !== 'Direct Text Input') {
+      doc = this.allDocuments.find(
+        (d) => (d.fileName || '').trim().toLowerCase() === row.knowledgeBase.trim().toLowerCase()
+      );
+    }
+
+    // 2. Check document's actual uploaded fileType and fileName
+    if (doc) {
+      const ft = (doc.fileType || '').toUpperCase().trim();
+      const fn = (doc.fileName || '').toLowerCase().trim();
+      if (ft === 'ZIP' || ft === 'CODEBASE' || ft.includes('ZIP') || fn.endsWith('.zip') || fn.endsWith('.tar') || fn.endsWith('.gz') || fn.endsWith('.7z')) {
+        return '(Code Base)';
+      }
+      if (ft === 'BRD' || ft.includes('PDF') || fn.endsWith('.pdf') || fn.endsWith('.docx') || fn.endsWith('.doc') || fn.endsWith('.txt')) {
+        return '(BRD)';
+      }
+    }
+
+    // 3. Fallback to knowledgeBase filename if document wasn't matched in list
+    const kb = (row.knowledgeBase || '').toLowerCase().trim();
+    if (kb.endsWith('.zip') || kb.endsWith('.tar') || kb.endsWith('.gz') || kb.endsWith('.7z')) {
+      return '(Code Base)';
+    }
+    if (kb.endsWith('.pdf') || kb.endsWith('.docx') || kb.endsWith('.doc') || kb.endsWith('.txt')) {
+      return '(BRD)';
+    }
+
+    // 4. Fallback for rows where knowledgeBase is '—' (project-level activity)
+    let resolvedProjectId: number | null = row.projectId;
+    if (!resolvedProjectId && row.projectName && row.projectName !== 'General' && row.projectName !== '—') {
+      const matchProj = this.allProjects.find(
+        (p) => (p.projectName || '').trim().toLowerCase() === row.projectName.trim().toLowerCase()
+      );
+      if (matchProj) {
+        resolvedProjectId = Number(matchProj.id);
+      }
+    }
+    if (resolvedProjectId) {
+      const projectDocs = this.allDocuments.filter((d) => Number(d.projectId) === resolvedProjectId);
+      const brdDoc = projectDocs.find((d) => {
+        const ft = (d.fileType || '').toUpperCase();
+        const fn = (d.fileName || '').toLowerCase();
+        return ft === 'BRD' || fn.endsWith('.pdf') || fn.endsWith('.docx') || fn.endsWith('.doc') || fn.endsWith('.txt');
+      });
+      const zipDoc = projectDocs.find((d) => {
+        const ft = (d.fileType || '').toUpperCase();
+        const fn = (d.fileName || '').toLowerCase();
+        return ft === 'ZIP' || ft === 'CODEBASE' || fn.endsWith('.zip');
+      });
+
+      if (brdDoc && !zipDoc) return '(BRD)';
+      if (zipDoc && !brdDoc) return '(Code Base)';
+      if (brdDoc) return '(BRD)';
+    }
+
+    // 5. Check row.category
+    const cat = (row.category || '').toLowerCase().trim();
+    if (cat.includes('codebase') || cat === 'zip') return '(Code Base)';
+    if (cat.includes('brd')) return '(BRD)';
+
+    return '';
+  }
+
   formatCategory(log: any): string {
     const raw = log.inputType || log.category || '';
     if (!raw) {

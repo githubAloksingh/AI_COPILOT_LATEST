@@ -66,6 +66,9 @@
                 </svg>
                 <span *ngIf="downloadingSNo === row.sNo" class="mini-spinner"></span>
               </button>
+              <span class="category-label" *ngIf="getCategoryLabel(row)" (click)="downloadFiles(row, $event)">
+                {{ getCategoryLabel(row) }}
+              </span>
             </div>
           </td>
           <td>
