@@ -89,7 +89,7 @@
               [disabled]="loading || loadingDocs">
               <option [ngValue]="null">-- Select BRD --</option>
               <option *ngFor="let doc of availableBrds" [value]="doc.id">
-                📄 {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} chunks)
+                📄 {{ doc.fileName }} ({{ doc.version || 'v1' }})
               </option>
             </select>
             <small class="helper-text" *ngIf="availableBrds.length === 0 && !loadingDocs">
@@ -101,7 +101,7 @@
               <span class="doc-icon">📄</span>
               <div>
                 <strong>{{ selectedBrdDoc.fileName }}</strong>
-                <div class="doc-sub">{{ selectedBrdDoc.fileType }} • {{ selectedBrdDoc.chunkCount || 0 }} chunks</div>
+                <div class="doc-sub">{{ selectedBrdDoc.fileType }}</div>
               </div>
             </div>
             <button type="button" class="btn-remove-doc" (click)="removeBrdDoc()" [disabled]="loading">Remove</button>
@@ -122,7 +122,7 @@
               [disabled]="loading || loadingDocs">
               <option [ngValue]="null">-- Select Codebase ZIP --</option>
               <option *ngFor="let doc of availableCodebases" [value]="doc.id">
-                📦 {{ doc.fileName }} (ZIP archive, {{ doc.chunkCount || 0 }} chunks)
+                 📦 {{ doc.fileName }} (ZIP archive)
               </option>
             </select>
             <small class="helper-text" *ngIf="availableCodebases.length === 0 && !loadingDocs">
@@ -134,7 +134,7 @@
               <span class="doc-icon">📦</span>
               <div>
                 <strong>{{ selectedCodebaseDoc.fileName }}</strong>
-                <div class="doc-sub">ZIP Archive • {{ selectedCodebaseDoc.chunkCount || 0 }} chunks</div>
+                 <div class="doc-sub">ZIP Archive</div>
               </div>
             </div>
             <button type="button" class="btn-remove-doc" (click)="removeCodebaseDoc()" [disabled]="loading">Remove</button>
@@ -156,7 +156,7 @@
             [disabled]="loading || loadingDocs">
             <option [ngValue]="null">-- Select BRD --</option>
             <option *ngFor="let doc of availableBrds" [value]="doc.id">
-              📄 {{ doc.fileName }} ({{ doc.version || 'v1' }} • {{ doc.chunkCount || 0 }} chunks)
+              📄 {{ doc.fileName }} ({{ doc.version || 'v1' }})
             </option>
           </select>
           <small class="helper-text" *ngIf="availableBrds.length === 0 && !loadingDocs">
@@ -168,7 +168,7 @@
             <span class="doc-icon">📄</span>
             <div>
               <strong>{{ selectedBrdDoc.fileName }}</strong>
-              <div class="doc-sub">{{ selectedBrdDoc.fileType }} • Status: {{ selectedBrdDoc.status }} • {{ selectedBrdDoc.chunkCount || 0 }} chunks ingested</div>
+                <div class="doc-sub">{{ selectedBrdDoc.fileType }} • Status: {{ selectedBrdDoc.status }}</div>
             </div>
           </div>
           <button type="button" class="btn-remove-doc" (click)="removeBrdDoc()" [disabled]="loading">Remove</button>
@@ -189,7 +189,7 @@
             [disabled]="loading || loadingDocs">
             <option [ngValue]="null">-- Select Codebase ZIP --</option>
             <option *ngFor="let doc of availableCodebases" [value]="doc.id">
-              📦 {{ doc.fileName }} (ZIP archive, {{ doc.chunkCount || 0 }} chunks)
+               📦 {{ doc.fileName }} (ZIP archive)
             </option>
           </select>
           <small class="helper-text" *ngIf="availableCodebases.length === 0 && !loadingDocs">
@@ -201,7 +201,7 @@
             <span class="doc-icon">📦</span>
             <div>
               <strong>{{ selectedCodebaseDoc.fileName }}</strong>
-              <div class="doc-sub">ZIP Archive • Status: {{ selectedCodebaseDoc.status }} • {{ selectedCodebaseDoc.chunkCount || 0 }} chunks ingested</div>
+                 <div class="doc-sub">ZIP Archive • Status: {{ selectedCodebaseDoc.status }}</div>
             </div>
           </div>
           <button type="button" class="btn-remove-doc" (click)="removeCodebaseDoc()" [disabled]="loading">Remove</button>

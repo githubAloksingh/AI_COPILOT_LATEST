@@ -21,61 +21,81 @@
     <div class="stat-desc">BRD & Codebase Files</div>
   </div>
 
-  <div class="stat-card">
-    <div class="stat-title">Chunks Stored in DB</div>
-    <div class="stat-value">{{ stats.chunksStored || 0 }}</div>
-    <div class="stat-desc">Embedded Chunks</div>
-  </div>
-
-  <div class="stat-card">
-    <div class="stat-title">Requirements Generated</div>
-    <div class="stat-value">{{ stats.requirementsGenerated || 0 }}</div>
-    <div class="stat-desc">Stored in Database</div>
-  </div>
-
-  <div class="stat-card">
-    <div class="stat-title">Test Cases Generated</div>
-    <div class="stat-value">{{ stats.testCasesGenerated || 0 }}</div>
-    <div class="stat-desc">Stored in Database</div>
-  </div>
-
-  <div class="stat-card">
-    <div class="stat-title">Defects Triaged</div>
-    <div class="stat-value">{{ stats.defectsTriaged || 0 }}</div>
-    <div class="stat-desc">Root Cause Analyses</div>
-  </div>
-
-  <div class="stat-card">
-    <div class="stat-title">Total AI Generations</div>
-    <div class="stat-value">{{ stats.totalGenerations || ((stats.requirementsGenerated || 0) + (stats.testCasesGenerated || 0) + (stats.defectsTriaged || 0) + (stats.releaseNotesGenerated || 0)) }}</div>
-    <div class="stat-desc">Audit Trail Logged</div>
-  </div>
 </div>
 
 <div class="card">
   <h2>Recent AI Activity</h2>
-  <div class="table-container" *ngIf="recentActivity.length > 0; else noActivity">
+  <div class="table-container" *ngIf="activityRows.length > 0; else noActivity">
     <table>
       <thead>
         <tr>
-          <th>Time</th>
-          <th>Feature</th>
-          <th>Status</th>
-          <th>Execution Time</th>
+          <th>S.No</th>
+          <th>Project</th>
+          <th>Knowledge Base</th>
+          <th>Category</th>
+          <th>User Story</th>
+          <th>Functional Design</th>
+          <th>Technical Design</th>
+          <th>Requirement Analysis</th>
+          <th>Test Generator</th>
+          <th>Defect Triage</th>
+          <th>Release Notes</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let item of recentActivity">
-          <td style="white-space: nowrap; font-size: 0.85rem;">{{ formatDate(item.timestamp) }}</td>
-          <td><span style="background-color: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">{{ item.feature }}</span></td>
+        <tr *ngFor="let row of activityRows">
+          <td style="font-weight: 500; color: #64748b; font-size: 0.85rem;">{{ row.sNo }}</td>
           <td>
-            <span [ngStyle]="{
-              'color': item.status === 'SUCCESS' ? '#10b981' : '#dc2626',
-              'font-weight': '600',
-              'font-size': '0.875rem'
-            }">{{ item.status }}</span>
+            <span style="font-weight: 600; color: #0f172a; font-size: 0.875rem;">{{ row.projectName }}</span>
           </td>
-          <td style="font-size: 0.85rem;">{{ item.executionTimeMs }} ms</td>
+          <td>
+            <span style="color: #334155; font-size: 0.85rem;" [title]="row.knowledgeBase">{{ row.knowledgeBase }}</span>
+          </td>
+          <td>
+            <div class="category-cell">
+              <button 
+                type="button" 
+                class="download-icon-btn" 
+                title="Download" 
+                aria-label="Download"
+                (click)="downloadFiles(row, $event)">
+                <svg *ngIf="downloadingSNo !== row.sNo" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span *ngIf="downloadingSNo === row.sNo" class="mini-spinner"></span>
+              </button>
+            </div>
+          </td>
+          <td>
+            <span *ngIf="row.userStory" [ngClass]="getStatusBadgeClass(row.userStory)">{{ formatStatus(row.userStory) }}</span>
+            <span *ngIf="!row.userStory" class="empty-cell">—</span>
+          </td>
+          <td>
+            <span *ngIf="row.functionalDesign" [ngClass]="getStatusBadgeClass(row.functionalDesign)">{{ formatStatus(row.functionalDesign) }}</span>
+            <span *ngIf="!row.functionalDesign" class="empty-cell">—</span>
+          </td>
+          <td>
+            <span *ngIf="row.technicalDesign" [ngClass]="getStatusBadgeClass(row.technicalDesign)">{{ formatStatus(row.technicalDesign) }}</span>
+            <span *ngIf="!row.technicalDesign" class="empty-cell">—</span>
+          </td>
+          <td>
+            <span *ngIf="row.requirementAnalysis" [ngClass]="getStatusBadgeClass(row.requirementAnalysis)">{{ formatStatus(row.requirementAnalysis) }}</span>
+            <span *ngIf="!row.requirementAnalysis" class="empty-cell">—</span>
+          </td>
+          <td>
+            <span *ngIf="row.testGenerator" [ngClass]="getStatusBadgeClass(row.testGenerator)">{{ formatStatus(row.testGenerator) }}</span>
+            <span *ngIf="!row.testGenerator" class="empty-cell">—</span>
+          </td>
+          <td>
+            <span *ngIf="row.defectTriage" [ngClass]="getStatusBadgeClass(row.defectTriage)">{{ formatStatus(row.defectTriage) }}</span>
+            <span *ngIf="!row.defectTriage" class="empty-cell">—</span>
+          </td>
+          <td>
+            <span *ngIf="row.releaseNotes" [ngClass]="getStatusBadgeClass(row.releaseNotes)">{{ formatStatus(row.releaseNotes) }}</span>
+            <span *ngIf="!row.releaseNotes" class="empty-cell">—</span>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -85,13 +105,3 @@
   </ng-template>
 </div>
 
-<div class="card mt-4">
-  <h2>Getting Started</h2>
-  <p style="color: #64748b; line-height: 1.6;">
-    1. Upload your requirements/tech docs/CSV in the <strong><a routerLink="/knowledge-base" style="color: #ea580c; text-decoration: none;">Knowledge Base</a></strong>.<br>
-    2. Convert client specs into structured user stories with the <strong><a routerLink="/requirements" style="color: #ea580c; text-decoration: none;">Requirement Assistant</a></strong>.<br>
-    3. Generate test suites in seconds with the <strong><a routerLink="/test-generator" style="color: #ea580c; text-decoration: none;">Test Generator</a></strong>.<br>
-    4. Triage errors and stack traces using <strong><a routerLink="/defect-triage" style="color: #ea580c; text-decoration: none;">Defect Triage</a></strong>.<br>
-    5. Draft sprint changelogs and daily standup notes in <strong><a routerLink="/release-notes" style="color: #ea580c; text-decoration: none;">Release Notes</a></strong>.
-  </p>
-</div>
