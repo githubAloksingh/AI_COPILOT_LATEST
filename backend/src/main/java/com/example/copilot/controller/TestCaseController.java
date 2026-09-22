@@ -9,7 +9,6 @@ import com.example.copilot.service.TestCaseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,19 +22,6 @@ public class TestCaseController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ApiResponse<AiTestCaseResponse> generateTestCases(@RequestBody TestCaseRequest request) {
         return ApiResponse.success(testCaseService.generateTestCases(request), "Test cases generated successfully");
-    }
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<AiTestCaseResponse> generateTestCasesUpload(
-            @RequestParam(value = "brdFile", required = false) MultipartFile brdFile,
-            @RequestParam(value = "zipFile", required = false) MultipartFile zipFile,
-            @RequestParam(value = "testTypes", required = false) List<String> testTypes,
-            @RequestParam(value = "inputMode", required = false) String inputMode
-    ) {
-        return ApiResponse.success(
-                testCaseService.generateTestCasesUpload(brdFile, zipFile, testTypes, inputMode),
-                "Test cases generated successfully"
-        );
     }
 
     @PostMapping("/accept")

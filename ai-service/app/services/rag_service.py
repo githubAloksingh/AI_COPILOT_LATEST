@@ -37,7 +37,6 @@ from app.prompts import (
     build_technical_design_prompt,
     TESTCASE_PROMPT_VERSION,
     build_testcase_prompt,
-    build_testcase_from_files_prompt,
     DEFECT_PROMPT_VERSION,
     build_defect_prompt,
     RELEASE_NOTE_PROMPT_VERSION,
@@ -400,40 +399,6 @@ class RagService:
             result=result,
             sources=source_strings,
             source_details=sources,
-            model=settings.gemini_model,
-            prompt_version=TESTCASE_PROMPT_VERSION,
-            execution_time_ms=exec_time_ms
-        )
-
-    def generate_test_cases_from_files(
-        self,
-        mode: str,
-        brd_text: str = "",
-        brd_filename: str = "",
-        zip_summary: str = "",
-        zip_sources: List[str] = None,
-        test_types: List[str] = None
-    ) -> TestCaseGenerateResponse:
-        start_time = time.time()
-        prompt = build_testcase_from_files_prompt(
-            mode=mode,
-            brd_text=brd_text,
-            zip_summary=zip_summary,
-            test_types=test_types
-        )
-        result = self.gemini.generate_structured_list(prompt, TestCaseItem)
-        exec_time_ms = int((time.time() - start_time) * 1000)
-
-        sources = []
-        if brd_filename:
-            sources.append(f"BRD: {brd_filename}")
-        if zip_sources:
-            sources.extend([f"ZIP: {s}" for s in zip_sources[:10]])
-
-        return TestCaseGenerateResponse(
-            result=result,
-            sources=sources,
-            source_details=[],
             model=settings.gemini_model,
             prompt_version=TESTCASE_PROMPT_VERSION,
             execution_time_ms=exec_time_ms

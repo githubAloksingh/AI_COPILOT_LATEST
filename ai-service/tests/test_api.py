@@ -104,44 +104,7 @@ def test_testcases_generate_endpoint(mock_retrieval, mock_gemini):
     assert resp_data["result"][0]["scenario"] == "Login with valid password"
 
 
-@patch("app.services.gemini_service.GeminiService.generate_structured_list")
-def test_testcases_generate_upload_endpoint(mock_gemini):
-    import io
-    import zipfile
-
-    mock_gemini.return_value = [
-        TestCaseItem(
-            scenario="Verify BRD Requirement R1 against UserController",
-            type="POSITIVE",
-            priority="HIGH",
-            preconditions=["Server running"],
-            steps=["POST /login", "Verify 200 OK"],
-            expectedResult="User authenticated successfully"
-        )
-    ]
-
-    # Create dummy zip in memory
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, "w") as z:
-        z.writestr("src/UserController.java", "public class UserController { public String login() { return \"ok\"; } }")
-    zip_bytes = zip_buf.getvalue()
-
-    brd_bytes = b"BRD Specification: The system must allow users to log in."
-
-    files = {
-        "brd_file": ("spec.txt", brd_bytes, "text/plain"),
-        "zip_file": ("project.zip", zip_bytes, "application/zip")
-    }
-    data = {
-        "input_mode": "both",
-        "test_types": "Functional Tests,Edge & Boundary Cases"
-    }
-
-    response = client.post("/api/ai/test-cases/generate-upload", data=data, files=files)
-    assert response.status_code == 200
-    resp_data = response.json()
-    assert len(resp_data["result"]) == 1
-    assert resp_data["result"][0]["scenario"] == "Verify BRD Requirement R1 against UserController"
-    assert any("BRD" in s for s in resp_data["sources"])
-    assert any("ZIP" in s for s in resp_data["sources"])
+def test_testcases_direct_upload_endpoint_is_removed():
+    response = client.post("/api/ai/test-cases/generate-upload")
+    assert response.status_code == 404
 
