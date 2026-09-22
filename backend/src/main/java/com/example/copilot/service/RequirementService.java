@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.copilot.repository.AuditLogRepository;
 import java.util.Map;
 
 @Slf4j
@@ -27,6 +29,8 @@ public class RequirementService {
     private final AiServiceClient aiServiceClient;
     private final RequirementRepository requirementRepository;
     private final AuditService auditService;
+    private final AuditLogRepository auditLogRepository;
+    private final ObjectMapper objectMapper;
 
     public AiRequirementResponse generateRequirement(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
@@ -55,27 +59,68 @@ public class RequirementService {
         }
     }
 
+    public String calculateNextUserStoryVersion(Long projectId, String projectName, Long docId, String docName) {
+        List<String> userStoryAliases = java.util.Arrays.asList("user story", "user_story");
+        List<com.example.copilot.entity.AuditLog> existingLogs = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                projectId, projectName, docId, docName, userStoryAliases
+        );
+        int maxMinor = -1;
+        int count = 0;
+        if (existingLogs != null) {
+            for (com.example.copilot.entity.AuditLog l : existingLogs) {
+                if ("GENERATE".equalsIgnoreCase(l.getAction())) {
+                    count++;
+                    String ver = l.getDocumentVersion();
+                    if (ver != null && ver.matches("^1\\.(\\d+)$")) {
+                        try {
+                            int minor = Integer.parseInt(ver.substring(2));
+                            if (minor > maxMinor) {
+                                maxMinor = minor;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+        if (maxMinor >= 0) {
+            return "1." + (maxMinor + 1);
+        }
+        if (count == 0) {
+            return "1.0";
+        } else {
+            return "1." + count;
+        }
+    }
+
     public AiRequirementResponse generateUserStory(RequirementRequest request) {
         long startTime = System.currentTimeMillis();
         String inputType = request.getInputType() != null ? request.getInputType() : "Knowledge Base Document";
+        Long docId = parseDocId(request.getDocumentId());
+        String calculatedVersion = calculateNextUserStoryVersion(request.getProjectId(), request.getProjectName(), docId, request.getDocumentName());
         try {
             AiRequirementResponse resp = aiServiceClient.generateUserStory(request);
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
+            String outputJson = "";
+            if (resp.getResult() != null) {
+                try {
+                    outputJson = objectMapper.writeValueAsString(resp.getResult());
+                } catch (Exception ex) {
+                    outputJson = resp.getResult().toString();
+                }
+            }
             auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     resp.getSources(), resp.getModel(), resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "", "SUCCESS", duration, null,
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    outputJson, "SUCCESS", duration, null,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             return resp;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            Long docId = parseDocId(request.getDocumentId());
             auditService.logAuditFull("User Story", "GENERATE", UserContext.getCurrentUser(), UserContext.getCurrentRole(),
                     request.getDescription() != null ? request.getDescription() : request.getTitle(),
                     null, "gemini-3.7-flash", "v1.0", null, "FAILED", duration, e.getMessage(),
-                    request.getProjectName(), request.getDocumentName(), request.getDocumentVersion(), inputType,
+                    request.getProjectName(), request.getDocumentName(), calculatedVersion, inputType,
                     request.getProjectId(), docId);
             log.error("Error generating user story preview: ", e);
             throw new RuntimeException("Failed to generate user story: " + e.getMessage(), e);

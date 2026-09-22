@@ -72,7 +72,20 @@
 .category-cell {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+}
+
+.category-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+
+  &:hover {
+    color: #ea580c;
+  }
 }
 
 .download-icon-btn {

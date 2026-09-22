@@ -15,6 +15,7 @@ import { FeatureHistoryComponent } from '../../core/components/feature-history/f
 })
 export class UserStoryComponent implements OnInit {
   @ViewChild('responseModal') responseModal?: ResponseModal;
+  @ViewChild('featureHistory') featureHistory?: FeatureHistoryComponent;
 
   inputMode: 'kb' | 'manual' = 'kb';
 
@@ -196,6 +197,9 @@ export class UserStoryComponent implements OnInit {
           this.promptVersion = aiResponse.prompt_version || 'requirement-v2';
           this.executionTimeMs = aiResponse.execution_time_ms || 0;
           this.isModalOpen = true;
+          setTimeout(() => {
+            this.featureHistory?.refresh();
+          }, 300);
         } else {
           this.error = res.message || 'Failed to generate User Story. Please try again.';
         }

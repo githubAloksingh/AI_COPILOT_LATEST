@@ -945,11 +945,10 @@ export class ExportService {
   // ============================================================
   // 1. USER STORY PDF (Spec 25)
   // ============================================================
-  downloadUserStoryPdf(items: any | any[], meta?: any): void {
-    const list: any[] = Array.isArray(items) ? items : [items];
+  buildUserStoryDoc(items: any | any[], meta?: any): { ctx: any; docName: string; filename: string; list: any[] } | null {
+    const list: any[] = Array.isArray(items) ? items : (items ? [items] : []);
     if (!list || list.length === 0) {
-      alert('No user story data available to export.');
-      return;
+      return null;
     }
 
     const rawDocName = (meta?.documentName || '').trim();
@@ -985,9 +984,10 @@ export class ExportService {
       }
 
       // Acceptance Criteria (Numbered list with hanging indent, Spec 13 & 25)
-      if (story.acceptanceCriteria && story.acceptanceCriteria.length > 0) {
+      const acList = story.acceptanceCriteria || story.acceptance_criteria;
+      if (acList && acList.length > 0) {
         this.docLabelLine(ctx, 'Acceptance Criteria');
-        story.acceptanceCriteria.forEach((ac: any, acIdx: number) => {
+        acList.forEach((ac: any, acIdx: number) => {
           const text = this.toText(ac);
           const defaultId = `AC-${String(acIdx + 1).padStart(3, '0')}`;
           const prefix = text.startsWith('AC-') ? '' : `${defaultId}: `;
@@ -1051,7 +1051,24 @@ export class ExportService {
 
     const firstId = list[0]?.userStoryId || list[0]?.requirementId || 'US-001';
     const filename = this.buildPdfFilename('User_Story', meta, list.length === 1 ? firstId : docName);
-    ctx.doc.save(filename);
+    return { ctx, docName, filename, list };
+  }
+
+  generateUserStoryPdfBlob(items: any | any[], meta?: any): Blob | null {
+    const built = this.buildUserStoryDoc(items, meta);
+    if (!built) return null;
+    return built.ctx.doc.output('blob');
+  }
+
+  downloadUserStoryPdf(items: any | any[], meta?: any): void {
+    const list: any[] = Array.isArray(items) ? items : [items];
+    if (!list || list.length === 0) {
+      alert('No user story data available to export.');
+      return;
+    }
+    const built = this.buildUserStoryDoc(list, meta);
+    if (!built) return;
+    built.ctx.doc.save(built.filename);
   }
 
   // ============================================================

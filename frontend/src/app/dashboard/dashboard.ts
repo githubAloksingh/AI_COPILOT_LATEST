@@ -32,6 +32,7 @@ export class Dashboard implements OnInit {
   activityRows: ActivityRow[] = [];
   allDocuments: any[] = [];
   allProjects: any[] = [];
+  rawLogs: any[] = [];
   downloadingSNo: number | null = null;
   loading = true;
 
@@ -59,20 +60,11 @@ export class Dashboard implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.recentActivity = res.data;
-          this.processActivityRows(this.recentActivity);
+          this.rawLogs = res.data;
+          this.processActivityRows(this.rawLogs);
         }
         this.cdr.markForCheck();
       }
-    });
-
-    this.api.getAuditLogs('ALL').subscribe({
-      next: (res) => {
-        if (res.success && res.data && res.data.length > 0) {
-          this.processActivityRows(res.data);
-        }
-        this.cdr.markForCheck();
-      },
-      error: () => {}
     });
   }
 
@@ -81,6 +73,9 @@ export class Dashboard implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.allProjects = res.data;
+          if (this.rawLogs && this.rawLogs.length > 0) {
+            this.processActivityRows(this.rawLogs);
+          }
         }
         this.cdr.markForCheck();
       },
@@ -102,8 +97,17 @@ export class Dashboard implements OnInit {
 
   processActivityRows(logs: any[]) {
     if (!logs || logs.length === 0) {
+      this.activityRows = [];
       return;
     }
+
+    // Set of active projects currently present in Knowledge Base
+    const validProjectIds = new Set<number>(
+      (this.allProjects || []).map((p) => Number(p.id)).filter((id) => !isNaN(id) && id > 0)
+    );
+    const validProjectNames = new Set<string>(
+      (this.allProjects || []).map((p) => (p.projectName || '').trim().toLowerCase()).filter(Boolean)
+    );
 
     const activityMap = new Map<string, ActivityRow>();
 
@@ -115,14 +119,38 @@ export class Dashboard implements OnInit {
     });
 
     for (const log of sorted) {
-      const proj = (log.projectName && log.projectName.trim()) ? log.projectName.trim() : 'General';
+      if (log.action === 'DELETE_PROJECT') {
+        continue;
+      }
+
+      const logProjId = log.projectId ? Number(log.projectId) : null;
+      const logProjName = (log.projectName && log.projectName.trim()) ? log.projectName.trim() : '';
+
+      // ONLY projects currently present in Knowledge Base are allowed
+      if (this.allProjects.length > 0) {
+        const matchesId = logProjId && validProjectIds.has(logProjId);
+        const matchesName = logProjName && validProjectNames.has(logProjName.toLowerCase());
+        if (!matchesId && !matchesName) {
+          // Project was deleted from Knowledge Base — do NOT display
+          continue;
+        }
+      } else {
+        // Projects not yet loaded or empty — do not display stale data
+        continue;
+      }
+
+      const matchedProj = this.allProjects.find(
+        (p) => (logProjId && Number(p.id) === logProjId) ||
+               (logProjName && (p.projectName || '').trim().toLowerCase() === logProjName.toLowerCase())
+      );
+      const proj = matchedProj ? matchedProj.projectName : logProjName;
       const doc = (log.documentName && log.documentName.trim()) ? log.documentName.trim() : '—';
       const groupKey = `${proj}:::${doc}`;
 
       if (!activityMap.has(groupKey)) {
         activityMap.set(groupKey, {
           sNo: 0,
-          projectId: log.projectId ? Number(log.projectId) : null,
+          projectId: matchedProj ? Number(matchedProj.id) : logProjId,
           documentId: log.documentId ? Number(log.documentId) : null,
           projectName: proj,
           knowledgeBase: doc,
@@ -139,8 +167,8 @@ export class Dashboard implements OnInit {
       }
 
       const row = activityMap.get(groupKey)!;
-      if (!row.projectId && log.projectId) {
-        row.projectId = Number(log.projectId);
+      if (!row.projectId && logProjId) {
+        row.projectId = logProjId;
       }
       if (!row.documentId && log.documentId) {
         row.documentId = Number(log.documentId);
@@ -176,8 +204,23 @@ export class Dashboard implements OnInit {
       }
     }
 
+    // Filter out dummy '—' rows if the project already has actual document rows
+    const projectHasDocRows = new Set<string>();
+    for (const r of activityMap.values()) {
+      if (r.knowledgeBase && r.knowledgeBase !== '—') {
+        projectHasDocRows.add(r.projectName.toLowerCase());
+      }
+    }
+
+    const filteredRows = Array.from(activityMap.values()).filter((r) => {
+      if (r.knowledgeBase === '—' && projectHasDocRows.has(r.projectName.toLowerCase())) {
+        return false;
+      }
+      return true;
+    });
+
     // Sort by most recent activity timestamp descending
-    const rows = Array.from(activityMap.values()).sort((a, b) => b.lastUpdated - a.lastUpdated);
+    const rows = filteredRows.sort((a, b) => b.lastUpdated - a.lastUpdated);
 
     rows.forEach((r, idx) => {
       r.sNo = idx + 1;
@@ -284,6 +327,77 @@ export class Dashboard implements OnInit {
         }
       }, idx * 600);
     });
+  }
+
+  getCategoryLabel(row: ActivityRow): string {
+    if (!row) return '';
+
+    // 1. Resolve document from row
+    let doc: any = null;
+    if (row.documentId) {
+      doc = this.allDocuments.find((d) => Number(d.id) === row.documentId);
+    }
+    if (!doc && row.knowledgeBase && row.knowledgeBase !== '—' && row.knowledgeBase !== 'Direct Text Input') {
+      doc = this.allDocuments.find(
+        (d) => (d.fileName || '').trim().toLowerCase() === row.knowledgeBase.trim().toLowerCase()
+      );
+    }
+
+    // 2. Check document's actual uploaded fileType and fileName
+    if (doc) {
+      const ft = (doc.fileType || '').toUpperCase().trim();
+      const fn = (doc.fileName || '').toLowerCase().trim();
+      if (ft === 'ZIP' || ft === 'CODEBASE' || ft.includes('ZIP') || fn.endsWith('.zip') || fn.endsWith('.tar') || fn.endsWith('.gz') || fn.endsWith('.7z')) {
+        return '(Code Base)';
+      }
+      if (ft === 'BRD' || ft.includes('PDF') || fn.endsWith('.pdf') || fn.endsWith('.docx') || fn.endsWith('.doc') || fn.endsWith('.txt')) {
+        return '(BRD)';
+      }
+    }
+
+    // 3. Fallback to knowledgeBase filename if document wasn't matched in list
+    const kb = (row.knowledgeBase || '').toLowerCase().trim();
+    if (kb.endsWith('.zip') || kb.endsWith('.tar') || kb.endsWith('.gz') || kb.endsWith('.7z')) {
+      return '(Code Base)';
+    }
+    if (kb.endsWith('.pdf') || kb.endsWith('.docx') || kb.endsWith('.doc') || kb.endsWith('.txt')) {
+      return '(BRD)';
+    }
+
+    // 4. Fallback for rows where knowledgeBase is '—' (project-level activity)
+    let resolvedProjectId: number | null = row.projectId;
+    if (!resolvedProjectId && row.projectName && row.projectName !== 'General' && row.projectName !== '—') {
+      const matchProj = this.allProjects.find(
+        (p) => (p.projectName || '').trim().toLowerCase() === row.projectName.trim().toLowerCase()
+      );
+      if (matchProj) {
+        resolvedProjectId = Number(matchProj.id);
+      }
+    }
+    if (resolvedProjectId) {
+      const projectDocs = this.allDocuments.filter((d) => Number(d.projectId) === resolvedProjectId);
+      const brdDoc = projectDocs.find((d) => {
+        const ft = (d.fileType || '').toUpperCase();
+        const fn = (d.fileName || '').toLowerCase();
+        return ft === 'BRD' || fn.endsWith('.pdf') || fn.endsWith('.docx') || fn.endsWith('.doc') || fn.endsWith('.txt');
+      });
+      const zipDoc = projectDocs.find((d) => {
+        const ft = (d.fileType || '').toUpperCase();
+        const fn = (d.fileName || '').toLowerCase();
+        return ft === 'ZIP' || ft === 'CODEBASE' || fn.endsWith('.zip');
+      });
+
+      if (brdDoc && !zipDoc) return '(BRD)';
+      if (zipDoc && !brdDoc) return '(Code Base)';
+      if (brdDoc) return '(BRD)';
+    }
+
+    // 5. Check row.category
+    const cat = (row.category || '').toLowerCase().trim();
+    if (cat.includes('codebase') || cat === 'zip') return '(Code Base)';
+    if (cat.includes('brd')) return '(BRD)';
+
+    return '';
   }
 
   formatCategory(log: any): string {

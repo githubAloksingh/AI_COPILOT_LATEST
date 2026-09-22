@@ -3,13 +3,12 @@ package com.example.copilot.service;
 import com.example.copilot.entity.AuditLog;
 import com.example.copilot.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
+import com.example.copilot.entity.Project;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +40,24 @@ public class DashboardService {
     }
 
     public List<AuditLog> getRecentActivity() {
-        return auditLogRepository.findAll(PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        List<Project> activeProjects = projectRepository.findAll();
+        Set<Long> activeProjectIds = activeProjects.stream()
+                .map(Project::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<String> activeProjectNames = activeProjects.stream()
+                .map(p -> p.getProjectName() != null ? p.getProjectName().trim().toLowerCase() : "")
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+
+        return auditLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .filter(log -> !"DELETE_PROJECT".equalsIgnoreCase(log.getAction()))
+                .filter(log -> {
+                    boolean matchesId = log.getProjectId() != null && activeProjectIds.contains(log.getProjectId());
+                    boolean matchesName = log.getProjectName() != null && activeProjectNames.contains(log.getProjectName().trim().toLowerCase());
+                    return matchesId || matchesName;
+                })
+                .limit(20)
+                .collect(Collectors.toList());
     }
 }

@@ -10,10 +10,15 @@ import com.example.copilot.repository.DocumentRepository;
 import com.example.copilot.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Slf4j
@@ -28,6 +33,7 @@ public class HistoryController {
     @GetMapping("/api/history")
     public ApiResponse<List<HistoryItemDto>> getFeatureHistory(
             @RequestParam(value = "projectId", required = false) Long projectId,
+            @RequestParam(value = "documentId", required = false) Long documentId,
             @RequestParam(value = "feature", required = false) String feature
     ) {
         if (projectId == null || feature == null || feature.trim().isEmpty()) {
@@ -40,7 +46,12 @@ public class HistoryController {
         }
 
         List<String> featureAliases = mapFeatureToAliases(feature.trim());
-        List<AuditLog> logs = auditLogRepository.findByProjectAndFeatures(projectId, project.getProjectName(), featureAliases);
+        boolean isUserStory = featureAliases.contains("user story");
+
+        // For User Story: If no BRD document is selected, return empty history
+        if (isUserStory && documentId == null) {
+            return ApiResponse.success(Collections.emptyList(), "No User Stories generated yet.");
+        }
 
         // Preload documents for this project to resolve document linkages fast
         List<Document> projectDocs = documentRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
@@ -55,14 +66,64 @@ public class HistoryController {
             }
         }
 
-        List<HistoryItemDto> result = new ArrayList<>();
-        // Deduplicate consecutive records with same document, version, and action to prevent clutter
-        Set<String> seenKeys = new HashSet<>();
+        Document selectedDoc = documentId != null ? docById.get(documentId) : null;
+        String selectedDocName = selectedDoc != null ? selectedDoc.getFileName() : null;
 
+        List<AuditLog> logs;
+        if (documentId != null) {
+            logs = auditLogRepository.findByProjectAndDocumentAndFeatures(
+                    projectId, project.getProjectName(), documentId, selectedDocName, featureAliases
+            );
+        } else {
+            logs = auditLogRepository.findByProjectAndFeatures(projectId, project.getProjectName(), featureAliases);
+        }
+
+        List<HistoryItemDto> result = new ArrayList<>();
+
+        if (isUserStory) {
+            // USER STORY SPECIFIC LOGIC:
+            // Load only actual persisted User Story generations for the selected BRD
+            int sNo = 1;
+            for (AuditLog l : logs) {
+                if (!"GENERATE".equalsIgnoreCase(l.getAction())) {
+                    continue;
+                }
+                String docName = selectedDoc != null ? selectedDoc.getFileName() : l.getDocumentName();
+                if (docName == null || docName.trim().isEmpty()) {
+                    docName = "BRD";
+                }
+
+                String version = l.getDocumentVersion();
+                if (version == null || version.trim().isEmpty() || "v1".equalsIgnoreCase(version.trim())) {
+                    version = "1." + (sNo - 1);
+                }
+
+                result.add(HistoryItemDto.builder()
+                        .id(l.getId())
+                        .projectId(projectId)
+                        .projectName(project.getProjectName())
+                        .documentId(selectedDoc != null ? selectedDoc.getId() : l.getDocumentId())
+                        .documentName(docName)
+                        .version(version)
+                        .feature("user_story")
+                        .action(l.getAction())
+                        .fileType("PDF")
+                        .canView(true)
+                        .viewUrl("/api/history/" + l.getId() + "/content")
+                        .downloadUrl("/api/history/" + l.getId() + "/download")
+                        .content(l.getOutput())
+                        .createdAt(l.getCreatedAt())
+                        .build());
+                sNo++;
+            }
+            return ApiResponse.success(result, "History retrieved successfully");
+        }
+
+        // Generic logic for other features
+        Set<String> seenKeys = new HashSet<>();
         for (AuditLog l : logs) {
             String docName = l.getDocumentName();
             if (docName == null || docName.trim().isEmpty()) {
-                // If documentName is empty, check if input or action has document info
                 continue;
             }
 
@@ -116,11 +177,37 @@ public class HistoryController {
                     .canView(canView)
                     .viewUrl(viewUrl)
                     .downloadUrl(downloadUrl)
+                    .content(l.getOutput())
                     .createdAt(l.getCreatedAt())
                     .build());
         }
 
         return ApiResponse.success(result, "History retrieved successfully");
+    }
+
+    @GetMapping("/api/history/{id}/content")
+    public ApiResponse<String> getHistoryContent(@PathVariable("id") Long id) {
+        AuditLog logItem = auditLogRepository.findById(id).orElse(null);
+        if (logItem == null || logItem.getOutput() == null) {
+            return ApiResponse.error("History content not found");
+        }
+        return ApiResponse.success(logItem.getOutput(), "History content retrieved");
+    }
+
+    @GetMapping("/api/history/{id}/download")
+    public ResponseEntity<byte[]> downloadHistoryContent(@PathVariable("id") Long id) {
+        AuditLog logItem = auditLogRepository.findById(id).orElse(null);
+        if (logItem == null || logItem.getOutput() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String content = logItem.getOutput();
+        String version = logItem.getDocumentVersion() != null ? logItem.getDocumentVersion() : "1.0";
+        String filename = "User_Stories_v" + version + ".json";
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(bytes);
     }
 
     private List<String> mapFeatureToAliases(String feature) {
