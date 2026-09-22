@@ -25,7 +25,6 @@ from app.services import (
     retrieval_service,
     rag_service
 )
-from app.parsers.zip_parser import ZipParser
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["AI & RAG"])
@@ -220,94 +219,6 @@ def generate_test_cases(req: TestCaseGenerateRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Test case generation failed: {str(e)}"
         )
-
-
-@router.post("/test-cases/generate-upload", response_model=TestCaseGenerateResponse)
-async def generate_test_cases_upload(
-    brd_file: Optional[UploadFile] = File(None),
-    zip_file: Optional[UploadFile] = File(None),
-    test_types: Optional[str] = Form(None),
-    input_mode: Optional[str] = Form("brd")
-):
-    """Generate test cases from BRD file, project ZIP, or both."""
-    mode = (input_mode or "brd").strip().lower()
-    
-    # Parse test_types
-    parsed_types = []
-    if test_types:
-        try:
-            import json
-            val = json.loads(test_types)
-            if isinstance(val, list):
-                parsed_types = [str(x) for x in val]
-        except Exception:
-            parsed_types = [t.strip() for t in test_types.split(",") if t.strip()]
-
-    if not parsed_types:
-        parsed_types = [
-            "Functional Tests",
-            "Edge & Boundary Cases",
-            "Security & Validation",
-            "Performance & Load"
-        ]
-
-    brd_text = ""
-    brd_filename = ""
-    zip_summary = ""
-    zip_sources = []
-
-    try:
-        validate_upload_size(brd_file)
-        validate_upload_size(zip_file)
-
-        if mode in ("brd", "both"):
-            if not brd_file:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="BRD document is required for BRD mode."
-                )
-            brd_bytes = await brd_file.read()
-            if not brd_bytes:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Uploaded BRD document is empty."
-                )
-            brd_filename = brd_file.filename or "BRD_Document"
-            brd_text = document_service.extract_text(brd_bytes, file_name=brd_filename)
-
-        if mode in ("zip", "both"):
-            if not zip_file:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Project ZIP file is required for ZIP mode."
-                )
-            zip_file.file.seek(0, 2)
-            zip_size = zip_file.file.tell()
-            zip_file.file.seek(0)
-            if zip_size == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Uploaded project ZIP file is empty."
-                )
-            zip_sources, zip_summary = ZipParser.extract_zip_file(zip_file.file)
-
-        return rag_service.generate_test_cases_from_files(
-            mode=mode,
-            brd_text=brd_text,
-            brd_filename=brd_filename,
-            zip_summary=zip_summary,
-            zip_sources=zip_sources,
-            test_types=parsed_types
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Test case upload generation failed: %s", e, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Test case generation failed: {str(e)}"
-        )
-
 
 
 @router.post("/defects/analyze", response_model=DefectAnalyzeResponse)

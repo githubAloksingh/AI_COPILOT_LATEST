@@ -32,9 +32,6 @@ public class DefectService {
         if (!fileName.toLowerCase().endsWith(".zip")) {
             throw new IllegalArgumentException("Only ZIP files are supported for Codebase.");
         }
-        if (file.getSize() > 50 * 1024 * 1024) {
-            throw new IllegalArgumentException("File size exceeds the 50MB limit.");
-        }
 
         try {
             String fileContent = "Codebase ZIP Archive: " + fileName;

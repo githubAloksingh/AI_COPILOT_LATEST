@@ -23,7 +23,6 @@ from .testcase_prompts import (
     TESTCASE_PROMPT_VERSION,
     TESTCASE_PROMPT_TEMPLATE,
     build_testcase_prompt,
-    build_testcase_from_files_prompt
 )
 from .defect_prompts import (
     DEFECT_PROMPT_VERSION,
@@ -58,7 +57,6 @@ __all__ = [
     "TESTCASE_PROMPT_VERSION",
     "TESTCASE_PROMPT_TEMPLATE",
     "build_testcase_prompt",
-    "build_testcase_from_files_prompt",
     "DEFECT_PROMPT_VERSION",
     "DEFECT_TRIAGE_PROMPT_TEMPLATE",
     "build_defect_prompt",

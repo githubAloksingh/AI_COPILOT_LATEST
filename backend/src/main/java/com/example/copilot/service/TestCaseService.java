@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,71 +77,6 @@ public class TestCaseService {
             );
             log.error("Error generating test cases preview: ", e);
             throw new RuntimeException("Failed to generate test cases: " + e.getMessage(), e);
-        }
-    }
-
-    public AiTestCaseResponse generateTestCasesUpload(MultipartFile brdFile, MultipartFile zipFile, List<String> testTypes, String inputMode) {
-        String mode = inputMode != null ? inputMode.trim().toLowerCase() : "brd";
-        if ("brd".equals(mode) && (brdFile == null || brdFile.isEmpty())) {
-            throw new IllegalArgumentException("BRD document is required for BRD mode.");
-        }
-        if ("zip".equals(mode) && (zipFile == null || zipFile.isEmpty())) {
-            throw new IllegalArgumentException("Project ZIP file is required for ZIP mode.");
-        }
-        if ("both".equals(mode)) {
-            if (brdFile == null || brdFile.isEmpty()) {
-                throw new IllegalArgumentException("BRD document is required for BRD + Project mode.");
-            }
-            if (zipFile == null || zipFile.isEmpty()) {
-                throw new IllegalArgumentException("Project ZIP file is required for BRD + Project mode.");
-            }
-        }
-
-        long startTime = System.currentTimeMillis();
-        try {
-            AiTestCaseResponse resp = aiServiceClient.generateTestCasesUpload(brdFile, zipFile, testTypes, inputMode);
-            long duration = System.currentTimeMillis() - startTime;
-            auditService.logAuditFull(
-                    "Test Generator",
-                    "GENERATE",
-                    UserContext.getCurrentUser(),
-                    UserContext.getCurrentRole(),
-                    "Direct file upload test cases generation",
-                    resp.getSources(),
-                    resp.getModel(),
-                    resp.getPrompt_version(),
-                    resp.getResult() != null ? resp.getResult().toString() : "",
-                    "SUCCESS",
-                    duration,
-                    null,
-                    null,
-                    brdFile != null ? brdFile.getOriginalFilename() : (zipFile != null ? zipFile.getOriginalFilename() : null),
-                    "v1",
-                    inputMode != null ? inputMode : "Direct File Upload"
-            );
-            return resp;
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            auditService.logAuditFull(
-                    "Test Generator",
-                    "GENERATE",
-                    UserContext.getCurrentUser(),
-                    UserContext.getCurrentRole(),
-                    "Direct file upload test cases generation",
-                    null,
-                    "gemini-3.7-flash",
-                    "testcase-v1",
-                    null,
-                    "FAILED",
-                    duration,
-                    e.getMessage(),
-                    null,
-                    brdFile != null ? brdFile.getOriginalFilename() : (zipFile != null ? zipFile.getOriginalFilename() : null),
-                    "v1",
-                    inputMode != null ? inputMode : "Direct File Upload"
-            );
-            log.error("Error generating test cases upload preview: ", e);
-            throw new RuntimeException("Failed to generate test cases from files: " + e.getMessage(), e);
         }
     }
 
