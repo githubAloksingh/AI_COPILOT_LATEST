@@ -237,8 +237,16 @@ export class ApiService {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/audit-logs`, logData, { headers: this.getAuthHeaders() });
   }
 
-  getHistory(projectId: number, feature: string): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/history?projectId=${projectId}&feature=${encodeURIComponent(feature)}`);
+  getHistory(projectId: number, feature: string, documentId?: number | null): Observable<ApiResponse<any[]>> {
+    let url = `${this.baseUrl}/history?projectId=${projectId}&feature=${encodeURIComponent(feature)}`;
+    if (documentId) {
+      url += `&documentId=${documentId}`;
+    }
+    return this.http.get<ApiResponse<any[]>>(url);
+  }
+
+  getHistoryContent(id: number): Observable<ApiResponse<string>> {
+    return this.http.get<ApiResponse<string>>(`${this.baseUrl}/history/${id}/content`);
   }
 }
 

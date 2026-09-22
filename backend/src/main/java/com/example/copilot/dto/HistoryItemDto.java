@@ -24,5 +24,6 @@ public class HistoryItemDto {
     private boolean canView;
     private String viewUrl;
     private String downloadUrl;
+    private String content;
     private LocalDateTime createdAt;
 }

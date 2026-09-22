@@ -24,7 +24,7 @@
     <!-- No History Found -->
     <div *ngIf="!loading && !errorMessage && historyItems.length === 0" class="history-empty">
       <div class="empty-icon">📂</div>
-      <p class="empty-text">No history found.</p>
+      <p class="empty-text">{{ isUserStory ? 'No User Stories generated yet.' : 'No history found.' }}</p>
     </div>
 
     <!-- History Table -->
@@ -34,8 +34,8 @@
           <tr>
             <th class="col-sno">S.No</th>
             <th class="col-project">Project Name</th>
-            <th class="col-doc">BRD / Codebase Name</th>
-            <th class="col-version">Version</th>
+            <th class="col-doc">{{ isUserStory ? 'BRD Name' : 'BRD / Codebase Name' }}</th>
+            <th class="col-version">{{ isUserStory ? 'User Story Version' : 'Version' }}</th>
             <th class="col-view">View</th>
             <th class="col-download">Download</th>
           </tr>
@@ -47,8 +47,8 @@
               <strong>{{ item.projectName }}</strong>
             </td>
             <td class="col-doc">
-              <span class="doc-badge" [ngClass]="item.fileType === 'ZIP' ? 'badge-zip' : 'badge-brd'">
-                {{ item.fileType === 'ZIP' ? '📦' : '📄' }}
+              <span class="doc-badge" [ngClass]="isUserStory ? 'badge-brd' : (item.fileType === 'ZIP' ? 'badge-zip' : 'badge-brd')">
+                {{ (!isUserStory && item.fileType === 'ZIP') ? '📦' : '📄' }}
               </span>
               <span class="doc-name">{{ item.documentName }}</span>
             </td>
@@ -57,7 +57,7 @@
             </td>
             <td class="col-view">
               <button 
-                *ngIf="item.fileType !== 'ZIP'"
+                *ngIf="isUserStory || item.fileType !== 'ZIP'"
                 type="button" 
                 class="btn-action-icon btn-view" 
                 (click)="viewDocument(item)" 

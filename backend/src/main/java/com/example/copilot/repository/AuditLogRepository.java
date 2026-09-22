@@ -18,4 +18,13 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
         @org.springframework.data.repository.query.Param("projectName") String projectName,
         @org.springframework.data.repository.query.Param("features") List<String> features
     );
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM AuditLog a WHERE (a.projectId = :projectId OR (a.projectId IS NULL AND a.projectName = :projectName)) AND (:documentId IS NULL OR a.documentId = :documentId OR (:documentName IS NOT NULL AND a.documentName = :documentName)) AND LOWER(a.feature) IN :features ORDER BY a.createdAt ASC")
+    List<AuditLog> findByProjectAndDocumentAndFeatures(
+        @org.springframework.data.repository.query.Param("projectId") Long projectId,
+        @org.springframework.data.repository.query.Param("projectName") String projectName,
+        @org.springframework.data.repository.query.Param("documentId") Long documentId,
+        @org.springframework.data.repository.query.Param("documentName") String documentName,
+        @org.springframework.data.repository.query.Param("features") List<String> features
+    );
 }

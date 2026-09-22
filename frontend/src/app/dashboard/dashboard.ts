@@ -32,6 +32,7 @@ export class Dashboard implements OnInit {
   activityRows: ActivityRow[] = [];
   allDocuments: any[] = [];
   allProjects: any[] = [];
+  rawLogs: any[] = [];
   downloadingSNo: number | null = null;
   loading = true;
 
@@ -59,20 +60,11 @@ export class Dashboard implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.recentActivity = res.data;
-          this.processActivityRows(this.recentActivity);
+          this.rawLogs = res.data;
+          this.processActivityRows(this.rawLogs);
         }
         this.cdr.markForCheck();
       }
-    });
-
-    this.api.getAuditLogs('ALL').subscribe({
-      next: (res) => {
-        if (res.success && res.data && res.data.length > 0) {
-          this.processActivityRows(res.data);
-        }
-        this.cdr.markForCheck();
-      },
-      error: () => {}
     });
   }
 
@@ -81,6 +73,9 @@ export class Dashboard implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.allProjects = res.data;
+          if (this.rawLogs && this.rawLogs.length > 0) {
+            this.processActivityRows(this.rawLogs);
+          }
         }
         this.cdr.markForCheck();
       },
@@ -102,8 +97,17 @@ export class Dashboard implements OnInit {
 
   processActivityRows(logs: any[]) {
     if (!logs || logs.length === 0) {
+      this.activityRows = [];
       return;
     }
+
+    // Set of active projects currently present in Knowledge Base
+    const validProjectIds = new Set<number>(
+      (this.allProjects || []).map((p) => Number(p.id)).filter((id) => !isNaN(id) && id > 0)
+    );
+    const validProjectNames = new Set<string>(
+      (this.allProjects || []).map((p) => (p.projectName || '').trim().toLowerCase()).filter(Boolean)
+    );
 
     const activityMap = new Map<string, ActivityRow>();
 
@@ -115,14 +119,38 @@ export class Dashboard implements OnInit {
     });
 
     for (const log of sorted) {
-      const proj = (log.projectName && log.projectName.trim()) ? log.projectName.trim() : 'General';
+      if (log.action === 'DELETE_PROJECT') {
+        continue;
+      }
+
+      const logProjId = log.projectId ? Number(log.projectId) : null;
+      const logProjName = (log.projectName && log.projectName.trim()) ? log.projectName.trim() : '';
+
+      // ONLY projects currently present in Knowledge Base are allowed
+      if (this.allProjects.length > 0) {
+        const matchesId = logProjId && validProjectIds.has(logProjId);
+        const matchesName = logProjName && validProjectNames.has(logProjName.toLowerCase());
+        if (!matchesId && !matchesName) {
+          // Project was deleted from Knowledge Base — do NOT display
+          continue;
+        }
+      } else {
+        // Projects not yet loaded or empty — do not display stale data
+        continue;
+      }
+
+      const matchedProj = this.allProjects.find(
+        (p) => (logProjId && Number(p.id) === logProjId) ||
+               (logProjName && (p.projectName || '').trim().toLowerCase() === logProjName.toLowerCase())
+      );
+      const proj = matchedProj ? matchedProj.projectName : logProjName;
       const doc = (log.documentName && log.documentName.trim()) ? log.documentName.trim() : '—';
       const groupKey = `${proj}:::${doc}`;
 
       if (!activityMap.has(groupKey)) {
         activityMap.set(groupKey, {
           sNo: 0,
-          projectId: log.projectId ? Number(log.projectId) : null,
+          projectId: matchedProj ? Number(matchedProj.id) : logProjId,
           documentId: log.documentId ? Number(log.documentId) : null,
           projectName: proj,
           knowledgeBase: doc,
@@ -139,8 +167,8 @@ export class Dashboard implements OnInit {
       }
 
       const row = activityMap.get(groupKey)!;
-      if (!row.projectId && log.projectId) {
-        row.projectId = Number(log.projectId);
+      if (!row.projectId && logProjId) {
+        row.projectId = logProjId;
       }
       if (!row.documentId && log.documentId) {
         row.documentId = Number(log.documentId);
@@ -176,8 +204,23 @@ export class Dashboard implements OnInit {
       }
     }
 
+    // Filter out dummy '—' rows if the project already has actual document rows
+    const projectHasDocRows = new Set<string>();
+    for (const r of activityMap.values()) {
+      if (r.knowledgeBase && r.knowledgeBase !== '—') {
+        projectHasDocRows.add(r.projectName.toLowerCase());
+      }
+    }
+
+    const filteredRows = Array.from(activityMap.values()).filter((r) => {
+      if (r.knowledgeBase === '—' && projectHasDocRows.has(r.projectName.toLowerCase())) {
+        return false;
+      }
+      return true;
+    });
+
     // Sort by most recent activity timestamp descending
-    const rows = Array.from(activityMap.values()).sort((a, b) => b.lastUpdated - a.lastUpdated);
+    const rows = filteredRows.sort((a, b) => b.lastUpdated - a.lastUpdated);
 
     rows.forEach((r, idx) => {
       r.sNo = idx + 1;

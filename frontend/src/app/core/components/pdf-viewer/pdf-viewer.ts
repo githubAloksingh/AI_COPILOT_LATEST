@@ -62,6 +62,19 @@ export class PdfViewerComponent implements OnDestroy {
     });
   }
 
+  openBlob(blob: Blob, documentName: string): void {
+    this.documentId = null;
+    this.documentName = documentName;
+    this.error = '';
+    this.loading = false;
+    this.visible = true;
+    this.cleanupBlobUrl();
+    const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+    this.previewBlobUrl = URL.createObjectURL(pdfBlob);
+    this.previewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.previewBlobUrl);
+    this.cdr.markForCheck();
+  }
+
   close(): void {
     this.visible = false;
     this.cleanupBlobUrl();
