@@ -305,14 +305,15 @@ export class ExportService {
   }
 
   /** Standardized Document Title (22 pt Bold, clean and distinct, Specs 4, 5, 6) */
-  private docTitle(ctx: any, title: string): void {
+  private docTitle(ctx: any, title: string, centered = false): void {
     const { doc, margin, contentWidth } = ctx;
     const cleanT = this.cleanMarkdown(title).toUpperCase();
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(21);
     doc.setTextColor(15, 23, 42); // Deep slate
     const lines = doc.splitTextToSize(cleanT, contentWidth);
-    doc.text(lines, margin, ctx.getY() + 18);
+    doc.text(lines, centered ? ctx.pageWidth / 2 : margin, ctx.getY() + 18,
+      centered ? { align: 'center' } : undefined);
     ctx.addY(lines.length * 26 + 8);
   }
 
@@ -956,7 +957,9 @@ export class ExportService {
     const ctx = this.newDocCtx('User Story', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, `USER STORY SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
+    const projectName = (meta?.project || 'Project').trim();
+    const sourceFileName = rawDocName.replace(/\.pdf$/i, '');
+    this.docTitle(ctx, `${projectName}-${sourceFileName}-(User Story)`, true);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Mode',     value: meta?.work    || meta?.inputType || 'User Stories' },

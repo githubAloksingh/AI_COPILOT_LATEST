@@ -100,7 +100,8 @@ export class FeatureHistoryComponent implements OnChanges {
 
   private enrichHistoryItem(item: any): any {
     const enriched = { ...item };
-    
+    const sourceDocumentName = enriched.documentName;
+
     // Ensure documentName exists
     if (!enriched.documentName) {
       enriched.documentName = this.documentName || enriched.fileName || `Document_${enriched.id || 'record'}`;
@@ -120,7 +121,33 @@ export class FeatureHistoryComponent implements OnChanges {
       }
     }
 
+    enriched.sourceDocumentName = sourceDocumentName || enriched.documentName;
+    enriched.documentName = this.getGeneratedArtifactName(enriched);
     return enriched;
+  }
+
+  private getGeneratedArtifactName(item: any): string {
+    const sourceName = item.sourceDocumentName || item.documentName || this.documentName || 'GeneratedResponse';
+    const baseName = this.sanitizeArtifactPart(sourceName.replace(/\.[^/.]+$/, ''));
+    const featureNames: Record<string, string> = {
+      user_story: 'USERSTORY',
+      functional_design: 'FUNCTIONALDESIGN',
+      technical_design: 'TECHNICALDESIGN',
+      requirement_assistant: 'REQUIREMENTASSISTANT',
+      test_generator: 'TESTGENERATOR',
+      defect_triage: 'DEFECTTRIAGE',
+      release_notes: 'RELEASENOTES'
+    };
+    const featureKey = (item.feature || this.feature || '').toLowerCase().replace(/[-\s]/g, '_');
+    const featureName = featureNames[featureKey] || this.sanitizeArtifactPart(item.feature || this.feature || 'GeneratedResponse');
+    const version = String(item.version || '1.0');
+    const versionMatch = version.match(/^1\.(\d+)$/);
+    const sequence = versionMatch ? Number(versionMatch[1]) + 1 : 1;
+    return `${baseName}_${featureName}(${sequence})`;
+  }
+
+  private sanitizeArtifactPart(value: string): string {
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, '_');
   }
 
   private findMatchingDocument(item: any): any {
@@ -183,7 +210,7 @@ export class FeatureHistoryComponent implements OnChanges {
       return;
     }
 
-    const docName = (item.documentName || item.fileName || 'document.pdf').toLowerCase();
+    const docName = (item.sourceDocumentName || item.documentName || item.fileName || 'document.pdf').toLowerCase();
     const isZip = docName.endsWith('.zip') || item.fileType === 'ZIP';
     const isCsv = docName.endsWith('.csv') || item.fileType === 'CSV';
     const isPdf = docName.endsWith('.pdf') || item.fileType === 'PDF';
@@ -263,7 +290,7 @@ export class FeatureHistoryComponent implements OnChanges {
       }
       const meta = {
         project: item.projectName || this.projectName,
-        documentName: item.documentName || this.documentName || 'BRD',
+        documentName: item.sourceDocumentName || this.documentName || 'BRD',
         version: item.version || '1.0',
         work: 'User Stories'
       };
@@ -302,7 +329,7 @@ export class FeatureHistoryComponent implements OnChanges {
       }
       const meta = {
         project: item.projectName || this.projectName,
-        documentName: item.documentName || this.documentName || 'BRD',
+        documentName: item.sourceDocumentName || this.documentName || 'BRD',
         version: item.version || '1.0',
         work: 'User Stories'
       };
