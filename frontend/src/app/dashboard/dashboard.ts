@@ -17,6 +17,7 @@ export interface ActivityRow {
     functional_design?: any;
     technical_design?: any;
     requirement_assistant?: any;
+    release_notes?: any;
   };
   feature?: string;
   artifact?: any;
@@ -46,7 +47,8 @@ export class Dashboard implements OnInit {
     'user_story',
     'functional_design',
     'technical_design',
-    'requirement_assistant'
+    'requirement_assistant',
+    'release_notes'
   ];
 
   stats: any = null;
@@ -107,7 +109,7 @@ export class Dashboard implements OnInit {
           this.api.getProjectDocuments(Number(project.id)).pipe(
             switchMap((documentResponse) => {
               const documents = (documentResponse.success ? (documentResponse.data || []) : [])
-                .filter((document: any) => this.isBrdDocument(document));
+                .filter((document: any) => this.isSupportedSourceDocument(document));
               const historyRequests = documents.flatMap((document: any) =>
                 this.artifactFeatures.map((feature) =>
                   this.api.getHistory(Number(project.id), feature, Number(document.id)).pipe(
@@ -189,13 +191,8 @@ export class Dashboard implements OnInit {
     return (feature || '').toLowerCase().replace(/[-\s]/g, '_');
   }
 
-  private isBrdDocument(document: any): boolean {
-    const fileName = (document.fileName || '').toLowerCase();
-    const fileType = (document.fileType || '').toUpperCase();
-    return document.status === 'COMPLETED'
-      && fileType !== 'ZIP'
-      && fileType !== 'CODEBASE'
-      && !fileName.endsWith('.zip');
+  private isSupportedSourceDocument(document: any): boolean {
+    return document.status === 'COMPLETED' && !!document.id && !!document.fileName;
   }
 
   private toActivityRow(item: any, project: any, documents: any[]): ActivityRow {

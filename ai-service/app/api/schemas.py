@@ -217,7 +217,7 @@ class DefectAnalyzeResponse(BaseModel):
 # Release Notes Models
 # ----------------------------------------------------
 class ReleaseNoteGenerateRequest(BaseModel):
-    version: str
+    version: Optional[str] = None
     sprintInformation: str
     document_id: Optional[str] = None
     zip_document_id: Optional[str] = None
