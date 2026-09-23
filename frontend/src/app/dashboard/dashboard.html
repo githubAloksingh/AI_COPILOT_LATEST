@@ -27,12 +27,12 @@
   <h2>Recent AI Activity</h2>
   <div class="version-filter">
     <label for="dashboard-version">Version:</label>
-    <select id="dashboard-version" [(ngModel)]="selectedVersion">
+    <select id="dashboard-version" [(ngModel)]="selectedVersion" (ngModelChange)="onVersionChange()">
       <option value="ALL">All Versions</option>
       <option *ngFor="let version of availableVersions" [value]="version">{{ version }}</option>
     </select>
   </div>
-  <div class="table-container" *ngIf="filteredActivityRows.length > 0; else noActivity">
+  <div class="table-container" *ngIf="paginatedActivityRows.length > 0; else noActivity">
     <table>
       <thead>
         <tr>
@@ -50,7 +50,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let row of filteredActivityRows">
+        <tr *ngFor="let row of paginatedActivityRows">
           <td style="font-weight: 500; color: #64748b; font-size: 0.85rem;">{{ row.sNo }}</td>
           <td>
             <span style="font-weight: 600; color: #0f172a; font-size: 0.875rem;">{{ row.projectName }}</span>
@@ -117,6 +117,11 @@
         </tr>
       </tbody>
     </table>
+  </div>
+  <div class="activity-pagination" *ngIf="totalPages > 1">
+    <button type="button" class="pagination-btn" (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
+    <span>Page {{ currentPage }} of {{ totalPages }}</span>
+    <button type="button" class="pagination-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
   </div>
   <ng-template #noActivity>
     <p style="color: #64748b; padding: 16px 0;">No AI activity recorded yet. Start by generating requirements or test cases!</p>
