@@ -45,6 +45,7 @@
           <th>Technical Design</th>
           <th>Requirement Assistant</th>
           <th>Test Cases</th>
+          <th>Defect Triage</th>
           <th>Release Notes</th>
         </tr>
       </thead>
@@ -97,6 +98,17 @@
               </button>
             </ng-container>
             <ng-template #noTestCases><span class="empty-cell">—</span></ng-template>
+          </td>
+          <td>
+            <ng-container *ngIf="row.artifacts.defect_triage; else noDefectTriage">
+              <button type="button" class="view-icon-btn test-export-btn" title="Download Defect Triage Excel" aria-label="Download Defect Triage Excel" (click)="downloadDefectTriageExcel(row, $event)">
+                XLSX
+              </button>
+              <button type="button" class="view-icon-btn test-export-btn" title="Download Defect Triage CSV" aria-label="Download Defect Triage CSV" (click)="downloadDefectTriageCsv(row, $event)">
+                CSV
+              </button>
+            </ng-container>
+            <ng-template #noDefectTriage><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
             <button *ngIf="row.artifacts.release_notes" type="button" class="view-icon-btn" title="View Release Notes PDF" aria-label="View Release Notes PDF" (click)="viewArtifact(row, 'release_notes', $event)">👁</button>

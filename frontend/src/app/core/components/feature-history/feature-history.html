@@ -35,8 +35,8 @@
             <th class="col-project">Project Name</th>
             <th class="col-doc">{{ (isUserStory || isTechnicalDesign || isFunctionalDesign || isRequirementAssistant || isTestGenerator || isDefectTriage || isReleaseNotes) ? 'BRD Name' : 'BRD / Codebase Name' }}</th>
             <th class="col-version">{{ isReleaseNotes ? 'Release Notes Version' : (isDefectTriage ? 'Defect Triage Version' : (isTestGenerator ? 'Test Generator Version' : (isRequirementAssistant ? 'Requirement Assistant Version' : (isFunctionalDesign ? 'Functional Design Version' : (isTechnicalDesign ? 'Technical Design Version' : (isUserStory ? 'User Story Version' : 'Version')))))) }}</th>
-            <th class="col-view">{{ isTestGenerator ? 'Excel' : 'View' }}</th>
-            <th class="col-download">{{ isTestGenerator ? 'CSV' : 'Download' }}</th>
+            <th class="col-view">{{ isTestGenerator || isDefectTriage ? 'Excel' : 'View' }}</th>
+            <th class="col-download">{{ isTestGenerator || isDefectTriage ? 'CSV' : 'Download' }}</th>
           </tr>
         </thead>
         <tbody>
@@ -56,10 +56,10 @@
             </td>
             <td class="col-view">
               <button
-                *ngIf="isTestGenerator"
+                *ngIf="isTestGenerator || isDefectTriage"
                 type="button"
                 class="btn-action-icon btn-download"
-                (click)="downloadTestGeneratorExcel(item)"
+                (click)="isTestGenerator ? downloadTestGeneratorExcel(item) : downloadDefectTriageExcel(item)"
                 title="Download Excel (.xlsx)"
                 aria-label="Download Excel (.xlsx)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -69,7 +69,7 @@
                 </svg>
               </button>
               <button 
-                *ngIf="!isTestGenerator && (isUserStory || isTechnicalDesign || isFunctionalDesign || isRequirementAssistant || isDefectTriage || isReleaseNotes || item.fileType !== 'ZIP')"
+                *ngIf="!isTestGenerator && !isDefectTriage && (isUserStory || isTechnicalDesign || isFunctionalDesign || isRequirementAssistant || isReleaseNotes || item.fileType !== 'ZIP')"
                 type="button" 
                 class="btn-action-icon btn-view" 
                 (click)="viewDocument(item)" 
@@ -80,10 +80,10 @@
             </td>
             <td class="col-download">
               <button
-                *ngIf="isTestGenerator"
+                *ngIf="isTestGenerator || isDefectTriage"
                 type="button"
                 class="btn-action-icon btn-download"
-                (click)="downloadTestGeneratorCsv(item)"
+                (click)="isTestGenerator ? downloadTestGeneratorCsv(item) : downloadDefectTriageCsv(item)"
                 title="Download CSV (.csv)"
                 aria-label="Download CSV (.csv)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -93,7 +93,7 @@
                 </svg>
               </button>
               <button 
-                *ngIf="!isTestGenerator"
+                *ngIf="!isTestGenerator && !isDefectTriage"
                 type="button" 
                 class="btn-action-icon btn-download" 
                 (click)="downloadDocument(item)" 

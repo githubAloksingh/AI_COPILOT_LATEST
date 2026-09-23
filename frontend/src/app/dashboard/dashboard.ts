@@ -18,6 +18,7 @@ export interface ActivityRow {
     technical_design?: any;
     requirement_assistant?: any;
     test_generator?: any;
+    defect_triage?: any;
     release_notes?: any;
   };
   feature?: string;
@@ -50,6 +51,7 @@ export class Dashboard implements OnInit {
     'technical_design',
     'requirement_assistant',
     'test_generator',
+    'defect_triage',
     'release_notes'
   ];
 
@@ -157,10 +159,12 @@ export class Dashboard implements OnInit {
 
     for (const row of rows) {
       const feature = this.normalizeFeature(row.artifact?.feature || row.feature);
+      const isSupportedArtifact = row.artifact?.fileType === 'PDF'
+        || (feature === 'defect_triage' && row.artifact?.fileType === 'JSON');
       if (!this.artifactFeatures.includes(feature as string)
         || !row.artifact?.id
         || !row.artifact?.canView
-        || row.artifact?.fileType !== 'PDF') {
+        || !isSupportedArtifact) {
         continue;
       }
 
@@ -250,6 +254,22 @@ export class Dashboard implements OnInit {
     const artifact = row.artifacts.test_generator;
     if (artifact) {
       this.artifactViewer?.downloadTestGeneratorCsv(artifact);
+    }
+  }
+
+  downloadDefectTriageExcel(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.defect_triage;
+    if (artifact) {
+      this.artifactViewer?.downloadDefectTriageExcel(artifact);
+    }
+  }
+
+  downloadDefectTriageCsv(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.defect_triage;
+    if (artifact) {
+      this.artifactViewer?.downloadDefectTriageCsv(artifact);
     }
   }
 

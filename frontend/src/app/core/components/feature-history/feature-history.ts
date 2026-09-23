@@ -1083,6 +1083,46 @@ export class FeatureHistoryComponent implements OnChanges {
     });
   }
 
+  downloadDefectTriageExcel(item: any): void {
+    this.loadDefectTriageContent(item, (defectData) => {
+      this.exportService.downloadDefectExcel(defectData, this.getDefectFilename(item));
+    });
+  }
+
+  downloadDefectTriageCsv(item: any): void {
+    this.loadDefectTriageContent(item, (defectData) => {
+      this.exportService.downloadDefectCsv(defectData, this.getDefectFilename(item));
+    });
+  }
+
+  private loadDefectTriageContent(item: any, onContent: (defectData: any) => void): void {
+    const triggerDownload = (content: any) => {
+      const defectData = this.parseDefectTriageContent(content);
+      if (!defectData) {
+        alert('No Defect Triage content available to download.');
+        return;
+      }
+      onContent(defectData);
+    };
+
+    if (item.content) {
+      triggerDownload(item.content);
+    } else if (item.id) {
+      this.api.getHistoryContent(item.id).subscribe({
+        next: (res) => res.success && res.data
+          ? (item.content = res.data, triggerDownload(res.data))
+          : alert('Unable to load Defect Triage content for download.'),
+        error: () => alert('Unable to load Defect Triage content for download.')
+      });
+    }
+  }
+
+  private getDefectFilename(item: any): string {
+    const sourceName = item.sourceDocumentName || item.documentName || 'defect-triage';
+    return sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')
+      + `_defect-triage_v${item.version || '1.0'}`;
+  }
+
   private loadTestGeneratorContent(item: any, onContent: (testCases: any[]) => void): void {
     const triggerDownload = (contentStr: string) => {
       const testCases = this.parseTestCaseContent(contentStr);
