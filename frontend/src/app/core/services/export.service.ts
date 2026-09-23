@@ -317,6 +317,24 @@ export class ExportService {
     ctx.addY(lines.length * 26 + 8);
   }
 
+  private docArtifactHeading(ctx: any): void {
+    const { doc, contentWidth } = ctx;
+    const projectName = String(ctx.meta?.project || 'Project').trim();
+    const brdName = String(ctx.meta?.documentName || ctx.meta?.brd || 'BRD').trim();
+    const heading = this.cleanMarkdown(`${projectName} : ${brdName}`);
+    const headingLines = doc.splitTextToSize(heading, contentWidth);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.text(headingLines, ctx.pageWidth / 2, ctx.getY() + 18, { align: 'center' });
+
+    const artifactLines = this.cleanMarkdown(`(${ctx.docType})`);
+    doc.setFontSize(13);
+    doc.text(artifactLines, ctx.pageWidth / 2, ctx.getY() + 18 + headingLines.length * 21 + 16, { align: 'center' });
+    ctx.addY(headingLines.length * 21 + 52);
+  }
+
   /** Aligned Structured Document Metadata Block (Spec 7: Project Name, Source Document, Version, Generated On) */
   private docMetaBlock(ctx: any, parts: { label: string; value: string }[]): void {
     const { doc, margin, contentWidth } = ctx;
@@ -957,9 +975,7 @@ export class ExportService {
     const ctx = this.newDocCtx('User Story', docName, meta);
 
     // Title & Aligned Metadata Block
-    const projectName = (meta?.project || 'Project').trim();
-    const sourceFileName = rawDocName.replace(/\.pdf$/i, '');
-    this.docTitle(ctx, `${projectName}-${sourceFileName}-(User Story)`, true);
+    this.docArtifactHeading(ctx);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Mode',     value: meta?.work    || meta?.inputType || 'User Stories' },
@@ -1109,7 +1125,7 @@ export class ExportService {
     const ctx = this.newDocCtx('Functional Design', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, `FUNCTIONAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docArtifactHeading(ctx);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Functional Design' },
@@ -1302,7 +1318,7 @@ export class ExportService {
     const ctx = this.newDocCtx('Technical Design', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, `TECHNICAL DESIGN DOCUMENT${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docArtifactHeading(ctx);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',     value: meta?.project || '-' },
       { label: 'Module / Work',    value: meta?.work    || meta?.inputType || 'Technical Design' },
@@ -2069,10 +2085,10 @@ export class ExportService {
 
     const rawDocName = (data.title || meta?.documentName || '').trim();
     const docName = rawDocName || 'Requirement Specification';
-    const ctx = this.newDocCtx('Requirement Specification', docName, meta);
+    const ctx = this.newDocCtx('Requirement Assistant', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
+    this.docArtifactHeading(ctx);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Source Document', value: meta?.documentName || meta?.brd || '-' },
@@ -2145,10 +2161,10 @@ export class ExportService {
 
     const rawDocName = (meta?.documentName || '').trim();
     const docName = rawDocName || 'Requirements Document';
-    const ctx = this.newDocCtx('Requirement Specification', docName, meta);
+    const ctx = this.newDocCtx('Requirement Assistant', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, 'SOFTWARE REQUIREMENT SPECIFICATION');
+    this.docArtifactHeading(ctx);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Source Document', value: meta?.documentName || meta?.brd || '-' },
@@ -2259,10 +2275,10 @@ export class ExportService {
 
     const rawDocName = (meta?.documentName || '').trim();
     const docName = rawDocName || 'Test Case Specification';
-    const ctx = this.newDocCtx('Test Case', docName, meta);
+    const ctx = this.newDocCtx('Test Generator', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, `TEST CASE SPECIFICATION${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docArtifactHeading(ctx);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Feature',  value: meta?.work    || meta?.inputType || 'Test Cases' },
@@ -2387,7 +2403,7 @@ export class ExportService {
     const ctx = this.newDocCtx('Defect Triage', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, `DEFECT TRIAGE REPORT${rawDocName ? ' — ' + rawDocName : ''}`);
+    this.docArtifactHeading(ctx);
     this.docMetaBlock(ctx, [
       { label: 'Project Name',    value: meta?.project || '-' },
       { label: 'Work / Module',   value: meta?.work    || meta?.inputType || 'Defect Triage' },
@@ -2500,7 +2516,7 @@ export class ExportService {
     const ctx = this.newDocCtx('Release Notes', docName, meta);
 
     // Title & Aligned Metadata Block
-    this.docTitle(ctx, `RELEASE NOTES — VERSION ${version}`);
+    this.docArtifactHeading(ctx);
     const { doc, margin } = ctx;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
