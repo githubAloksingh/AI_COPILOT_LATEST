@@ -63,6 +63,8 @@ export class Dashboard implements OnInit {
   rawLogs: any[] = [];
   downloadingSNo: number | null = null;
   selectedVersion = 'ALL';
+  readonly pageSize = 10;
+  currentPage = 1;
   loading = true;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
@@ -78,6 +80,27 @@ export class Dashboard implements OnInit {
       ? this.activityRows
       : this.activityRows.filter((row) => row.version === this.selectedVersion);
     return rows.map((row, index) => ({ ...row, sNo: index + 1 }));
+  }
+
+  get paginatedActivityRows(): ActivityRow[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredActivityRows.slice(start, start + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredActivityRows.length / this.pageSize);
+  }
+
+  onVersionChange(): void {
+    this.currentPage = 1;
+  }
+
+  previousPage(): void {
+    if (this.currentPage > 1) this.currentPage--;
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) this.currentPage++;
   }
 
   ngOnInit() {
@@ -143,6 +166,7 @@ export class Dashboard implements OnInit {
         this.activityRows = this.groupArtifactRows(rows)
           .sort((a, b) => b.lastUpdated - a.lastUpdated)
           .map((row, index) => ({ ...row, sNo: index + 1 }));
+        this.currentPage = 1;
         this.loading = false;
         this.cdr.markForCheck();
       },

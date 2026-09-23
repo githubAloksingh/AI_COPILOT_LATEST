@@ -29,7 +29,6 @@ export class ProjectDetails implements OnInit, OnDestroy {
   // Upload Document Modal State
   showUploadModal = false;
   uploadForm = {
-    title: '',
     type: 'BRD',
     file: null as File | null,
     version: 'v1'
@@ -140,7 +139,6 @@ export class ProjectDetails implements OnInit, OnDestroy {
       return;
     }
     this.uploadForm = {
-      title: '',
       type: 'BRD',
       file: null,
       version: 'v1'
@@ -162,9 +160,6 @@ export class ProjectDetails implements OnInit, OnDestroy {
     const file: File = event.target.files[0];
     if (file) {
       this.uploadForm.file = file;
-      if (!this.uploadForm.title.trim()) {
-        this.uploadForm.title = file.name;
-      }
       if (file.name.toLowerCase().endsWith('.zip')) {
         this.uploadForm.type = 'ZIP';
       } else {
@@ -175,10 +170,6 @@ export class ProjectDetails implements OnInit, OnDestroy {
   }
 
   submitUpload() {
-    if (!this.uploadForm.title || !this.uploadForm.title.trim()) {
-      this.uploadFormError = 'Title is required.';
-      return;
-    }
     if (!this.uploadForm.type || !this.uploadForm.type.trim()) {
       this.uploadFormError = 'Type is required.';
       return;
@@ -203,7 +194,7 @@ export class ProjectDetails implements OnInit, OnDestroy {
     this.api.uploadProjectDocument(
       this.projectId,
       this.uploadForm.file,
-      this.uploadForm.title.trim(),
+      this.uploadForm.file.name,
       this.uploadForm.type.trim(),
       this.api.getCurrentUser(),
       this.uploadForm.version.trim()
