@@ -80,15 +80,7 @@ public class IngestionService {
                 log.warn("Project with ID {} not found. Associating document with existing project ID {}", resolvedProjectId, fallbackProject.get().getId());
                 resolvedProjectId = fallbackProject.get().getId();
             } else {
-                log.warn("Project with ID {} not found and no projects exist. Creating default project.", resolvedProjectId);
-                com.example.copilot.entity.Project defaultProj = new com.example.copilot.entity.Project();
-                defaultProj.setProjectName("Core Banking & Payments");
-                defaultProj.setDepartment("Engineering");
-                defaultProj.setProjectOwner("System Admin");
-                defaultProj.setCreatedBy("System");
-                defaultProj.setStatus("ACTIVE");
-                defaultProj = projectRepository.save(defaultProj);
-                resolvedProjectId = defaultProj.getId();
+                throw new IllegalArgumentException("Project with ID " + resolvedProjectId + " was not found");
             }
         }
 

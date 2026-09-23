@@ -1060,12 +1060,7 @@ export class FeatureHistoryComponent implements OnChanges {
   }
 
   private downloadTestGenerator(item: any): void {
-    const triggerDownload = (contentStr: string) => {
-      const testCases = this.parseTestCaseContent(contentStr);
-      if (!testCases || testCases.length === 0) {
-        alert('No test generator content available to download.');
-        return;
-      }
+    this.loadTestGeneratorContent(item, (testCases) => {
       const meta = {
         project: item.projectName || this.projectName,
         documentName: item.documentName || this.documentName || 'BRD',
@@ -1073,6 +1068,69 @@ export class FeatureHistoryComponent implements OnChanges {
         work: 'Test Generator'
       };
       this.exportService.downloadTestCasePdf(testCases, meta);
+    });
+  }
+
+  downloadTestGeneratorExcel(item: any): void {
+    this.loadTestGeneratorContent(item, (testCases) => {
+      this.exportService.downloadTestCaseExcel(testCases, this.getTestCaseFilename(item));
+    });
+  }
+
+  downloadTestGeneratorCsv(item: any): void {
+    this.loadTestGeneratorContent(item, (testCases) => {
+      this.exportService.downloadTestCaseCsv(testCases, this.getTestCaseFilename(item));
+    });
+  }
+
+  downloadDefectTriageExcel(item: any): void {
+    this.loadDefectTriageContent(item, (defectData) => {
+      this.exportService.downloadDefectExcel(defectData, this.getDefectFilename(item));
+    });
+  }
+
+  downloadDefectTriageCsv(item: any): void {
+    this.loadDefectTriageContent(item, (defectData) => {
+      this.exportService.downloadDefectCsv(defectData, this.getDefectFilename(item));
+    });
+  }
+
+  private loadDefectTriageContent(item: any, onContent: (defectData: any) => void): void {
+    const triggerDownload = (content: any) => {
+      const defectData = this.parseDefectTriageContent(content);
+      if (!defectData) {
+        alert('No Defect Triage content available to download.');
+        return;
+      }
+      onContent(defectData);
+    };
+
+    if (item.content) {
+      triggerDownload(item.content);
+    } else if (item.id) {
+      this.api.getHistoryContent(item.id).subscribe({
+        next: (res) => res.success && res.data
+          ? (item.content = res.data, triggerDownload(res.data))
+          : alert('Unable to load Defect Triage content for download.'),
+        error: () => alert('Unable to load Defect Triage content for download.')
+      });
+    }
+  }
+
+  private getDefectFilename(item: any): string {
+    const sourceName = item.sourceDocumentName || item.documentName || 'defect-triage';
+    return sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')
+      + `_defect-triage_v${item.version || '1.0'}`;
+  }
+
+  private loadTestGeneratorContent(item: any, onContent: (testCases: any[]) => void): void {
+    const triggerDownload = (contentStr: string) => {
+      const testCases = this.parseTestCaseContent(contentStr);
+      if (!testCases || testCases.length === 0) {
+        alert('No test generator content available to download.');
+        return;
+      }
+      onContent(testCases);
     };
 
     if (item.content) {
@@ -1106,6 +1164,7 @@ export class FeatureHistoryComponent implements OnChanges {
           }
         }
       }
+
       if (parsed && typeof parsed === 'object') {
         if (Array.isArray(parsed)) return parsed;
         if (Array.isArray(parsed.result)) return parsed.result;
@@ -1126,6 +1185,12 @@ export class FeatureHistoryComponent implements OnChanges {
       console.error('Error parsing test generator content:', e);
     }
     return [];
+  }
+
+  private getTestCaseFilename(item: any): string {
+    const sourceName = item.sourceDocumentName || item.documentName || 'test-cases';
+    return sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')
+      + `_test-cases_v${item.version || '1.0'}`;
   }
 }
 
