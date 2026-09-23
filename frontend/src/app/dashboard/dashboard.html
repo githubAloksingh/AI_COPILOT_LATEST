@@ -44,6 +44,7 @@
           <th>Functional Design</th>
           <th>Technical Design</th>
           <th>Requirement Assistant</th>
+          <th>Test Cases</th>
           <th>Release Notes</th>
         </tr>
       </thead>
@@ -85,6 +86,17 @@
           <td>
             <button *ngIf="row.artifacts.requirement_assistant" type="button" class="view-icon-btn" title="View Requirement Assistant PDF" aria-label="View Requirement Assistant PDF" (click)="viewArtifact(row, 'requirement_assistant', $event)">👁</button>
             <span *ngIf="!row.artifacts.requirement_assistant" class="empty-cell">—</span>
+          </td>
+          <td>
+            <ng-container *ngIf="row.artifacts.test_generator; else noTestCases">
+              <button type="button" class="view-icon-btn test-export-btn" title="Download Test Cases Excel" aria-label="Download Test Cases Excel" (click)="downloadTestCasesExcel(row, $event)">
+                XLSX
+              </button>
+              <button type="button" class="view-icon-btn test-export-btn" title="Download Test Cases CSV" aria-label="Download Test Cases CSV" (click)="downloadTestCasesCsv(row, $event)">
+                CSV
+              </button>
+            </ng-container>
+            <ng-template #noTestCases><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
             <button *ngIf="row.artifacts.release_notes" type="button" class="view-icon-btn" title="View Release Notes PDF" aria-label="View Release Notes PDF" (click)="viewArtifact(row, 'release_notes', $event)">👁</button>

@@ -17,6 +17,7 @@ export interface ActivityRow {
     functional_design?: any;
     technical_design?: any;
     requirement_assistant?: any;
+    test_generator?: any;
     release_notes?: any;
   };
   feature?: string;
@@ -48,6 +49,7 @@ export class Dashboard implements OnInit {
     'functional_design',
     'technical_design',
     'requirement_assistant',
+    'test_generator',
     'release_notes'
   ];
 
@@ -233,6 +235,22 @@ export class Dashboard implements OnInit {
       documentName: row.knowledgeBase,
       version: row.version
     });
+  }
+
+  downloadTestCasesExcel(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.test_generator;
+    if (artifact) {
+      this.artifactViewer?.downloadTestGeneratorExcel(artifact);
+    }
+  }
+
+  downloadTestCasesCsv(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.test_generator;
+    if (artifact) {
+      this.artifactViewer?.downloadTestGeneratorCsv(artifact);
+    }
   }
 
   downloadDocument(row: ActivityRow, event: MouseEvent): void {

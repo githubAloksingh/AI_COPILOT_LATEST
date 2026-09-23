@@ -134,6 +134,15 @@
   }
 }
 
+.test-export-btn {
+  padding: 4px 7px;
+  font-size: 0.78rem;
+
+  & + .test-export-btn {
+    margin-left: 6px;
+  }
+}
+
 .category-cell {
   display: inline-flex;
   align-items: center;
