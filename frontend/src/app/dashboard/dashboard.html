@@ -25,79 +25,65 @@
 
 <div class="card">
   <h2>Recent AI Activity</h2>
-  <div class="table-container" *ngIf="activityRows.length > 0; else noActivity">
+  <div class="version-filter">
+    <label for="dashboard-version">Version:</label>
+    <select id="dashboard-version" [(ngModel)]="selectedVersion">
+      <option value="ALL">All Versions</option>
+      <option *ngFor="let version of availableVersions" [value]="version">{{ version }}</option>
+    </select>
+  </div>
+  <div class="table-container" *ngIf="filteredActivityRows.length > 0; else noActivity">
     <table>
       <thead>
         <tr>
           <th>S.No</th>
           <th>Project</th>
-          <th>Knowledge Base</th>
-          <th>Category</th>
+          <th>Document Name</th>
+          <th>Version</th>
           <th>User Story</th>
           <th>Functional Design</th>
           <th>Technical Design</th>
-          <th>Requirement Analysis</th>
-          <th>Test Generator</th>
-          <th>Defect Triage</th>
-          <th>Release Notes</th>
+          <th>Requirement Assistant</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let row of activityRows">
+        <tr *ngFor="let row of filteredActivityRows">
           <td style="font-weight: 500; color: #64748b; font-size: 0.85rem;">{{ row.sNo }}</td>
           <td>
             <span style="font-weight: 600; color: #0f172a; font-size: 0.875rem;">{{ row.projectName }}</span>
           </td>
           <td>
-            <span style="color: #334155; font-size: 0.85rem;" [title]="row.knowledgeBase">{{ row.knowledgeBase }}</span>
+            <button
+              *ngIf="row.documentId; else documentNameText"
+              type="button"
+              class="document-name-link"
+              [title]="'Download ' + row.knowledgeBase"
+              [attr.aria-label]="'Download ' + row.knowledgeBase"
+              (click)="downloadDocument(row, $event)">
+              {{ row.knowledgeBase }}
+            </button>
+            <ng-template #documentNameText>
+              <span class="document-name-text" [title]="row.knowledgeBase">{{ row.knowledgeBase }}</span>
+            </ng-template>
           </td>
           <td>
-            <div class="category-cell">
-              <button 
-                type="button" 
-                class="download-icon-btn" 
-                title="Download" 
-                aria-label="Download"
-                (click)="downloadFiles(row, $event)">
-                <svg *ngIf="downloadingSNo !== row.sNo" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                <span *ngIf="downloadingSNo === row.sNo" class="mini-spinner"></span>
-              </button>
-              <span class="category-label" *ngIf="getCategoryLabel(row)" (click)="downloadFiles(row, $event)">
-                {{ getCategoryLabel(row) }}
-              </span>
-            </div>
+            <span class="version-tag">{{ row.version }}</span>
           </td>
           <td>
-            <span *ngIf="row.userStory" [ngClass]="getStatusBadgeClass(row.userStory)">{{ formatStatus(row.userStory) }}</span>
-            <span *ngIf="!row.userStory" class="empty-cell">—</span>
+            <button *ngIf="row.artifacts.user_story" type="button" class="view-icon-btn" title="View User Story PDF" aria-label="View User Story PDF" (click)="viewArtifact(row, 'user_story', $event)">👁</button>
+            <span *ngIf="!row.artifacts.user_story" class="empty-cell">—</span>
           </td>
           <td>
-            <span *ngIf="row.functionalDesign" [ngClass]="getStatusBadgeClass(row.functionalDesign)">{{ formatStatus(row.functionalDesign) }}</span>
-            <span *ngIf="!row.functionalDesign" class="empty-cell">—</span>
+            <button *ngIf="row.artifacts.functional_design" type="button" class="view-icon-btn" title="View Functional Design PDF" aria-label="View Functional Design PDF" (click)="viewArtifact(row, 'functional_design', $event)">👁</button>
+            <span *ngIf="!row.artifacts.functional_design" class="empty-cell">—</span>
           </td>
           <td>
-            <span *ngIf="row.technicalDesign" [ngClass]="getStatusBadgeClass(row.technicalDesign)">{{ formatStatus(row.technicalDesign) }}</span>
-            <span *ngIf="!row.technicalDesign" class="empty-cell">—</span>
+            <button *ngIf="row.artifacts.technical_design" type="button" class="view-icon-btn" title="View Technical Design PDF" aria-label="View Technical Design PDF" (click)="viewArtifact(row, 'technical_design', $event)">👁</button>
+            <span *ngIf="!row.artifacts.technical_design" class="empty-cell">—</span>
           </td>
           <td>
-            <span *ngIf="row.requirementAnalysis" [ngClass]="getStatusBadgeClass(row.requirementAnalysis)">{{ formatStatus(row.requirementAnalysis) }}</span>
-            <span *ngIf="!row.requirementAnalysis" class="empty-cell">—</span>
-          </td>
-          <td>
-            <span *ngIf="row.testGenerator" [ngClass]="getStatusBadgeClass(row.testGenerator)">{{ formatStatus(row.testGenerator) }}</span>
-            <span *ngIf="!row.testGenerator" class="empty-cell">—</span>
-          </td>
-          <td>
-            <span *ngIf="row.defectTriage" [ngClass]="getStatusBadgeClass(row.defectTriage)">{{ formatStatus(row.defectTriage) }}</span>
-            <span *ngIf="!row.defectTriage" class="empty-cell">—</span>
-          </td>
-          <td>
-            <span *ngIf="row.releaseNotes" [ngClass]="getStatusBadgeClass(row.releaseNotes)">{{ formatStatus(row.releaseNotes) }}</span>
-            <span *ngIf="!row.releaseNotes" class="empty-cell">—</span>
+            <button *ngIf="row.artifacts.requirement_assistant" type="button" class="view-icon-btn" title="View Requirement Assistant PDF" aria-label="View Requirement Assistant PDF" (click)="viewArtifact(row, 'requirement_assistant', $event)">👁</button>
+            <span *ngIf="!row.artifacts.requirement_assistant" class="empty-cell">—</span>
           </td>
         </tr>
       </tbody>
@@ -107,4 +93,6 @@
     <p style="color: #64748b; padding: 16px 0;">No AI activity recorded yet. Start by generating requirements or test cases!</p>
   </ng-template>
 </div>
+
+<app-feature-history #artifactViewer></app-feature-history>
 

@@ -1,6 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api';
+import { FeatureHistoryComponent } from '../core/components/feature-history/feature-history';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 
 export interface ActivityRow {
   sNo: number;
@@ -8,6 +11,16 @@ export interface ActivityRow {
   documentId: number | null;
   projectName: string;
   knowledgeBase: string;
+  version: string;
+  artifacts: {
+    user_story?: any;
+    functional_design?: any;
+    technical_design?: any;
+    requirement_assistant?: any;
+  };
+  feature?: string;
+  artifact?: any;
+  artifactId?: number;
   category: string;
   userStory: string | null;
   functionalDesign: string | null;
@@ -22,11 +35,20 @@ export interface ActivityRow {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, FeatureHistoryComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
 export class Dashboard implements OnInit {
+  @ViewChild('artifactViewer') artifactViewer?: FeatureHistoryComponent;
+
+  private readonly artifactFeatures = [
+    'user_story',
+    'functional_design',
+    'technical_design',
+    'requirement_assistant'
+  ];
+
   stats: any = null;
   recentActivity: any[] = [];
   activityRows: ActivityRow[] = [];
@@ -34,13 +56,26 @@ export class Dashboard implements OnInit {
   allProjects: any[] = [];
   rawLogs: any[] = [];
   downloadingSNo: number | null = null;
+  selectedVersion = 'ALL';
   loading = true;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
+  get availableVersions(): string[] {
+    return Array.from(new Set(this.activityRows.map((row) => row.version)))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }
+
+  get filteredActivityRows(): ActivityRow[] {
+    const rows = this.selectedVersion === 'ALL'
+      ? this.activityRows
+      : this.activityRows.filter((row) => row.version === this.selectedVersion);
+    return rows.map((row, index) => ({ ...row, sNo: index + 1 }));
+  }
+
   ngOnInit() {
-    this.loadProjects();
-    this.loadDocuments();
+    this.loadArtifactRows();
 
     this.api.getStats().subscribe({
       next: (res) => {
@@ -56,14 +91,170 @@ export class Dashboard implements OnInit {
       }
     });
 
-    this.api.getRecentActivity().subscribe({
-      next: (res) => {
-        if (res.success && res.data) {
-          this.recentActivity = res.data;
-          this.rawLogs = res.data;
-          this.processActivityRows(this.rawLogs);
+  }
+
+  private loadArtifactRows(): void {
+    this.api.getProjects().pipe(
+      switchMap((projectResponse) => {
+        const projects = projectResponse.success ? (projectResponse.data || []) : [];
+        this.allProjects = projects;
+
+        if (projects.length === 0) {
+          return of([] as ActivityRow[]);
         }
+
+        const projectRequests = projects.map((project: any) =>
+          this.api.getProjectDocuments(Number(project.id)).pipe(
+            switchMap((documentResponse) => {
+              const documents = (documentResponse.success ? (documentResponse.data || []) : [])
+                .filter((document: any) => this.isBrdDocument(document));
+              const historyRequests = documents.flatMap((document: any) =>
+                this.artifactFeatures.map((feature) =>
+                  this.api.getHistory(Number(project.id), feature, Number(document.id)).pipe(
+                    map((historyResponse) => historyResponse.success ? (historyResponse.data || []) : []),
+                    catchError(() => of([] as any[]))
+                  )
+                )
+              );
+
+              return historyRequests.length > 0
+                ? forkJoin(historyRequests).pipe(
+                    map((histories) => histories.flatMap((items) => items).map((item) =>
+                      this.toActivityRow(item, project, documents)
+                    )))
+                : of([] as ActivityRow[]);
+            }),
+            catchError(() => of([] as ActivityRow[]))
+          )
+        );
+
+        return forkJoin(projectRequests).pipe(
+          map((rows) => rows.flatMap((projectRows) => projectRows))
+        );
+      })
+    ).subscribe({
+      next: (rows) => {
+        this.activityRows = this.groupArtifactRows(rows)
+          .sort((a, b) => b.lastUpdated - a.lastUpdated)
+          .map((row, index) => ({ ...row, sNo: index + 1 }));
+        this.loading = false;
         this.cdr.markForCheck();
+      },
+      error: () => {
+        this.activityRows = [];
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private groupArtifactRows(rows: ActivityRow[]): ActivityRow[] {
+    const grouped = new Map<string, ActivityRow>();
+
+    for (const row of rows) {
+      const feature = this.normalizeFeature(row.artifact?.feature || row.feature);
+      if (!this.artifactFeatures.includes(feature as string)
+        || !row.artifact?.id
+        || !row.artifact?.canView
+        || row.artifact?.fileType !== 'PDF') {
+        continue;
+      }
+
+      const documentKey = row.documentId ?? row.knowledgeBase.toLowerCase();
+      const key = `${row.projectId ?? ''}::${documentKey}::${row.version}`;
+      let groupedRow = grouped.get(key);
+      if (!groupedRow) {
+        groupedRow = {
+          ...row,
+          artifacts: {},
+          userStory: null,
+          functionalDesign: null,
+          technicalDesign: null,
+          requirementAnalysis: null,
+          testGenerator: null,
+          defectTriage: null,
+          releaseNotes: null
+        };
+        grouped.set(key, groupedRow);
+      }
+
+      groupedRow.artifacts[feature as keyof ActivityRow['artifacts']] = row.artifact;
+      groupedRow.lastUpdated = Math.max(groupedRow.lastUpdated, row.lastUpdated);
+    }
+
+    return Array.from(grouped.values());
+  }
+
+  private normalizeFeature(feature: string): string {
+    return (feature || '').toLowerCase().replace(/[-\s]/g, '_');
+  }
+
+  private isBrdDocument(document: any): boolean {
+    const fileName = (document.fileName || '').toLowerCase();
+    const fileType = (document.fileType || '').toUpperCase();
+    return document.status === 'COMPLETED'
+      && fileType !== 'ZIP'
+      && fileType !== 'CODEBASE'
+      && !fileName.endsWith('.zip');
+  }
+
+  private toActivityRow(item: any, project: any, documents: any[]): ActivityRow {
+    const sourceDocument = documents.find((document) => Number(document.id) === Number(item.documentId));
+    const feature = this.normalizeFeature(item.feature);
+    return {
+      sNo: 0,
+      projectId: Number(project.id),
+      documentId: item.documentId ? Number(item.documentId) : null,
+      projectName: item.projectName || project.projectName || '—',
+      knowledgeBase: item.documentName || sourceDocument?.fileName || '—',
+      version: String(item.version),
+      artifacts: {},
+      feature,
+      artifact: item,
+      category: '—',
+      userStory: null,
+      functionalDesign: null,
+      technicalDesign: null,
+      requirementAnalysis: null,
+      testGenerator: null,
+      defectTriage: null,
+      releaseNotes: null,
+      lastUpdated: new Date(item.createdAt || 0).getTime()
+    };
+  }
+
+  viewArtifact(row: ActivityRow, feature: keyof ActivityRow['artifacts'], event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts[feature];
+    if (!artifact?.id) return;
+    this.artifactViewer?.viewDocument({
+      ...artifact,
+      id: artifact.id,
+      feature,
+      projectName: row.projectName,
+      sourceDocumentName: row.knowledgeBase,
+      documentName: row.knowledgeBase,
+      version: row.version
+    });
+  }
+
+  downloadDocument(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    if (!row.documentId) return;
+
+    this.api.downloadDocument(row.documentId).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = row.knowledgeBase || `document-${row.documentId}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        alert('Unable to download this document.');
       }
     });
   }
@@ -152,8 +343,13 @@ export class Dashboard implements OnInit {
           sNo: 0,
           projectId: matchedProj ? Number(matchedProj.id) : logProjId,
           documentId: log.documentId ? Number(log.documentId) : null,
+          artifactId: 0,
           projectName: proj,
           knowledgeBase: doc,
+          version: '',
+          artifacts: {},
+          feature: '',
+          artifact: log,
           category: this.formatCategory(log),
           userStory: null,
           functionalDesign: null,
