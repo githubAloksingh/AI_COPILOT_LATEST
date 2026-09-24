@@ -273,11 +273,27 @@ export class Dashboard implements OnInit {
     });
   }
 
+  viewTestCasesExcel(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.test_generator;
+    if (artifact) {
+      this.artifactViewer?.viewTestGeneratorExcel(artifact);
+    }
+  }
+
   downloadTestCasesExcel(row: ActivityRow, event: MouseEvent): void {
     event.stopPropagation();
     const artifact = row.artifacts.test_generator;
     if (artifact) {
       this.artifactViewer?.downloadTestGeneratorExcel(artifact);
+    }
+  }
+
+  viewTestCasesCsv(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.test_generator;
+    if (artifact) {
+      this.artifactViewer?.viewTestGeneratorCsv(artifact);
     }
   }
 
@@ -289,11 +305,27 @@ export class Dashboard implements OnInit {
     }
   }
 
+  viewDefectTriageExcel(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.defect_triage;
+    if (artifact) {
+      this.artifactViewer?.viewDefectTriageExcel(artifact);
+    }
+  }
+
   downloadDefectTriageExcel(row: ActivityRow, event: MouseEvent): void {
     event.stopPropagation();
     const artifact = row.artifacts.defect_triage;
     if (artifact) {
       this.artifactViewer?.downloadDefectTriageExcel(artifact);
+    }
+  }
+
+  viewDefectTriageCsv(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    const artifact = row.artifacts.defect_triage;
+    if (artifact) {
+      this.artifactViewer?.viewDefectTriageCsv(artifact);
     }
   }
 

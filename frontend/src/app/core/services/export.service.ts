@@ -22,10 +22,9 @@ export class ExportService {
   // ==========================================
   // EXCEL EXPORT (TEST CASES - .xlsx)
   // ==========================================
-  downloadTestCaseExcel(items: any[], baseFilename = 'test-cases'): void {
+  buildTestCaseWorkbook(items: any[]): XLSX.WorkBook {
     if (!items || items.length === 0) {
-      alert('No test case data available to export.');
-      return;
+      throw new Error('No test case data available to export.');
     }
 
     const headers = ['Test Case ID', 'Scenario / Title', 'Preconditions', 'Test Steps', 'Expected Result'];
@@ -37,24 +36,30 @@ export class ExportService {
       this.excelText(item?.expectedResult ?? item?.expectedBehavior)
     ]);
 
-    const ws = this.createWorksheet(headers, rows, [
-      16, 42, 34, 52, 42
-    ]);
-
+    const ws = this.createWorksheet(headers, rows, [16, 42, 34, 52, 42]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Test Cases');
     XLSX.utils.book_append_sheet(wb, this.createSummarySheet('Test Case Export', rows.length, headers), 'Summary');
+    return wb;
+  }
+
+  downloadTestCaseExcel(items: any[], baseFilename = 'test-cases'): void {
+    if (!items || items.length === 0) {
+      alert('No test case data available to export.');
+      return;
+    }
+
+    const wb = this.buildTestCaseWorkbook(items);
     XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
   }
 
-  downloadDefectExcel(data: any, baseFilename = 'defect-triage'): void {
+  buildDefectWorkbook(data: any): XLSX.WorkBook {
     const defects = Array.isArray(data?.defects)
       ? data.defects
       : (data ? [data] : []);
 
     if (defects.length === 0) {
-      alert('No defect triage data available to export.');
-      return;
+      throw new Error('No defect triage data available to export.');
     }
 
     const headers = [
@@ -75,13 +80,24 @@ export class ExportService {
       this.excelText(defect?.fix ?? defect?.suggestedFix)
     ]);
 
-    const ws = this.createWorksheet(headers, rows, [
-      16, 36, 22, 22, 28, 48, 36, 48, 48, 48
-    ]);
-
+    const ws = this.createWorksheet(headers, rows, [16, 36, 22, 22, 28, 48, 36, 48, 48, 48]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Defect Triage');
     XLSX.utils.book_append_sheet(wb, this.createSummarySheet('Defect Triage Export', rows.length, headers), 'Summary');
+    return wb;
+  }
+
+  downloadDefectExcel(data: any, baseFilename = 'defect-triage'): void {
+    const defects = Array.isArray(data?.defects)
+      ? data.defects
+      : (data ? [data] : []);
+
+    if (defects.length === 0) {
+      alert('No defect triage data available to export.');
+      return;
+    }
+
+    const wb = this.buildDefectWorkbook(data);
     XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
   }
 
@@ -174,11 +190,10 @@ export class ExportService {
     return value.map((item, index) => `${index + 1}. ${this.excelText(item)}`).join('\n');
   }
 
-  downloadDefectCsv(data: any, baseFilename = 'defect-triage'): void {
+  generateDefectCsvString(data: any): string {
     const defects = Array.isArray(data?.defects) ? data.defects : (data ? [data] : []);
     if (defects.length === 0) {
-      alert('No defect triage data available to export.');
-      return;
+      return '';
     }
 
     const headers = ['Defect ID', 'Title', 'Component', 'Location', 'Trigger', 'Root Cause', 'Impact', 'Evidence', 'Investigation', 'Suggested Fix'];
@@ -190,18 +205,25 @@ export class ExportService {
       value(defect, 'investigation', defect.suggestedInvestigation), value(defect, 'fix', defect.suggestedFix)
     ]);
     const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
-    const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\r\n');
-    this.triggerDownload(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }), `${baseFilename}-${this.getTimestampSuffix()}.csv`);
+    return ['\uFEFF' + headers.map(escape).join(','), ...rows.map(row => row.map(escape).join(','))].join('\r\n');
+  }
+
+  downloadDefectCsv(data: any, baseFilename = 'defect-triage'): void {
+    const csv = this.generateDefectCsvString(data);
+    if (!csv) {
+      alert('No defect triage data available to export.');
+      return;
+    }
+    this.triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${baseFilename}-${this.getTimestampSuffix()}.csv`);
   }
 
   // ==========================================
   // CSV EXPORT (TEST CASES ONLY)
   // RFC 4180 Compliant
   // ==========================================
-  downloadTestCaseCsv(items: any[], baseFilename = 'test-cases'): void {
+  generateTestCaseCsvString(items: any[]): string {
     if (!items || items.length === 0) {
-      alert('No test case data available to export.');
-      return;
+      return '';
     }
 
     const headers = [
@@ -242,7 +264,16 @@ export class ExportService {
       rows.push(row.join(','));
     });
 
-    const csvContent = '\uFEFF' + rows.join('\r\n');
+    return '\uFEFF' + rows.join('\r\n');
+  }
+
+  downloadTestCaseCsv(items: any[], baseFilename = 'test-cases'): void {
+    const csvContent = this.generateTestCaseCsvString(items);
+    if (!csvContent) {
+      alert('No test case data available to export.');
+      return;
+    }
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     this.triggerDownload(blob, `${baseFilename}-${this.getTimestampSuffix()}.csv`);
   }

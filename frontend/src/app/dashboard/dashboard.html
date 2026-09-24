@@ -92,10 +92,10 @@
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.test_generator; else noTestCases">
-              <button type="button" class="view-icon-btn test-export-btn" title="Download Test Cases Excel" aria-label="Download Test Cases Excel" (click)="downloadTestCasesExcel(row, $event)">
+              <button type="button" class="view-icon-btn test-export-btn" title="View Test Cases Excel" aria-label="View Test Cases Excel" (click)="viewTestCasesExcel(row, $event)">
                 XLSX
               </button>
-              <button type="button" class="view-icon-btn test-export-btn" title="Download Test Cases CSV" aria-label="Download Test Cases CSV" (click)="downloadTestCasesCsv(row, $event)">
+              <button type="button" class="view-icon-btn test-export-btn" title="View Test Cases CSV" aria-label="View Test Cases CSV" (click)="viewTestCasesCsv(row, $event)">
                 CSV
               </button>
             </ng-container>
@@ -103,10 +103,10 @@
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.defect_triage; else noDefectTriage">
-              <button type="button" class="view-icon-btn test-export-btn" title="Download Defect Triage Excel" aria-label="Download Defect Triage Excel" (click)="downloadDefectTriageExcel(row, $event)">
+              <button type="button" class="view-icon-btn test-export-btn" title="View Defect Triage Excel" aria-label="View Defect Triage Excel" (click)="viewDefectTriageExcel(row, $event)">
                 XLSX
               </button>
-              <button type="button" class="view-icon-btn test-export-btn" title="Download Defect Triage CSV" aria-label="Download Defect Triage CSV" (click)="downloadDefectTriageCsv(row, $event)">
+              <button type="button" class="view-icon-btn test-export-btn" title="View Defect Triage CSV" aria-label="View Defect Triage CSV" (click)="viewDefectTriageCsv(row, $event)">
                 CSV
               </button>
             </ng-container>
