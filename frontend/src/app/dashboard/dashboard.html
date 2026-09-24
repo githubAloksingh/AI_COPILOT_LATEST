@@ -38,6 +38,7 @@
         <tr>
           <th>S.No</th>
           <th>Project</th>
+          <th>Type</th>
           <th>Document Name</th>
           <th>Version</th>
           <th>User Story</th>
@@ -55,6 +56,7 @@
           <td>
             <span style="font-weight: 600; color: #0f172a; font-size: 0.875rem;">{{ row.projectName }}</span>
           </td>
+          <td>{{ row.documentType }}</td>
           <td>
             <button
               *ngIf="row.documentId; else documentNameText"
