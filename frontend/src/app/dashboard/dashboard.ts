@@ -10,6 +10,7 @@ export interface ActivityRow {
   projectId: number | null;
   documentId: number | null;
   projectName: string;
+  documentType: 'BRD' | 'ZIP';
   knowledgeBase: string;
   version: string;
   artifacts: {
@@ -233,6 +234,7 @@ export class Dashboard implements OnInit {
       projectId: Number(project.id),
       documentId: item.documentId ? Number(item.documentId) : null,
       projectName: item.projectName || project.projectName || '—',
+      documentType: this.getDocumentType(item.documentName || sourceDocument?.fileName, sourceDocument?.fileType),
       knowledgeBase: item.documentName || sourceDocument?.fileName || '—',
       version: String(item.version),
       artifacts: {},
@@ -248,6 +250,12 @@ export class Dashboard implements OnInit {
       releaseNotes: null,
       lastUpdated: new Date(item.createdAt || 0).getTime()
     };
+  }
+
+  private getDocumentType(fileName: string | null | undefined, fileType?: string | null): 'BRD' | 'ZIP' {
+    const normalizedType = (fileType || '').toUpperCase();
+    const normalizedName = (fileName || '').toLowerCase();
+    return normalizedType === 'ZIP' || normalizedName.endsWith('.zip') ? 'ZIP' : 'BRD';
   }
 
   viewArtifact(row: ActivityRow, feature: keyof ActivityRow['artifacts'], event: MouseEvent): void {
@@ -404,6 +412,7 @@ export class Dashboard implements OnInit {
           documentId: log.documentId ? Number(log.documentId) : null,
           artifactId: 0,
           projectName: proj,
+          documentType: this.getDocumentType(doc, log.fileType),
           knowledgeBase: doc,
           version: '',
           artifacts: {},
