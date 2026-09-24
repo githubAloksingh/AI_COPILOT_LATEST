@@ -6,6 +6,9 @@
         <h3>{{ documentName }}</h3>
       </div>
       <div class="header-actions">
+        <button *ngIf="previewBlobUrl || documentId" type="button" class="download-button" (click)="download()" title="Download PDF">
+          Download
+        </button>
         <button *ngIf="previewBlobUrl" type="button" class="open-tab-button" (click)="openInNewTab()" title="Open in Full Browser Tab">
           ↗ Open in New Tab
         </button>
