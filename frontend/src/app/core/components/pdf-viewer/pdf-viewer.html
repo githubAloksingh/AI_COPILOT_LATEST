@@ -27,7 +27,10 @@
 
     <div class="modal-footer">
       <span>Showing exact uploaded PDF file (unparsed binary)</span>
-      <button type="button" class="close-footer-button" (click)="close()">Close</button>
+      <div class="footer-actions">
+        <button type="button" class="download-footer-button" (click)="downloadCurrentDocument()">Download</button>
+        <button type="button" class="close-footer-button" (click)="close()">Close</button>
+      </div>
     </div>
   </div>
 </div>

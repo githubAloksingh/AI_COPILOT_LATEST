@@ -75,6 +75,35 @@ export class PdfViewerComponent implements OnDestroy {
     this.cdr.markForCheck();
   }
 
+  downloadCurrentDocument(): void {
+    const fileName = this.documentName || (this.documentId ? `document-${this.documentId}` : 'document.pdf');
+
+    const triggerDownload = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
+    if (this.documentId) {
+      this.api.downloadDocument(this.documentId).subscribe({
+        next: (blob: Blob) => triggerDownload(blob),
+        error: () => {
+          alert('Unable to download this document.');
+        }
+      });
+      return;
+    }
+
+    if (this.previewBlobUrl) {
+      triggerDownload(new Blob([this.previewBlobUrl], { type: 'application/pdf' }));
+    }
+  }
+
   close(): void {
     this.visible = false;
     this.cleanupBlobUrl();

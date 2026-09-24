@@ -62,9 +62,9 @@
               *ngIf="row.documentId; else documentNameText"
               type="button"
               class="document-name-link"
-              [title]="'Download ' + row.knowledgeBase"
-              [attr.aria-label]="'Download ' + row.knowledgeBase"
-              (click)="downloadDocument(row, $event)">
+              [title]="'View ' + row.knowledgeBase"
+              [attr.aria-label]="'View ' + row.knowledgeBase"
+              (click)="viewDocumentFromDashboard(row, $event)">
               {{ row.knowledgeBase }}
             </button>
             <ng-template #documentNameText>

@@ -305,6 +305,13 @@ export class Dashboard implements OnInit {
     }
   }
 
+  viewDocumentFromDashboard(row: ActivityRow, event: MouseEvent): void {
+    event.stopPropagation();
+    if (!row.documentId) return;
+
+    this.artifactViewer?.pdfViewer?.open(row.documentId, row.knowledgeBase || `document-${row.documentId}`);
+  }
+
   downloadDocument(row: ActivityRow, event: MouseEvent): void {
     event.stopPropagation();
     if (!row.documentId) return;
