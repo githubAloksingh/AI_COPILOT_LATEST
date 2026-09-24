@@ -1,5 +1,6 @@
 import { Component, Input, OnChanges, SimpleChanges, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import * as XLSX from 'xlsx-js-style';
 import { ApiService } from '../../api';
 import { ExportService } from '../../services/export.service';
 import { PdfViewerComponent } from '../pdf-viewer/pdf-viewer';
@@ -1071,9 +1072,26 @@ export class FeatureHistoryComponent implements OnChanges {
     });
   }
 
+  viewTestGeneratorExcel(item: any): void {
+    this.loadTestGeneratorContent(item, (testCases) => {
+      const workbook = this.exportService.buildTestCaseWorkbook(testCases);
+      const blob = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const file = new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      this.pdfViewer?.openSpreadsheetBlob(file, this.getTestCaseFilename(item));
+    });
+  }
+
   downloadTestGeneratorExcel(item: any): void {
     this.loadTestGeneratorContent(item, (testCases) => {
       this.exportService.downloadTestCaseExcel(testCases, this.getTestCaseFilename(item));
+    });
+  }
+
+  viewTestGeneratorCsv(item: any): void {
+    this.loadTestGeneratorContent(item, (testCases) => {
+      const csv = this.exportService.generateTestCaseCsvString(testCases);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      this.pdfViewer?.openCsvBlob(blob, this.getTestCaseFilename(item) + '.csv');
     });
   }
 
@@ -1083,9 +1101,26 @@ export class FeatureHistoryComponent implements OnChanges {
     });
   }
 
+  viewDefectTriageExcel(item: any): void {
+    this.loadDefectTriageContent(item, (defectData) => {
+      const workbook = this.exportService.buildDefectWorkbook(defectData);
+      const blob = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const file = new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      this.pdfViewer?.openSpreadsheetBlob(file, this.getDefectFilename(item));
+    });
+  }
+
   downloadDefectTriageExcel(item: any): void {
     this.loadDefectTriageContent(item, (defectData) => {
       this.exportService.downloadDefectExcel(defectData, this.getDefectFilename(item));
+    });
+  }
+
+  viewDefectTriageCsv(item: any): void {
+    this.loadDefectTriageContent(item, (defectData) => {
+      const csv = this.exportService.generateDefectCsvString(defectData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      this.pdfViewer?.openCsvBlob(blob, this.getDefectFilename(item) + '.csv');
     });
   }
 
