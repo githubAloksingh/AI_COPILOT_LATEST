@@ -321,18 +321,15 @@ export class ExportService {
     const { doc, contentWidth } = ctx;
     const projectName = String(ctx.meta?.project || 'Project').trim();
     const brdName = String(ctx.meta?.documentName || ctx.meta?.brd || 'BRD').trim();
-    const heading = this.cleanMarkdown(`${projectName} : ${brdName}`);
+    const typeName = String(ctx.docType || '').replace(/^\(|\)$/g, '').trim();
+    const heading = this.cleanMarkdown(`${projectName} : ${brdName} : ${typeName}`);
     const headingLines = doc.splitTextToSize(heading, contentWidth);
 
     doc.setTextColor(15, 23, 42);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(17);
     doc.text(headingLines, ctx.pageWidth / 2, ctx.getY() + 18, { align: 'center' });
-
-    const artifactLines = this.cleanMarkdown(`(${ctx.docType})`);
-    doc.setFontSize(13);
-    doc.text(artifactLines, ctx.pageWidth / 2, ctx.getY() + 18 + headingLines.length * 21 + 16, { align: 'center' });
-    ctx.addY(headingLines.length * 21 + 52);
+    ctx.addY(headingLines.length * 21 + 28);
   }
 
   /** Aligned Structured Document Metadata Block (Spec 7: Project Name, Source Document, Version, Generated On) */
