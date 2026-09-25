@@ -111,13 +111,9 @@
       class="btn btn-primary" 
       (click)="generate()" 
       [disabled]="loading || !isInputValid()">
-      {{ loading ? 'Generating Requirement...' : 'Generate Requirement' }}
+      <span *ngIf="loading" class="spinner" aria-hidden="true"></span>
+      <span>{{ loading ? 'Generating Requirement Analysis...' : 'Generate Requirement' }}</span>
     </button>
-  </div>
-  
-  <div *ngIf="loading" class="loading-indicator">
-    <div class="spinner"></div>
-    <span>Retrieving grounded knowledge chunks and synthesizing requirement specification with AI...</span>
   </div>
   
   <div *ngIf="error" class="error-message">

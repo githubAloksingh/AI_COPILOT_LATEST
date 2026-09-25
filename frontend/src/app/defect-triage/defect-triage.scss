@@ -340,3 +340,24 @@
 .action-row {
   margin-top: 16px;
 }
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    border: 3px solid rgba(255, 255, 255, 0.45);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: defect-triage-spin 0.8s linear infinite;
+  }
+}
+
+@keyframes defect-triage-spin {
+  to { transform: rotate(360deg); }
+}

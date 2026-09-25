@@ -253,16 +253,11 @@
         class="btn-generate" 
         (click)="generate()" 
         [disabled]="loading || !isInputValid()">
+        <span *ngIf="loading" class="spinner" aria-hidden="true"></span>
         <span *ngIf="!loading">Generate Test Cases</span>
         <span *ngIf="loading">Generating Test Cases...</span>
         <span *ngIf="!loading" class="arrow-icon">↓</span>
       </button>
-    </div>
-
-    <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container">
-      <div class="spinner"></div>
-      <span>Extracting knowledge context and synthesizing test cases with AI...</span>
     </div>
 
     <!-- Error Banner -->
