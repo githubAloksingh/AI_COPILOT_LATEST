@@ -105,6 +105,26 @@ export class Dashboard implements OnInit {
     if (this.currentPage < this.totalPages) this.currentPage++;
   }
 
+  artifactFileName(row: ActivityRow, feature: keyof ActivityRow['artifacts']): string {
+    const sourceName = row.knowledgeBase || 'GeneratedResponse';
+    const baseName = this.sanitizeArtifactPart(sourceName.replace(/\.[^/.]+$/, ''));
+    const featureNames: Record<string, string> = {
+      user_story: 'USERSTORY',
+      functional_design: 'FUNCTIONALDESIGN',
+      technical_design: 'TECHNICALDESIGN',
+      release_notes: 'RELEASENOTES'
+    };
+    const featureName = featureNames[feature] || this.sanitizeArtifactPart(feature);
+    const version = String(row.artifacts[feature]?.version || row.version || '1.0');
+    const versionMatch = version.match(/^1\.(\d+)$/);
+    const sequence = versionMatch ? Number(versionMatch[1]) + 1 : 1;
+    return `${baseName}_${featureName}(${sequence})`;
+  }
+
+  private sanitizeArtifactPart(value: string): string {
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+
   ngOnInit() {
     this.loadArtifactRows();
 
@@ -267,10 +287,12 @@ export class Dashboard implements OnInit {
       ...artifact,
       id: artifact.id,
       feature,
+      projectId: row.projectId,
+      documentId: row.documentId,
       projectName: row.projectName,
       sourceDocumentName: row.knowledgeBase,
-      documentName: row.knowledgeBase,
-      version: row.version
+      documentName: this.artifactFileName(row, feature),
+      version: artifact.version || row.version
     });
   }
 

@@ -202,6 +202,23 @@ export class PdfViewerComponent implements OnDestroy {
     }
   }
 
+  download(): void {
+    if (this.previewBlobUrl) {
+      this.triggerDownload(this.previewBlobUrl);
+      return;
+    }
+
+    if (this.documentId) {
+      this.api.getDocumentFile(this.documentId).subscribe({
+        next: (blob: Blob) => {
+          const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+          this.triggerDownload(url);
+          URL.revokeObjectURL(url);
+        }
+      });
+    }
+  }
+
   ngOnDestroy(): void {
     this.cleanupBlobUrl();
   }
@@ -211,6 +228,15 @@ export class PdfViewerComponent implements OnDestroy {
       URL.revokeObjectURL(this.previewBlobUrl);
       this.previewBlobUrl = null;
     }
+  }
+
+  private triggerDownload(url: string): void {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = this.documentName || 'document.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   private normalizeFilename(fileName: string, type: 'pdf' | 'xlsx' | 'csv'): string {

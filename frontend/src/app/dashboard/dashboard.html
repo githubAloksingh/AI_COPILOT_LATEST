@@ -89,15 +89,15 @@
             <span class="version-tag">{{ row.version }}</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.user_story" type="button" class="view-icon-btn" title="View User Story PDF" aria-label="View User Story PDF" (click)="viewArtifact(row, 'user_story', $event)">👁</button>
+            <button *ngIf="row.artifacts.user_story" type="button" class="artifact-file-link" [title]="'View User Story - ' + artifactFileName(row, 'user_story')" [attr.aria-label]="'View User Story - ' + artifactFileName(row, 'user_story')" (click)="viewArtifact(row, 'user_story', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'user_story') }}</button>
             <span *ngIf="!row.artifacts.user_story" class="empty-cell">—</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.functional_design" type="button" class="view-icon-btn" title="View Functional Design PDF" aria-label="View Functional Design PDF" (click)="viewArtifact(row, 'functional_design', $event)">👁</button>
+            <button *ngIf="row.artifacts.functional_design" type="button" class="artifact-file-link" [title]="'View Functional Design - ' + artifactFileName(row, 'functional_design')" [attr.aria-label]="'View Functional Design - ' + artifactFileName(row, 'functional_design')" (click)="viewArtifact(row, 'functional_design', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'functional_design') }}</button>
             <span *ngIf="!row.artifacts.functional_design" class="empty-cell">—</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.technical_design" type="button" class="view-icon-btn" title="View Technical Design PDF" aria-label="View Technical Design PDF" (click)="viewArtifact(row, 'technical_design', $event)">👁</button>
+            <button *ngIf="row.artifacts.technical_design" type="button" class="artifact-file-link" [title]="'View Technical Design - ' + artifactFileName(row, 'technical_design')" [attr.aria-label]="'View Technical Design - ' + artifactFileName(row, 'technical_design')" (click)="viewArtifact(row, 'technical_design', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'technical_design') }}</button>
             <span *ngIf="!row.artifacts.technical_design" class="empty-cell">—</span>
           </td>
           <td>
@@ -127,7 +127,7 @@
             <ng-template #noDefectTriage><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
-            <button *ngIf="row.artifacts.release_notes" type="button" class="view-icon-btn" title="View Release Notes PDF" aria-label="View Release Notes PDF" (click)="viewArtifact(row, 'release_notes', $event)">👁</button>
+            <button *ngIf="row.artifacts.release_notes" type="button" class="artifact-file-link" [title]="'View Release Notes - ' + artifactFileName(row, 'release_notes')" [attr.aria-label]="'View Release Notes - ' + artifactFileName(row, 'release_notes')" (click)="viewArtifact(row, 'release_notes', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'release_notes') }}</button>
             <span *ngIf="!row.artifacts.release_notes" class="empty-cell">—</span>
           </td>
         </tr>

@@ -238,6 +238,25 @@
   }
 }
 
+.artifact-file-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+
+  &:hover {
+    color: #ea580c;
+    text-decoration: underline;
+  }
+}
+
+.artifact-file-icon {
+  margin-right: 5px;
+}
+
 .test-export-btn {
   padding: 4px 7px;
   font-size: 0.78rem;
