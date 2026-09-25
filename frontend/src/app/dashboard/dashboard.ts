@@ -67,6 +67,7 @@ export class Dashboard implements OnInit {
   readonly pageSize = 10;
   currentPage = 1;
   loading = true;
+  codebaseToDownload: ActivityRow | null = null;
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
@@ -368,6 +369,27 @@ export class Dashboard implements OnInit {
 
   downloadDocument(row: ActivityRow, event: MouseEvent): void {
     event.stopPropagation();
+    if (!row.documentId) return;
+
+    if (row.documentType === 'ZIP') {
+      this.codebaseToDownload = row;
+      return;
+    }
+
+    this.performDocumentDownload(row);
+  }
+
+  cancelCodebaseDownload(): void {
+    this.codebaseToDownload = null;
+  }
+
+  confirmCodebaseDownload(): void {
+    const row = this.codebaseToDownload;
+    this.codebaseToDownload = null;
+    if (row) this.performDocumentDownload(row);
+  }
+
+  private performDocumentDownload(row: ActivityRow): void {
     if (!row.documentId) return;
 
     this.api.downloadDocument(row.documentId).subscribe({
