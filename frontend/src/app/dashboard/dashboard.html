@@ -3,6 +3,18 @@
   <p>Overview of AI Work Copilot usage, team velocity impact, and recent generations.</p>
 </div>
 
+<div class="codebase-popup-backdrop" *ngIf="codebaseToDownload" (click)="cancelCodebaseDownload()">
+  <div class="codebase-popup" (click)="$event.stopPropagation()">
+    <div class="codebase-popup-icon">⚠️</div>
+    <h3>Codebase Access</h3>
+    <p>You can’t view the Codebase directly. Please download it to access the files.</p>
+    <div class="codebase-popup-actions">
+      <button type="button" class="codebase-cancel-btn" (click)="cancelCodebaseDownload()">Cancel</button>
+      <button type="button" class="codebase-download-btn" (click)="confirmCodebaseDownload()">Download</button>
+    </div>
+  </div>
+</div>
+
 <div *ngIf="loading" class="loading-indicator">
   <div class="spinner"></div>
   <span>Loading dashboard metrics...</span>
@@ -56,7 +68,9 @@
           <td>
             <span style="font-weight: 600; color: #0f172a; font-size: 0.875rem;">{{ row.projectName }}</span>
           </td>
-          <td>{{ row.documentType }}</td>
+          <td>
+            {{ row.documentType === 'ZIP' ? 'CODEBASE' : row.documentType }}
+          </td>
           <td>
             <button
               *ngIf="row.documentId; else documentNameText"
