@@ -364,6 +364,11 @@ export class Dashboard implements OnInit {
     event.stopPropagation();
     if (!row.documentId) return;
 
+    if (row.documentType === 'ZIP') {
+      this.codebaseToDownload = row;
+      return;
+    }
+
     this.artifactViewer?.pdfViewer?.open(row.documentId, row.knowledgeBase || `document-${row.documentId}`);
   }
 

@@ -76,8 +76,8 @@
               *ngIf="row.documentId; else documentNameText"
               type="button"
               class="document-name-link"
-              [title]="'View ' + row.knowledgeBase"
-              [attr.aria-label]="'View ' + row.knowledgeBase"
+              [title]="row.documentType === 'ZIP' ? 'Download ' + row.knowledgeBase : 'View ' + row.knowledgeBase"
+              [attr.aria-label]="row.documentType === 'ZIP' ? 'Download ' + row.knowledgeBase : 'View ' + row.knowledgeBase"
               (click)="viewDocumentFromDashboard(row, $event)">
               {{ row.knowledgeBase }}
             </button>
