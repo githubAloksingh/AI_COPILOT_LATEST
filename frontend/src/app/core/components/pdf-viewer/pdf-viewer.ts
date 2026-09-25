@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, EventEmitter, OnDestroy, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
+import * as XLSX from 'xlsx-js-style';
 import { ApiService } from '../../api';
 
 @Component({
@@ -18,6 +19,9 @@ export class PdfViewerComponent implements OnDestroy {
   documentId: number | null = null;
   previewPdfUrl: SafeResourceUrl | null = null;
   previewBlobUrl: string | null = null;
+  spreadsheetHtml: SafeHtml | null = null;
+  csvText: string | null = null;
+  downloadBlob: Blob | null = null;
   loading = false;
   error = '';
 
@@ -64,23 +68,122 @@ export class PdfViewerComponent implements OnDestroy {
 
   openBlob(blob: Blob, documentName: string): void {
     this.documentId = null;
-    this.documentName = documentName;
+    this.documentName = this.normalizeFilename(documentName, 'pdf');
+    this.downloadBlob = blob;
     this.error = '';
     this.loading = false;
     this.visible = true;
     this.cleanupBlobUrl();
+    this.spreadsheetHtml = null;
     const pdfBlob = new Blob([blob], { type: 'application/pdf' });
     this.previewBlobUrl = URL.createObjectURL(pdfBlob);
     this.previewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.previewBlobUrl);
     this.cdr.markForCheck();
   }
 
+  openSpreadsheetBlob(blob: Blob, documentName: string): void {
+    this.documentId = null;
+    this.documentName = this.normalizeFilename(documentName, 'xlsx');
+    this.downloadBlob = blob;
+    this.error = '';
+    this.loading = true;
+    this.visible = true;
+    this.cleanupBlobUrl();
+    this.previewPdfUrl = null;
+    this.spreadsheetHtml = null;
+    this.csvText = null;
+
+    blob.arrayBuffer().then((buffer) => {
+      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const html = XLSX.utils.sheet_to_html(firstSheet, { id: 'excel-preview-sheet' });
+      this.spreadsheetHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+      this.loading = false;
+      this.cdr.markForCheck();
+    }).catch(() => {
+      this.loading = false;
+      this.error = 'Unable to generate spreadsheet preview.';
+      this.cdr.markForCheck();
+    });
+  }
+
+  openCsvBlob(blob: Blob, documentName: string): void {
+    this.documentId = null;
+    this.documentName = this.normalizeFilename(documentName, 'csv');
+    this.downloadBlob = blob;
+    this.error = '';
+    this.loading = true;
+    this.visible = true;
+    this.cleanupBlobUrl();
+    this.previewPdfUrl = null;
+    this.spreadsheetHtml = null;
+    this.csvText = null;
+
+    blob.text().then((text) => {
+      this.csvText = text;
+      this.loading = false;
+      this.cdr.markForCheck();
+    }).catch(() => {
+      this.loading = false;
+      this.error = 'Unable to generate CSV preview.';
+      this.cdr.markForCheck();
+    });
+  }
+
+  downloadCurrentDocument(): void {
+    const fileType = this.downloadBlob?.type?.includes('sheet')
+      ? 'xlsx'
+      : this.downloadBlob?.type?.includes('csv')
+        ? 'csv'
+        : 'pdf';
+    const fileName = this.normalizeFilename(
+      this.documentName || (this.documentId ? `document-${this.documentId}` : 'document.xlsx'),
+      fileType as 'pdf' | 'xlsx' | 'csv'
+    );
+
+    const triggerDownload = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
+    if (this.documentId) {
+      this.api.downloadDocument(this.documentId).subscribe({
+        next: (blob: Blob) => triggerDownload(blob),
+        error: () => {
+          alert('Unable to download this document.');
+        }
+      });
+      return;
+    }
+
+    if (this.downloadBlob) {
+      triggerDownload(this.downloadBlob);
+      return;
+    }
+
+    if (this.previewBlobUrl) {
+      fetch(this.previewBlobUrl)
+        .then(response => response.blob())
+        .then(blob => triggerDownload(blob))
+        .catch(() => alert('Unable to download this document.'));
+    }
+  }
+
   close(): void {
     this.visible = false;
     this.cleanupBlobUrl();
     this.previewPdfUrl = null;
+    this.spreadsheetHtml = null;
+    this.csvText = null;
     this.documentName = '';
     this.documentId = null;
+    this.downloadBlob = null;
     this.error = '';
     this.closed.emit();
   }
@@ -134,6 +237,26 @@ export class PdfViewerComponent implements OnDestroy {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  private normalizeFilename(fileName: string, type: 'pdf' | 'xlsx' | 'csv'): string {
+    const cleaned = (fileName || '').trim();
+    if (!cleaned) {
+      return type === 'xlsx' ? 'document.xlsx' : type === 'csv' ? 'document.csv' : 'document.pdf';
+    }
+
+    const lower = cleaned.toLowerCase();
+    if (type === 'xlsx' && !lower.endsWith('.xlsx')) {
+      return `${cleaned}.xlsx`;
+    }
+    if (type === 'csv' && !lower.endsWith('.csv')) {
+      return `${cleaned}.csv`;
+    }
+    if (type === 'pdf' && !lower.endsWith('.pdf')) {
+      return `${cleaned}.pdf`;
+    }
+
+    return cleaned;
   }
 
   private async isPdf(blob: Blob): Promise<boolean> {

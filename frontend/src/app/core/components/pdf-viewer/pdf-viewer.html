@@ -25,12 +25,17 @@
         <div class="error-icon">⚠️</div>
         <p>{{ error }}</p>
       </div>
-      <iframe *ngIf="previewPdfUrl && !loading" [src]="previewPdfUrl" type="application/pdf" title="Original PDF Document"></iframe>
+      <div *ngIf="spreadsheetHtml && !loading" class="spreadsheet-preview-container" [innerHTML]="spreadsheetHtml"></div>
+      <pre *ngIf="csvText && !loading" class="csv-preview-text">{{ csvText }}</pre>
+      <iframe *ngIf="previewPdfUrl && !loading && !spreadsheetHtml && !csvText" [src]="previewPdfUrl" type="application/pdf" title="Original PDF Document"></iframe>
     </div>
 
     <div class="modal-footer">
       <span>Showing exact uploaded PDF file (unparsed binary)</span>
-      <button type="button" class="close-footer-button" (click)="close()">Close</button>
+      <div class="footer-actions">
+        <button type="button" class="download-footer-button" (click)="downloadCurrentDocument()">Download</button>
+        <button type="button" class="close-footer-button" (click)="close()">Close</button>
+      </div>
     </div>
   </div>
 </div>
