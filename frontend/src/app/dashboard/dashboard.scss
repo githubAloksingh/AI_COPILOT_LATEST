@@ -69,23 +69,154 @@
   }
 }
 
-.version-filter {
+.activity-filters {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 16px 0;
   color: #475569;
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.activity-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  label {
+    white-space: nowrap;
+  }
 
   select {
     min-width: 150px;
-    padding: 8px 32px 8px 10px;
+    height: 38px;
+    padding: 6px 10px;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     background: #ffffff;
     color: #334155;
     font: inherit;
+
+    &:disabled {
+      cursor: not-allowed;
+      background: #f8fafc;
+      color: #94a3b8;
+    }
+  }
+}
+
+.project-autocomplete {
+  position: relative;
+  min-width: 220px;
+}
+
+.project-input-shell {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 38px;
+  padding: 3px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  box-sizing: border-box;
+
+  &:focus-within {
+    border-color: #ea580c;
+    box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.12);
+  }
+
+  input {
+    flex: 1 1 110px;
+    min-width: 110px;
+    height: 30px;
+    padding: 4px;
+    border: 0;
+    outline: 0;
+    color: #334155;
+    font: inherit;
+    box-sizing: border-box;
+  }
+}
+
+.project-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+
+  button {
+    display: block;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+
+    &:hover {
+      background: #fff7ed;
+      color: #ea580c;
+    }
+  }
+}
+
+.selected-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.selected-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.78rem;
+
+  button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+  }
+}
+
+.clear-filters-btn {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &:not(:disabled):hover {
+    border-color: #ea580c;
+    color: #ea580c;
   }
 }
 
