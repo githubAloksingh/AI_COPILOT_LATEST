@@ -63,24 +63,77 @@ export class Dashboard implements OnInit {
   allProjects: any[] = [];
   rawLogs: any[] = [];
   downloadingSNo: number | null = null;
+  selectedProjects: string[] = [];
+  projectSearchTerm = '';
+  showProjectSuggestions = false;
+  selectedDocumentType: 'ALL' | 'BRD' | 'ZIP' = 'ALL';
+  selectedDocument = 'ALL';
+  selectedOutput = 'ALL';
   selectedVersion = 'ALL';
   readonly pageSize = 10;
   currentPage = 1;
   loading = true;
   codebaseToDownload: ActivityRow | null = null;
 
+  readonly outputFilterOptions = [
+    { value: 'user_story', label: 'User Story' },
+    { value: 'functional_design', label: 'Functional Design' },
+    { value: 'technical_design', label: 'Technical Design' },
+    { value: 'requirement_assistant', label: 'Requirement Assistant' },
+    { value: 'test_generator', label: 'Test Generator' },
+    { value: 'defect_triage', label: 'Defect Triage' },
+    { value: 'release_notes', label: 'Release Notes' }
+  ];
+
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
+  get availableProjects(): string[] {
+    return this.uniqueValues(this.activityRows.map((row) => row.projectName));
+  }
+
+  get projectSuggestions(): string[] {
+    const search = this.projectSearchTerm.trim().toLowerCase();
+    return this.availableProjects.filter((project) =>
+      !this.selectedProjects.includes(project) && (!search || project.toLowerCase().includes(search))
+    );
+  }
+
+  get availableDocuments(): string[] {
+    if (this.selectedProjects.length === 0) return [];
+    return this.uniqueValues(this.rowsForProjectFilter()
+      .filter((row) => this.selectedDocumentType === 'ALL' || row.documentType === this.selectedDocumentType)
+      .map((row) => row.knowledgeBase));
+  }
+
+  get availableDocumentTypes(): { value: 'ALL' | 'BRD' | 'ZIP'; label: string }[] {
+    if (this.selectedProjects.length === 0) {
+      return [{ value: 'ALL', label: 'Select a project first' }];
+    }
+    const projectRows = this.rowsForProjectFilter();
+    const types = new Set(projectRows.map((row) => row.documentType));
+    return [
+      { value: 'ALL' as const, label: 'All document types' },
+      ...(types.has('BRD') ? [{ value: 'BRD' as const, label: 'BRD' }] : []),
+      ...(types.has('ZIP') ? [{ value: 'ZIP' as const, label: 'Codebase' }] : [])
+    ];
+  }
+
+  get availableOutputs(): { value: string; label: string }[] {
+    if (this.selectedDocument === 'ALL') return [];
+    const rows = this.rowsForDocumentFilter();
+    return this.outputFilterOptions.filter((output) =>
+      rows.some((row) => !!row.artifacts[output.value as keyof ActivityRow['artifacts']])
+    );
+  }
+
   get availableVersions(): string[] {
-    return Array.from(new Set(this.activityRows.map((row) => row.version)))
+    return Array.from(new Set(this.rowsForOutputFilter().map((row) => row.version)))
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }
 
   get filteredActivityRows(): ActivityRow[] {
-    const rows = this.selectedVersion === 'ALL'
-      ? this.activityRows
-      : this.activityRows.filter((row) => row.version === this.selectedVersion);
+    const rows = this.rowsForVersionFilter();
     return rows.map((row, index) => ({ ...row, sNo: index + 1 }));
   }
 
@@ -93,8 +146,101 @@ export class Dashboard implements OnInit {
     return Math.ceil(this.filteredActivityRows.length / this.pageSize);
   }
 
-  onVersionChange(): void {
+  onFilterChange(): void {
     this.currentPage = 1;
+  }
+
+  onVersionChange(): void {
+    this.onFilterChange();
+  }
+
+  onProjectSearchChange(): void {
+    this.showProjectSuggestions = true;
+  }
+
+  selectProject(project: string): void {
+    if (!this.selectedProjects.includes(project)) {
+      this.selectedProjects = [...this.selectedProjects, project];
+    }
+    this.projectSearchTerm = '';
+    this.showProjectSuggestions = false;
+    this.onProjectFilterChange();
+  }
+
+  removeProject(project: string): void {
+    this.selectedProjects = this.selectedProjects.filter((selected) => selected !== project);
+    this.onProjectFilterChange();
+  }
+
+  hideProjectSuggestions(): void {
+    setTimeout(() => {
+      this.showProjectSuggestions = false;
+      this.cdr.markForCheck();
+    }, 300);
+  }
+
+  onProjectFilterChange(): void {
+    this.selectedDocument = 'ALL';
+    this.selectedOutput = 'ALL';
+    this.selectedVersion = 'ALL';
+    this.onFilterChange();
+  }
+
+  onDocumentFilterChange(): void {
+    this.selectedOutput = 'ALL';
+    this.selectedVersion = 'ALL';
+    this.onFilterChange();
+  }
+
+  onDocumentTypeChange(): void {
+    this.selectedDocument = 'ALL';
+    this.selectedOutput = 'ALL';
+    this.selectedVersion = 'ALL';
+    this.onFilterChange();
+  }
+
+  onOutputFilterChange(): void {
+    this.selectedVersion = 'ALL';
+    this.onFilterChange();
+  }
+
+  clearFilters(): void {
+    this.selectedProjects = [];
+    this.projectSearchTerm = '';
+    this.showProjectSuggestions = false;
+    this.selectedDocumentType = 'ALL';
+    this.selectedDocument = 'ALL';
+    this.selectedOutput = 'ALL';
+    this.selectedVersion = 'ALL';
+    this.onFilterChange();
+  }
+
+  private rowsForProjectFilter(): ActivityRow[] {
+    if (this.selectedProjects.length === 0) return this.activityRows;
+    return this.activityRows.filter((row) => this.selectedProjects.includes(row.projectName));
+  }
+
+  private rowsForDocumentFilter(): ActivityRow[] {
+    const rows = this.rowsForProjectFilter();
+    if (this.selectedDocument === 'ALL') return rows;
+    return rows.filter((row) => row.knowledgeBase === this.selectedDocument);
+  }
+
+  private rowsForOutputFilter(): ActivityRow[] {
+    const rows = this.rowsForDocumentFilter();
+    if (this.selectedOutput === 'ALL') return rows;
+    return rows.filter((row) => !!row.artifacts[this.selectedOutput as keyof ActivityRow['artifacts']]);
+  }
+
+  private rowsForVersionFilter(): ActivityRow[] {
+    const rows = this.rowsForOutputFilter();
+    if (this.selectedVersion === 'ALL') return rows;
+    return rows.filter((row) => row.version === this.selectedVersion);
+  }
+
+  private uniqueValues(values: string[]): string[] {
+    return Array.from(new Set(values.filter((value) => !!value && value !== '—')))
+      .sort((a, b) => a.localeCompare(b));
   }
 
   previousPage(): void {

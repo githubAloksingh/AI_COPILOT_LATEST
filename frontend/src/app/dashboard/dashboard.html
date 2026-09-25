@@ -37,12 +37,67 @@
 
 <div class="card">
   <h2>Recent AI Activity</h2>
-  <div class="version-filter">
-    <label for="dashboard-version">Version:</label>
-    <select id="dashboard-version" [(ngModel)]="selectedVersion" (ngModelChange)="onVersionChange()">
-      <option value="ALL">All Versions</option>
-      <option *ngFor="let version of availableVersions" [value]="version">{{ version }}</option>
-    </select>
+  <div class="activity-filters">
+    <div class="activity-filter">
+      <label for="dashboard-project">Project Name</label>
+      <div class="project-autocomplete">
+        <div class="project-input-shell">
+          <div class="selected-projects" *ngIf="selectedProjects.length > 0">
+            <span class="selected-project" *ngFor="let project of selectedProjects">
+              {{ project }}
+              <button type="button" [attr.aria-label]="'Remove ' + project" (click)="removeProject(project)">×</button>
+            </span>
+          </div>
+          <input
+            id="dashboard-project"
+            type="text"
+            autocomplete="off"
+            placeholder="Type to search projects"
+            [(ngModel)]="projectSearchTerm"
+            (ngModelChange)="onProjectSearchChange()"
+            (focus)="showProjectSuggestions = true"
+            (blur)="hideProjectSuggestions()">
+        </div>
+        <div class="project-suggestions" *ngIf="showProjectSuggestions && projectSuggestions.length > 0">
+          <button
+            type="button"
+            *ngFor="let project of projectSuggestions"
+            (click)="selectProject(project)">
+            {{ project }}
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="activity-filter">
+      <label for="dashboard-document-type">Document Type</label>
+      <select id="dashboard-document-type" [(ngModel)]="selectedDocumentType" [disabled]="selectedProjects.length === 0" (ngModelChange)="onDocumentTypeChange()">
+        <option *ngFor="let type of availableDocumentTypes" [ngValue]="type.value">{{ type.label }}</option>
+      </select>
+    </div>
+    <div class="activity-filter">
+      <label for="dashboard-document">BRD / Codebase</label>
+      <select id="dashboard-document" [(ngModel)]="selectedDocument" [disabled]="selectedProjects.length === 0" (ngModelChange)="onDocumentFilterChange()">
+        <option value="ALL">Select a document</option>
+        <option *ngFor="let document of availableDocuments" [value]="document">{{ document }}</option>
+      </select>
+    </div>
+    <div class="activity-filter">
+      <label for="dashboard-output">Related Output</label>
+      <select id="dashboard-output" [(ngModel)]="selectedOutput" [disabled]="selectedDocument === 'ALL'" (ngModelChange)="onOutputFilterChange()">
+        <option value="ALL">All related outputs</option>
+        <option *ngFor="let output of availableOutputs" [value]="output.value">{{ output.label }}</option>
+      </select>
+    </div>
+    <div class="activity-filter">
+      <label for="dashboard-version">Version</label>
+      <select id="dashboard-version" [(ngModel)]="selectedVersion" (ngModelChange)="onVersionChange()">
+        <option value="ALL">All versions</option>
+        <option *ngFor="let version of availableVersions" [value]="version">{{ version }}</option>
+      </select>
+    </div>
+    <button type="button" class="clear-filters-btn" (click)="clearFilters()" [disabled]="!selectedProjects.length && selectedDocument === 'ALL' && selectedOutput === 'ALL' && selectedVersion === 'ALL' && selectedDocumentType === 'ALL'">
+      Clear filters
+    </button>
   </div>
   <div class="table-container" *ngIf="paginatedActivityRows.length > 0; else noActivity">
     <table>
