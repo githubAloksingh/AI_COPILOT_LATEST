@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api';
@@ -74,6 +74,7 @@ export class Dashboard implements OnInit {
   currentPage = 1;
   loading = true;
   codebaseToDownload: ActivityRow | null = null;
+  activeDownloadMenuRow: ActivityRow | null = null;
 
   readonly outputFilterOptions = [
     { value: 'user_story', label: 'User Story' },
@@ -100,19 +101,17 @@ export class Dashboard implements OnInit {
 
   get availableDocuments(): string[] {
     if (this.selectedProjects.length === 0) return [];
-    return this.uniqueValues(this.rowsForProjectFilter()
-      .filter((row) => this.selectedDocumentType === 'ALL' || row.documentType === this.selectedDocumentType)
-      .map((row) => row.knowledgeBase));
+    return this.uniqueValues(this.rowsForDocumentTypeFilter().map((row) => row.knowledgeBase));
   }
 
   get availableDocumentTypes(): { value: 'ALL' | 'BRD' | 'ZIP'; label: string }[] {
     if (this.selectedProjects.length === 0) {
-      return [{ value: 'ALL', label: 'Select a project first' }];
+      return [{ value: 'ALL', label: 'Select Document Type' }];
     }
     const projectRows = this.rowsForProjectFilter();
     const types = new Set(projectRows.map((row) => row.documentType));
     return [
-      { value: 'ALL' as const, label: 'All document types' },
+      { value: 'ALL' as const, label: 'Select Document Type' },
       ...(types.has('BRD') ? [{ value: 'BRD' as const, label: 'BRD' }] : []),
       ...(types.has('ZIP') ? [{ value: 'ZIP' as const, label: 'Codebase' }] : [])
     ];
@@ -147,6 +146,7 @@ export class Dashboard implements OnInit {
   }
 
   onFilterChange(): void {
+    this.activeDownloadMenuRow = null;
     this.currentPage = 1;
   }
 
@@ -220,8 +220,14 @@ export class Dashboard implements OnInit {
     return this.activityRows.filter((row) => this.selectedProjects.includes(row.projectName));
   }
 
-  private rowsForDocumentFilter(): ActivityRow[] {
+  private rowsForDocumentTypeFilter(): ActivityRow[] {
     const rows = this.rowsForProjectFilter();
+    if (this.selectedDocumentType === 'ALL') return rows;
+    return rows.filter((row) => row.documentType === this.selectedDocumentType);
+  }
+
+  private rowsForDocumentFilter(): ActivityRow[] {
+    const rows = this.rowsForDocumentTypeFilter();
     if (this.selectedDocument === 'ALL') return rows;
     return rows.filter((row) => row.knowledgeBase === this.selectedDocument);
   }
@@ -244,10 +250,12 @@ export class Dashboard implements OnInit {
   }
 
   previousPage(): void {
+    this.activeDownloadMenuRow = null;
     if (this.currentPage > 1) this.currentPage--;
   }
 
   nextPage(): void {
+    this.activeDownloadMenuRow = null;
     if (this.currentPage < this.totalPages) this.currentPage++;
   }
 
@@ -258,6 +266,9 @@ export class Dashboard implements OnInit {
       user_story: 'USERSTORY',
       functional_design: 'FUNCTIONALDESIGN',
       technical_design: 'TECHNICALDESIGN',
+      requirement_assistant: 'REQUIREMENTASSISTANT',
+      test_generator: 'TESTGENERATOR',
+      defect_triage: 'DEFECTTRIAGE',
       release_notes: 'RELEASENOTES'
     };
     const featureName = featureNames[feature] || this.sanitizeArtifactPart(feature);
@@ -356,6 +367,7 @@ export class Dashboard implements OnInit {
       if (!this.artifactFeatures.includes(feature as string)
         || !row.artifact?.id
         || !row.artifact?.canView
+        || (feature === 'requirement_assistant' && !String(row.artifact?.content || '').trim())
         || !isSupportedArtifact) {
         continue;
       }
@@ -450,11 +462,64 @@ export class Dashboard implements OnInit {
     }
   }
 
-  downloadTestCasesExcel(row: ActivityRow, event: MouseEvent): void {
+  toggleDownloadMenu(row: ActivityRow, event: MouseEvent): void {
     event.stopPropagation();
+    if (this.activeDownloadMenuRow === row) {
+      this.activeDownloadMenuRow = null;
+    } else {
+      this.activeDownloadMenuRow = row;
+    }
+  }
+
+  closeDownloadMenu(): void {
+    this.activeDownloadMenuRow = null;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.activeDownloadMenuRow) {
+      this.activeDownloadMenuRow = null;
+    }
+  }
+
+  isRowNearBottom(row: ActivityRow): boolean {
+    const idx = this.paginatedActivityRows.indexOf(row);
+    return idx >= 0 && idx >= this.paginatedActivityRows.length - 2 && this.paginatedActivityRows.length >= 3;
+  }
+
+  onDownloadOptionSelected(row: ActivityRow, format: 'excel' | 'csv' | 'pdf', event: MouseEvent): void {
+    event.stopPropagation();
+    this.activeDownloadMenuRow = null;
+    if (format === 'excel') {
+      this.downloadTestCasesExcel(row, event);
+    } else if (format === 'csv') {
+      this.downloadTestCasesCsv(row, event);
+    } else if (format === 'pdf') {
+      this.downloadTestCasesPdf(row, event);
+    }
+  }
+
+  private getTestGeneratorArtifactItem(row: ActivityRow): any {
     const artifact = row.artifacts.test_generator;
-    if (artifact) {
-      this.artifactViewer?.downloadTestGeneratorExcel(artifact);
+    if (!artifact) return null;
+    return {
+      ...artifact,
+      id: artifact.id,
+      feature: 'test_generator',
+      projectId: row.projectId,
+      documentId: row.documentId,
+      projectName: row.projectName,
+      sourceDocumentName: row.knowledgeBase,
+      documentName: this.artifactFileName(row, 'test_generator'),
+      version: artifact.version || row.version
+    };
+  }
+
+  downloadTestCasesExcel(row: ActivityRow, event?: MouseEvent): void {
+    event?.stopPropagation();
+    const item = this.getTestGeneratorArtifactItem(row);
+    if (item) {
+      this.artifactViewer?.downloadTestGeneratorExcel(item);
     }
   }
 
@@ -466,11 +531,19 @@ export class Dashboard implements OnInit {
     }
   }
 
-  downloadTestCasesCsv(row: ActivityRow, event: MouseEvent): void {
-    event.stopPropagation();
-    const artifact = row.artifacts.test_generator;
-    if (artifact) {
-      this.artifactViewer?.downloadTestGeneratorCsv(artifact);
+  downloadTestCasesCsv(row: ActivityRow, event?: MouseEvent): void {
+    event?.stopPropagation();
+    const item = this.getTestGeneratorArtifactItem(row);
+    if (item) {
+      this.artifactViewer?.downloadTestGeneratorCsv(item);
+    }
+  }
+
+  downloadTestCasesPdf(row: ActivityRow, event?: MouseEvent): void {
+    event?.stopPropagation();
+    const item = this.getTestGeneratorArtifactItem(row);
+    if (item) {
+      this.artifactViewer?.downloadTestGeneratorPdf(item);
     }
   }
 

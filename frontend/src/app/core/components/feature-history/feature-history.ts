@@ -397,7 +397,13 @@ export class FeatureHistoryComponent implements OnChanges {
       };
       const blob = this.exportService.generateDefectPdfBlob(defectData, `Defect_Triage_v${meta.version}`, meta);
       if (blob) {
-        this.pdfViewer?.openBlob(blob, `${meta.project || 'Project'}_Defect_Triage_v${meta.version}.pdf`);
+        const fileName = `${meta.project || 'Project'}_Defect_Triage_v${meta.version}.pdf`;
+        const downloadHandlers = {
+          onDownloadExcel: () => this.downloadDefectTriageExcel(item),
+          onDownloadCsv: () => this.downloadDefectTriageCsv(item),
+          onDownloadPdf: () => this.downloadDefectTriage(item)
+        };
+        this.pdfViewer?.openBlob(blob, fileName, blob, fileName, downloadHandlers);
       } else {
         alert('Could not generate Defect Triage PDF for viewing.');
       }
@@ -929,7 +935,13 @@ export class FeatureHistoryComponent implements OnChanges {
       const blob = this.exportService.generateAllRequirementsPdfBlob(reqs, 'requirements', meta);
       if (blob) {
         const title = `${meta.project || 'Project'}_Requirement_Assistant_v${meta.version}.pdf`;
-        this.pdfViewer?.openBlob(blob, title);
+        const persistedOutput = new Blob([contentStr], { type: 'application/json' });
+        const downloadHandlers = {
+          onDownloadExcel: () => this.downloadRequirementAssistantExcel(item),
+          onDownloadCsv: () => this.downloadRequirementAssistantCsv(item),
+          onDownloadPdf: () => this.downloadRequirementAssistant(item)
+        };
+        this.pdfViewer?.openBlob(blob, title, persistedOutput, item.fileName, downloadHandlers);
       } else {
         alert('Could not generate PDF for viewing.');
       }
@@ -952,13 +964,53 @@ export class FeatureHistoryComponent implements OnChanges {
     }
   }
 
-  private downloadRequirementAssistant(item: any): void {
-    const triggerDownload = (contentStr: string) => {
+  downloadRequirementAssistantExcel(item: any): void {
+    this.loadRequirementAssistantContent(item, (reqs) => {
+      this.exportService.downloadRequirementsExcel(reqs, this.getRequirementFilename(item));
+    });
+  }
+
+  downloadRequirementAssistantCsv(item: any): void {
+    this.loadRequirementAssistantContent(item, (reqs) => {
+      this.exportService.downloadRequirementsCsv(reqs, this.getRequirementFilename(item));
+    });
+  }
+
+  private getRequirementFilename(item: any): string {
+    const sourceName = item.sourceDocumentName || item.documentName || 'requirements';
+    return sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')
+      + `_requirements_v${item.version || '1.0'}`;
+  }
+
+  private loadRequirementAssistantContent(item: any, onContent: (reqs: any[]) => void): void {
+    const trigger = (contentStr: string) => {
       const reqs = this.parseRequirementAssistantContent(contentStr);
       if (!reqs || reqs.length === 0) {
-        alert('No requirement assistant content available to download.');
+        alert('No requirement assistant content available.');
         return;
       }
+      onContent(reqs);
+    };
+
+    if (item.content) {
+      trigger(item.content);
+    } else if (item.id) {
+      this.api.getHistoryContent(item.id).subscribe({
+        next: (res) => {
+          if (res.success && res.data) {
+            item.content = res.data;
+            trigger(res.data);
+          } else {
+            alert('Unable to load requirement assistant content.');
+          }
+        },
+        error: () => alert('Unable to load requirement assistant content.')
+      });
+    }
+  }
+
+  downloadRequirementAssistant(item: any): void {
+    this.loadRequirementAssistantContent(item, (reqs) => {
       const meta = {
         project: item.projectName || this.projectName,
         documentName: item.documentName || this.documentName || 'BRD',
@@ -966,23 +1018,7 @@ export class FeatureHistoryComponent implements OnChanges {
         work: 'Requirement Assistant'
       };
       this.exportService.downloadAllRequirementsPdf(reqs, 'requirements', meta);
-    };
-
-    if (item.content) {
-      triggerDownload(item.content);
-    } else if (item.id) {
-      this.api.getHistoryContent(item.id).subscribe({
-        next: (res) => {
-          if (res.success && res.data) {
-            item.content = res.data;
-            triggerDownload(res.data);
-          } else {
-            alert('Unable to load requirement assistant content for download.');
-          }
-        },
-        error: () => alert('Unable to load requirement assistant content for download.')
-      });
-    }
+    });
   }
 
   private parseRequirementAssistantContent(contentStr: any): any[] {
@@ -1037,7 +1073,12 @@ export class FeatureHistoryComponent implements OnChanges {
       const blob = this.exportService.generateTestCasePdfBlob(testCases, meta);
       if (blob) {
         const title = `${meta.project || 'Project'}_Test_Cases_v${meta.version}.pdf`;
-        this.pdfViewer?.openBlob(blob, title);
+        const downloadHandlers = {
+          onDownloadExcel: () => this.downloadTestGeneratorExcel(item),
+          onDownloadCsv: () => this.downloadTestGeneratorCsv(item),
+          onDownloadPdf: () => this.downloadTestGeneratorPdf(item)
+        };
+        this.pdfViewer?.openBlob(blob, title, blob, '', downloadHandlers);
       } else {
         alert('Could not generate PDF for viewing.');
       }
@@ -1060,7 +1101,11 @@ export class FeatureHistoryComponent implements OnChanges {
     }
   }
 
-  private downloadTestGenerator(item: any): void {
+  downloadTestGeneratorPdf(item: any): void {
+    this.downloadTestGenerator(item);
+  }
+
+  downloadTestGenerator(item: any): void {
     this.loadTestGeneratorContent(item, (testCases) => {
       const meta = {
         project: item.projectName || this.projectName,

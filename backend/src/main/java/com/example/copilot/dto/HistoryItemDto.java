@@ -17,6 +17,7 @@ public class HistoryItemDto {
     private String projectName;
     private Long documentId;
     private String documentName;
+    private String fileName;
     private String version;
     private String feature;
     private String action;
