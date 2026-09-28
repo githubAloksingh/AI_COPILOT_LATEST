@@ -156,8 +156,8 @@
             <span *ngIf="!row.artifacts.technical_design" class="empty-cell">—</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.requirement_assistant" type="button" class="view-icon-btn" title="View Requirement Assistant PDF" aria-label="View Requirement Assistant PDF" (click)="viewArtifact(row, 'requirement_assistant', $event)">👁</button>
-            <span *ngIf="!row.artifacts.requirement_assistant" class="empty-cell">—</span>
+            <button *ngIf="row.artifacts.requirement_assistant; else noRequirementAssistant" type="button" class="artifact-file-link" [title]="'View ' + artifactFileName(row, 'requirement_assistant')" [attr.aria-label]="'View ' + artifactFileName(row, 'requirement_assistant')" (click)="viewArtifact(row, 'requirement_assistant', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'requirement_assistant') }}</button>
+            <ng-template #noRequirementAssistant><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.test_generator; else noTestCases">

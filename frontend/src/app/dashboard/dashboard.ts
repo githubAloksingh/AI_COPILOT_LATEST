@@ -262,6 +262,7 @@ export class Dashboard implements OnInit {
       user_story: 'USERSTORY',
       functional_design: 'FUNCTIONALDESIGN',
       technical_design: 'TECHNICALDESIGN',
+      requirement_assistant: 'REQUIREMENTASSISTANT',
       release_notes: 'RELEASENOTES'
     };
     const featureName = featureNames[feature] || this.sanitizeArtifactPart(feature);
@@ -441,7 +442,7 @@ export class Dashboard implements OnInit {
       documentId: row.documentId,
       projectName: row.projectName,
       sourceDocumentName: row.knowledgeBase,
-      documentName: this.artifactFileName(row, feature),
+      documentName: feature === 'requirement_assistant' ? row.knowledgeBase : this.artifactFileName(row, feature),
       version: artifact.version || row.version
     });
   }

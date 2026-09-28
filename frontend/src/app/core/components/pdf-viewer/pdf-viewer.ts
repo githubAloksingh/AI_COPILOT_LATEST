@@ -16,6 +16,7 @@ export class PdfViewerComponent implements OnDestroy {
 
   visible = false;
   documentName = '';
+  downloadFileName = '';
   documentId: number | null = null;
   previewPdfUrl: SafeResourceUrl | null = null;
   previewBlobUrl: string | null = null;
@@ -34,6 +35,7 @@ export class PdfViewerComponent implements OnDestroy {
   open(documentId: number, documentName: string): void {
     this.documentId = documentId;
     this.documentName = documentName;
+    this.downloadFileName = '';
     this.error = '';
     this.loading = true;
     this.visible = true;
@@ -66,10 +68,11 @@ export class PdfViewerComponent implements OnDestroy {
     });
   }
 
-  openBlob(blob: Blob, documentName: string): void {
+  openBlob(blob: Blob, documentName: string, downloadBlob: Blob = blob, downloadFileName = ''): void {
     this.documentId = null;
     this.documentName = this.normalizeFilename(documentName, 'pdf');
-    this.downloadBlob = blob;
+    this.downloadBlob = downloadBlob;
+    this.downloadFileName = downloadFileName;
     this.error = '';
     this.loading = false;
     this.visible = true;
@@ -85,6 +88,7 @@ export class PdfViewerComponent implements OnDestroy {
     this.documentId = null;
     this.documentName = this.normalizeFilename(documentName, 'xlsx');
     this.downloadBlob = blob;
+    this.downloadFileName = '';
     this.error = '';
     this.loading = true;
     this.visible = true;
@@ -111,6 +115,7 @@ export class PdfViewerComponent implements OnDestroy {
     this.documentId = null;
     this.documentName = this.normalizeFilename(documentName, 'csv');
     this.downloadBlob = blob;
+    this.downloadFileName = '';
     this.error = '';
     this.loading = true;
     this.visible = true;
@@ -131,14 +136,9 @@ export class PdfViewerComponent implements OnDestroy {
   }
 
   downloadCurrentDocument(): void {
-    const fileType = this.downloadBlob?.type?.includes('sheet')
-      ? 'xlsx'
-      : this.downloadBlob?.type?.includes('csv')
-        ? 'csv'
-        : 'pdf';
-    const fileName = this.normalizeFilename(
+    const fileName = this.downloadFileName || this.normalizeFilename(
       this.documentName || (this.documentId ? `document-${this.documentId}` : 'document.xlsx'),
-      fileType as 'pdf' | 'xlsx' | 'csv'
+      this.downloadBlob?.type?.includes('sheet') ? 'xlsx' : this.downloadBlob?.type?.includes('csv') ? 'csv' : 'pdf'
     );
 
     const triggerDownload = (blob: Blob) => {
@@ -182,6 +182,7 @@ export class PdfViewerComponent implements OnDestroy {
     this.spreadsheetHtml = null;
     this.csvText = null;
     this.documentName = '';
+    this.downloadFileName = '';
     this.documentId = null;
     this.downloadBlob = null;
     this.error = '';
@@ -203,6 +204,11 @@ export class PdfViewerComponent implements OnDestroy {
   }
 
   download(): void {
+    if (this.downloadFileName && this.downloadBlob) {
+      this.downloadCurrentDocument();
+      return;
+    }
+
     if (this.previewBlobUrl) {
       this.triggerDownload(this.previewBlobUrl);
       return;

@@ -314,6 +314,7 @@ public class HistoryController {
                         .projectName(project.getProjectName())
                         .documentId(selectedDoc != null ? selectedDoc.getId() : l.getDocumentId())
                         .documentName(docName)
+                        .fileName(historyFileName(l.getFeature(), version))
                         .version(version)
                         .feature("requirement_assistant")
                         .action(l.getAction())
@@ -450,18 +451,22 @@ public class HistoryController {
             return ResponseEntity.notFound().build();
         }
         String content = logItem.getOutput();
-        String version = logItem.getDocumentVersion() != null ? logItem.getDocumentVersion() : "1.0";
-        String feat = logItem.getFeature() != null ? logItem.getFeature().toLowerCase() : "";
-        String baseName = feat.contains("technical") ? "Technical_Design"
-                : (feat.contains("functional") ? "Functional_Design"
-                : (feat.contains("requirement") ? "Requirement_Assistant"
-                : (feat.contains("test") ? "Test_Cases" : "User_Stories")));
-        String filename = baseName + "_v" + version + ".json";
+        String filename = historyFileName(logItem.getFeature(), logItem.getDocumentVersion());
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(bytes);
+    }
+
+    private String historyFileName(String feature, String version) {
+        String normalizedFeature = feature != null ? feature.toLowerCase() : "";
+        String baseName = normalizedFeature.contains("technical") ? "Technical_Design"
+                : (normalizedFeature.contains("functional") ? "Functional_Design"
+                : (normalizedFeature.contains("requirement") ? "Requirement_Assistant"
+                : (normalizedFeature.contains("test") ? "Test_Cases" : "User_Stories")));
+        String resolvedVersion = version != null ? version : "1.0";
+        return baseName + "_v" + resolvedVersion + ".json";
     }
 
     private List<String> mapFeatureToAliases(String feature) {

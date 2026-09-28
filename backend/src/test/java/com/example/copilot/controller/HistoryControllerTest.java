@@ -134,6 +134,36 @@ public class HistoryControllerTest {
     }
 
     @Test
+    void testRequirementAssistantHistoryUsesMatchingPersistedDownloadNameAndContent() {
+        String persistedOutput = "{\"requirements\":[{\"title\":\"Persisted requirement\"}]}";
+        AuditLog log = new AuditLog();
+        log.setId(501L);
+        log.setAction("GENERATE");
+        log.setFeature("Requirement Assistant");
+        log.setDocumentId(10L);
+        log.setDocumentName("BRD_FeatureX.pdf");
+        log.setDocumentVersion("1.2");
+        log.setOutput(persistedOutput);
+
+        when(auditLogRepository.findByProjectAndDocumentAndFeatures(eq(1L), eq("Project Alpha"), eq(10L), eq("BRD_FeatureX.pdf"), anyList()))
+                .thenReturn(List.of(log));
+        when(auditLogRepository.findById(501L)).thenReturn(Optional.of(log));
+
+        ApiResponse<List<HistoryItemDto>> history = historyController.getFeatureHistory(1L, 10L, "requirement_assistant");
+
+        assertEquals(1, history.getData().size());
+        HistoryItemDto item = history.getData().get(0);
+        assertEquals(10L, item.getDocumentId());
+        assertEquals("1.2", item.getVersion());
+        assertEquals("Requirement_Assistant_v1.2.json", item.getFileName());
+
+        ResponseEntity<byte[]> download = historyController.downloadHistoryContent(501L);
+
+        assertEquals("Requirement_Assistant_v1.2.json", download.getHeaders().getContentDisposition().getFilename());
+        assertArrayEquals(persistedOutput.getBytes(java.nio.charset.StandardCharsets.UTF_8), download.getBody());
+    }
+
+    @Test
     void testGetFeatureHistory_FunctionalDesign_NoDocumentId_ReturnsEmptyWithNoFunctionalDesignsGeneratedYet() {
         Project project = new Project();
         project.setId(1L);

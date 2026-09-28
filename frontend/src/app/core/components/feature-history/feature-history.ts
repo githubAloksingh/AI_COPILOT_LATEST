@@ -929,7 +929,8 @@ export class FeatureHistoryComponent implements OnChanges {
       const blob = this.exportService.generateAllRequirementsPdfBlob(reqs, 'requirements', meta);
       if (blob) {
         const title = `${meta.project || 'Project'}_Requirement_Assistant_v${meta.version}.pdf`;
-        this.pdfViewer?.openBlob(blob, title);
+        const persistedOutput = new Blob([contentStr], { type: 'application/json' });
+        this.pdfViewer?.openBlob(blob, title, persistedOutput, item.fileName);
       } else {
         alert('Could not generate PDF for viewing.');
       }
