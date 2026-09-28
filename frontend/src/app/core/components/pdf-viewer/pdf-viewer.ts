@@ -1,8 +1,14 @@
-import { ChangeDetectorRef, Component, EventEmitter, OnDestroy, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, HostListener, OnDestroy, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 import * as XLSX from 'xlsx-js-style';
 import { ApiService } from '../../api';
+
+export interface DownloadHandlers {
+  onDownloadExcel?: () => void;
+  onDownloadCsv?: () => void;
+  onDownloadPdf?: () => void;
+}
 
 @Component({
   selector: 'app-pdf-viewer',
@@ -23,6 +29,8 @@ export class PdfViewerComponent implements OnDestroy {
   spreadsheetHtml: SafeHtml | null = null;
   csvText: string | null = null;
   downloadBlob: Blob | null = null;
+  downloadHandlers: DownloadHandlers | null = null;
+  showDownloadMenu = false;
   loading = false;
   error = '';
 
@@ -68,11 +76,13 @@ export class PdfViewerComponent implements OnDestroy {
     });
   }
 
-  openBlob(blob: Blob, documentName: string, downloadBlob: Blob = blob, downloadFileName = ''): void {
+  openBlob(blob: Blob, documentName: string, downloadBlob: Blob = blob, downloadFileName = '', downloadHandlers?: DownloadHandlers): void {
     this.documentId = null;
     this.documentName = this.normalizeFilename(documentName, 'pdf');
     this.downloadBlob = downloadBlob;
     this.downloadFileName = downloadFileName;
+    this.downloadHandlers = downloadHandlers || null;
+    this.showDownloadMenu = false;
     this.error = '';
     this.loading = false;
     this.visible = true;
@@ -185,8 +195,48 @@ export class PdfViewerComponent implements OnDestroy {
     this.downloadFileName = '';
     this.documentId = null;
     this.downloadBlob = null;
+    this.downloadHandlers = null;
+    this.showDownloadMenu = false;
     this.error = '';
     this.closed.emit();
+  }
+
+  onDownloadClick(event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.downloadHandlers) {
+      this.showDownloadMenu = !this.showDownloadMenu;
+      this.cdr.markForCheck();
+    } else {
+      this.downloadCurrentDocument();
+    }
+  }
+
+  handleDownloadOption(format: 'excel' | 'csv' | 'pdf', event: MouseEvent): void {
+    event.stopPropagation();
+    this.showDownloadMenu = false;
+    if (format === 'excel') {
+      if (this.downloadHandlers?.onDownloadExcel) {
+        this.downloadHandlers.onDownloadExcel();
+      }
+    } else if (format === 'csv') {
+      if (this.downloadHandlers?.onDownloadCsv) {
+        this.downloadHandlers.onDownloadCsv();
+      }
+    } else if (format === 'pdf') {
+      if (this.downloadHandlers?.onDownloadPdf) {
+        this.downloadHandlers.onDownloadPdf();
+      } else {
+        this.downloadCurrentDocument();
+      }
+    }
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.showDownloadMenu) {
+      this.showDownloadMenu = false;
+      this.cdr.markForCheck();
+    }
   }
 
   openInNewTab(): void {

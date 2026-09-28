@@ -39,7 +39,6 @@
   <h2>Recent Activity</h2>
   <div class="activity-filters">
     <div class="activity-filter">
-      <label for="dashboard-project">Project Name</label>
       <div class="project-autocomplete">
         <div class="project-input-shell">
           <div class="selected-projects" *ngIf="selectedProjects.length > 0">
@@ -52,7 +51,7 @@
             id="dashboard-project"
             type="text"
             autocomplete="off"
-            placeholder="Type to search projects"
+            placeholder="Select Project"
             [(ngModel)]="projectSearchTerm"
             (ngModelChange)="onProjectSearchChange()"
             (focus)="showProjectSuggestions = true"
@@ -69,29 +68,25 @@
       </div>
     </div>
     <div class="activity-filter">
-      <label for="dashboard-document-type">Document Type</label>
       <select id="dashboard-document-type" [(ngModel)]="selectedDocumentType" [disabled]="selectedProjects.length === 0" (ngModelChange)="onDocumentTypeChange()">
         <option *ngFor="let type of availableDocumentTypes" [ngValue]="type.value">{{ type.label }}</option>
       </select>
     </div>
     <div class="activity-filter">
-      <label for="dashboard-document">BRD / Codebase</label>
       <select id="dashboard-document" [(ngModel)]="selectedDocument" [disabled]="selectedProjects.length === 0" (ngModelChange)="onDocumentFilterChange()">
-        <option value="ALL">Select a document</option>
+        <option value="ALL">Select BRD / Codebase</option>
         <option *ngFor="let document of availableDocuments" [value]="document">{{ document }}</option>
       </select>
     </div>
     <div class="activity-filter">
-      <label for="dashboard-output">Related Output</label>
       <select id="dashboard-output" [(ngModel)]="selectedOutput" [disabled]="selectedDocument === 'ALL'" (ngModelChange)="onOutputFilterChange()">
-        <option value="ALL">All related outputs</option>
+        <option value="ALL">Select Related Output</option>
         <option *ngFor="let output of availableOutputs" [value]="output.value">{{ output.label }}</option>
       </select>
     </div>
     <div class="activity-filter">
-      <label for="dashboard-version">Version</label>
       <select id="dashboard-version" [(ngModel)]="selectedVersion" (ngModelChange)="onVersionChange()">
-        <option value="ALL">All versions</option>
+        <option value="ALL">Select Version</option>
         <option *ngFor="let version of availableVersions" [value]="version">{{ version }}</option>
       </select>
     </div>
@@ -160,26 +155,12 @@
             <ng-template #noRequirementAssistant><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
-            <ng-container *ngIf="row.artifacts.test_generator; else noTestCases">
-              <button type="button" class="artifact-file-link" [title]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" [attr.aria-label]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" (click)="viewArtifact(row, 'test_generator', $event)">{{ artifactFileName(row, 'test_generator') }}</button>
-              <button type="button" class="view-icon-btn test-export-btn" title="View Test Cases Excel" aria-label="View Test Cases Excel" (click)="viewTestCasesExcel(row, $event)">
-                Excel
-              </button>
-              <button type="button" class="view-icon-btn test-export-btn" title="View Test Cases CSV" aria-label="View Test Cases CSV" (click)="viewTestCasesCsv(row, $event)">
-                CSV
-              </button>
-            </ng-container>
+            <button *ngIf="row.artifacts.test_generator; else noTestCases" type="button" class="artifact-file-link" [title]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" [attr.aria-label]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" (click)="viewArtifact(row, 'test_generator', $event)">{{ artifactFileName(row, 'test_generator') }}</button>
             <ng-template #noTestCases><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.defect_triage; else noDefectTriage">
               <button type="button" class="artifact-file-link" [title]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" [attr.aria-label]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" (click)="viewArtifact(row, 'defect_triage', $event)">{{ artifactFileName(row, 'defect_triage') }}</button>
-              <button type="button" class="view-icon-btn test-export-btn" title="View Defect Triage Excel" aria-label="View Defect Triage Excel" (click)="viewDefectTriageExcel(row, $event)">
-                Excel
-              </button>
-              <button type="button" class="view-icon-btn test-export-btn" title="View Defect Triage CSV" aria-label="View Defect Triage CSV" (click)="viewDefectTriageCsv(row, $event)">
-                CSV
-              </button>
             </ng-container>
             <ng-template #noDefectTriage><span class="empty-cell">—</span></ng-template>
           </td>

@@ -2293,6 +2293,99 @@ export class ExportService {
     built.ctx.doc.save(built.filename);
   }
 
+  buildRequirementsWorkbook(items: any[]): XLSX.WorkBook {
+    if (!items || items.length === 0) {
+      throw new Error('No requirements data available to export.');
+    }
+
+    const headers = [
+      'Requirement ID',
+      'Title / Scope',
+      'Priority',
+      'Summary',
+      'User Story',
+      'Acceptance Criteria',
+      'Business Rules',
+      'Assumptions',
+      'Dependencies'
+    ];
+
+    const rows = items.map((item, index) => [
+      this.excelText(item?.requirementId || item?.reqId || `REQ-${String(index + 1).padStart(3, '0')}`),
+      this.excelText(item?.title || `Requirement ${index + 1}`),
+      this.excelText((item?.priority || 'MEDIUM').toUpperCase()),
+      this.excelText(item?.summary),
+      this.excelText(item?.userStory),
+      this.excelNumberedText(item?.acceptanceCriteria),
+      this.excelNumberedText(item?.businessRules),
+      this.excelNumberedText(item?.assumptions),
+      this.excelNumberedText(item?.dependencies)
+    ]);
+
+    const ws = this.createWorksheet(headers, rows, [18, 30, 14, 40, 40, 45, 35, 30, 30]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Requirements');
+    XLSX.utils.book_append_sheet(wb, this.createSummarySheet('Requirements Export', rows.length, headers), 'Summary');
+    return wb;
+  }
+
+  downloadRequirementsExcel(items: any[], baseFilename = 'requirements'): void {
+    if (!items || items.length === 0) {
+      alert('No requirements data available to export.');
+      return;
+    }
+
+    const wb = this.buildRequirementsWorkbook(items);
+    XLSX.writeFile(wb, `${baseFilename}-${this.getTimestampSuffix()}.xlsx`);
+  }
+
+  generateRequirementsCsvString(items: any[]): string {
+    if (!items || items.length === 0) return '';
+    const headers = [
+      'Requirement ID',
+      'Title / Scope',
+      'Priority',
+      'Summary',
+      'User Story',
+      'Acceptance Criteria',
+      'Business Rules',
+      'Assumptions',
+      'Dependencies'
+    ];
+
+    const escapeCsvCell = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      if (Array.isArray(val)) {
+        val = val.map((v, i) => `${i + 1}. ${this.toText(v)}`).join('\n');
+      }
+      const str = String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const rows = items.map((item, index) => [
+      escapeCsvCell(item?.requirementId || item?.reqId || `REQ-${String(index + 1).padStart(3, '0')}`),
+      escapeCsvCell(item?.title || `Requirement ${index + 1}`),
+      escapeCsvCell((item?.priority || 'MEDIUM').toUpperCase()),
+      escapeCsvCell(item?.summary),
+      escapeCsvCell(item?.userStory),
+      escapeCsvCell(item?.acceptanceCriteria),
+      escapeCsvCell(item?.businessRules),
+      escapeCsvCell(item?.assumptions),
+      escapeCsvCell(item?.dependencies)
+    ]);
+
+    return '\uFEFF' + [headers.map(h => `"${h}"`).join(','), ...rows.map(r => r.join(','))].join('\r\n');
+  }
+
+  downloadRequirementsCsv(items: any[], baseFilename = 'requirements'): void {
+    const csv = this.generateRequirementsCsvString(items);
+    if (!csv) {
+      alert('No requirements data available to export.');
+      return;
+    }
+    this.triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${baseFilename}-${this.getTimestampSuffix()}.csv`);
+  }
+
   // ============================================================
   // 5. TEST CASE PDF (Spec 36)
   // ============================================================

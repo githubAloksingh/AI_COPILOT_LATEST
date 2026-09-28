@@ -207,3 +207,72 @@
     display: none;
   }
 }
+
+.download-popup-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.download-format-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 1050;
+  min-width: 175px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  animation: downloadPopupFadeIn 0.15s ease-out;
+}
+
+@keyframes downloadPopupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.download-format-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #334155;
+  font-size: 0.825rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+
+  .option-icon {
+    flex-shrink: 0;
+
+    &.excel-icon {
+      color: #10b981;
+    }
+
+    &.csv-icon {
+      color: #0284c7;
+    }
+
+    &.pdf-icon {
+      color: #ef4444;
+    }
+  }
+}
