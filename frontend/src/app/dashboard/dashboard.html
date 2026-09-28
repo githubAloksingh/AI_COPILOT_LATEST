@@ -1,6 +1,6 @@
 <div class="page-header">
   <h1>Dashboard</h1>
-  <p>Overview of AI Work Copilot usage, team velocity impact, and recent generations.</p>
+  
 </div>
 
 <div class="codebase-popup-backdrop" *ngIf="codebaseToDownload" (click)="cancelCodebaseDownload()">
@@ -24,19 +24,19 @@
   <div class="stat-card">
     <div class="stat-title">Projects Created</div>
     <div class="stat-value">{{ stats.projectsCreated || 0 }}</div>
-    <div class="stat-desc">Active Workspaces</div>
+    
   </div>
 
   <div class="stat-card">
-    <div class="stat-title">Documents Indexed</div>
+    <div class="stat-title">Documents Uploaded</div>
     <div class="stat-value">{{ stats.documentsUploaded || 0 }}</div>
-    <div class="stat-desc">BRD & Codebase Files</div>
+    
   </div>
 
 </div>
 
 <div class="card">
-  <h2>Recent AI Activity</h2>
+  <h2>Recent Activity</h2>
   <div class="activity-filters">
     <div class="activity-filter">
       <label for="dashboard-project">Project Name</label>
@@ -195,7 +195,7 @@
     <button type="button" class="pagination-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
   </div>
   <ng-template #noActivity>
-    <p style="color: #64748b; padding: 16px 0;">No AI activity recorded yet. Start by generating requirements or test cases!</p>
+    <p style="color: #64748b; padding: 16px 0;">No activity recorded yet. Start by generating requirements or test cases!</p>
   </ng-template>
 </div>
 
