@@ -100,9 +100,7 @@ export class Dashboard implements OnInit {
 
   get availableDocuments(): string[] {
     if (this.selectedProjects.length === 0) return [];
-    return this.uniqueValues(this.rowsForProjectFilter()
-      .filter((row) => this.selectedDocumentType === 'ALL' || row.documentType === this.selectedDocumentType)
-      .map((row) => row.knowledgeBase));
+    return this.uniqueValues(this.rowsForDocumentTypeFilter().map((row) => row.knowledgeBase));
   }
 
   get availableDocumentTypes(): { value: 'ALL' | 'BRD' | 'ZIP'; label: string }[] {
@@ -220,8 +218,14 @@ export class Dashboard implements OnInit {
     return this.activityRows.filter((row) => this.selectedProjects.includes(row.projectName));
   }
 
-  private rowsForDocumentFilter(): ActivityRow[] {
+  private rowsForDocumentTypeFilter(): ActivityRow[] {
     const rows = this.rowsForProjectFilter();
+    if (this.selectedDocumentType === 'ALL') return rows;
+    return rows.filter((row) => row.documentType === this.selectedDocumentType);
+  }
+
+  private rowsForDocumentFilter(): ActivityRow[] {
+    const rows = this.rowsForDocumentTypeFilter();
     if (this.selectedDocument === 'ALL') return rows;
     return rows.filter((row) => row.knowledgeBase === this.selectedDocument);
   }
