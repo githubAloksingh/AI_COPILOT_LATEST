@@ -161,8 +161,9 @@
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.test_generator; else noTestCases">
+              <button type="button" class="artifact-file-link" [title]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" [attr.aria-label]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" (click)="viewArtifact(row, 'test_generator', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'test_generator') }}</button>
               <button type="button" class="view-icon-btn test-export-btn" title="View Test Cases Excel" aria-label="View Test Cases Excel" (click)="viewTestCasesExcel(row, $event)">
-                XLSX
+                Excel
               </button>
               <button type="button" class="view-icon-btn test-export-btn" title="View Test Cases CSV" aria-label="View Test Cases CSV" (click)="viewTestCasesCsv(row, $event)">
                 CSV
@@ -172,8 +173,9 @@
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.defect_triage; else noDefectTriage">
+              <button type="button" class="artifact-file-link" [title]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" [attr.aria-label]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" (click)="viewArtifact(row, 'defect_triage', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'defect_triage') }}</button>
               <button type="button" class="view-icon-btn test-export-btn" title="View Defect Triage Excel" aria-label="View Defect Triage Excel" (click)="viewDefectTriageExcel(row, $event)">
-                XLSX
+                Excel
               </button>
               <button type="button" class="view-icon-btn test-export-btn" title="View Defect Triage CSV" aria-label="View Defect Triage CSV" (click)="viewDefectTriageCsv(row, $event)">
                 CSV
@@ -195,7 +197,6 @@
     <button type="button" class="pagination-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
   </div>
   <ng-template #noActivity>
-    <p style="color: #64748b; padding: 16px 0;">No activity recorded yet. Start by generating requirements or test cases!</p>
   </ng-template>
 </div>
 

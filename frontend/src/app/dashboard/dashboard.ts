@@ -263,6 +263,8 @@ export class Dashboard implements OnInit {
       functional_design: 'FUNCTIONALDESIGN',
       technical_design: 'TECHNICALDESIGN',
       requirement_assistant: 'REQUIREMENTASSISTANT',
+      test_generator: 'TESTGENERATOR',
+      defect_triage: 'DEFECTTRIAGE',
       release_notes: 'RELEASENOTES'
     };
     const featureName = featureNames[feature] || this.sanitizeArtifactPart(feature);
@@ -361,6 +363,7 @@ export class Dashboard implements OnInit {
       if (!this.artifactFeatures.includes(feature as string)
         || !row.artifact?.id
         || !row.artifact?.canView
+        || (feature === 'requirement_assistant' && !String(row.artifact?.content || '').trim())
         || !isSupportedArtifact) {
         continue;
       }
@@ -442,7 +445,7 @@ export class Dashboard implements OnInit {
       documentId: row.documentId,
       projectName: row.projectName,
       sourceDocumentName: row.knowledgeBase,
-      documentName: feature === 'requirement_assistant' ? row.knowledgeBase : this.artifactFileName(row, feature),
+      documentName: this.artifactFileName(row, feature),
       version: artifact.version || row.version
     });
   }
