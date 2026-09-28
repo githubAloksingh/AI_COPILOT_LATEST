@@ -112,7 +112,7 @@
           <th>Functional Design</th>
           <th>Technical Design</th>
           <th>Requirement Assistant</th>
-          <th>Test Cases</th>
+          <th>Test Generator</th>
           <th>Defect Triage</th>
           <th>Release Notes</th>
         </tr>
@@ -144,24 +144,24 @@
             <span class="version-tag">{{ row.version }}</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.user_story" type="button" class="artifact-file-link" [title]="'View User Story - ' + artifactFileName(row, 'user_story')" [attr.aria-label]="'View User Story - ' + artifactFileName(row, 'user_story')" (click)="viewArtifact(row, 'user_story', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'user_story') }}</button>
+            <button *ngIf="row.artifacts.user_story" type="button" class="artifact-file-link" [title]="'View User Story - ' + artifactFileName(row, 'user_story')" [attr.aria-label]="'View User Story - ' + artifactFileName(row, 'user_story')" (click)="viewArtifact(row, 'user_story', $event)">{{ artifactFileName(row, 'user_story') }}</button>
             <span *ngIf="!row.artifacts.user_story" class="empty-cell">—</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.functional_design" type="button" class="artifact-file-link" [title]="'View Functional Design - ' + artifactFileName(row, 'functional_design')" [attr.aria-label]="'View Functional Design - ' + artifactFileName(row, 'functional_design')" (click)="viewArtifact(row, 'functional_design', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'functional_design') }}</button>
+            <button *ngIf="row.artifacts.functional_design" type="button" class="artifact-file-link" [title]="'View Functional Design - ' + artifactFileName(row, 'functional_design')" [attr.aria-label]="'View Functional Design - ' + artifactFileName(row, 'functional_design')" (click)="viewArtifact(row, 'functional_design', $event)">{{ artifactFileName(row, 'functional_design') }}</button>
             <span *ngIf="!row.artifacts.functional_design" class="empty-cell">—</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.technical_design" type="button" class="artifact-file-link" [title]="'View Technical Design - ' + artifactFileName(row, 'technical_design')" [attr.aria-label]="'View Technical Design - ' + artifactFileName(row, 'technical_design')" (click)="viewArtifact(row, 'technical_design', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'technical_design') }}</button>
+            <button *ngIf="row.artifacts.technical_design" type="button" class="artifact-file-link" [title]="'View Technical Design - ' + artifactFileName(row, 'technical_design')" [attr.aria-label]="'View Technical Design - ' + artifactFileName(row, 'technical_design')" (click)="viewArtifact(row, 'technical_design', $event)">{{ artifactFileName(row, 'technical_design') }}</button>
             <span *ngIf="!row.artifacts.technical_design" class="empty-cell">—</span>
           </td>
           <td>
-            <button *ngIf="row.artifacts.requirement_assistant; else noRequirementAssistant" type="button" class="artifact-file-link" [title]="'View ' + artifactFileName(row, 'requirement_assistant')" [attr.aria-label]="'View ' + artifactFileName(row, 'requirement_assistant')" (click)="viewArtifact(row, 'requirement_assistant', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'requirement_assistant') }}</button>
+            <button *ngIf="row.artifacts.requirement_assistant; else noRequirementAssistant" type="button" class="artifact-file-link" [title]="'View ' + artifactFileName(row, 'requirement_assistant')" [attr.aria-label]="'View ' + artifactFileName(row, 'requirement_assistant')" (click)="viewArtifact(row, 'requirement_assistant', $event)">{{ artifactFileName(row, 'requirement_assistant') }}</button>
             <ng-template #noRequirementAssistant><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.test_generator; else noTestCases">
-              <button type="button" class="artifact-file-link" [title]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" [attr.aria-label]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" (click)="viewArtifact(row, 'test_generator', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'test_generator') }}</button>
+              <button type="button" class="artifact-file-link" [title]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" [attr.aria-label]="'View Test Generator - ' + artifactFileName(row, 'test_generator')" (click)="viewArtifact(row, 'test_generator', $event)">{{ artifactFileName(row, 'test_generator') }}</button>
               <button type="button" class="view-icon-btn test-export-btn" title="View Test Cases Excel" aria-label="View Test Cases Excel" (click)="viewTestCasesExcel(row, $event)">
                 Excel
               </button>
@@ -173,7 +173,7 @@
           </td>
           <td>
             <ng-container *ngIf="row.artifacts.defect_triage; else noDefectTriage">
-              <button type="button" class="artifact-file-link" [title]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" [attr.aria-label]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" (click)="viewArtifact(row, 'defect_triage', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'defect_triage') }}</button>
+              <button type="button" class="artifact-file-link" [title]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" [attr.aria-label]="'View Defect Triage - ' + artifactFileName(row, 'defect_triage')" (click)="viewArtifact(row, 'defect_triage', $event)">{{ artifactFileName(row, 'defect_triage') }}</button>
               <button type="button" class="view-icon-btn test-export-btn" title="View Defect Triage Excel" aria-label="View Defect Triage Excel" (click)="viewDefectTriageExcel(row, $event)">
                 Excel
               </button>
@@ -184,7 +184,7 @@
             <ng-template #noDefectTriage><span class="empty-cell">—</span></ng-template>
           </td>
           <td>
-            <button *ngIf="row.artifacts.release_notes" type="button" class="artifact-file-link" [title]="'View Release Notes - ' + artifactFileName(row, 'release_notes')" [attr.aria-label]="'View Release Notes - ' + artifactFileName(row, 'release_notes')" (click)="viewArtifact(row, 'release_notes', $event)"><span class="artifact-file-icon" aria-hidden="true">📄</span>{{ artifactFileName(row, 'release_notes') }}</button>
+            <button *ngIf="row.artifacts.release_notes" type="button" class="artifact-file-link" [title]="'View Release Notes - ' + artifactFileName(row, 'release_notes')" [attr.aria-label]="'View Release Notes - ' + artifactFileName(row, 'release_notes')" (click)="viewArtifact(row, 'release_notes', $event)">{{ artifactFileName(row, 'release_notes') }}</button>
             <span *ngIf="!row.artifacts.release_notes" class="empty-cell">—</span>
           </td>
         </tr>
