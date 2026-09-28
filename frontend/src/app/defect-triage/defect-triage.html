@@ -81,13 +81,9 @@
       class="btn btn-primary"
       (click)="analyze()"
       [disabled]="loading || !isInputValid()">
-      {{ loading ? 'Triaging Defect...' : 'Analyze & Triage Defect' }}
+      <span *ngIf="loading" class="spinner" aria-hidden="true"></span>
+      <span>{{ loading ? 'Generating Defect Triage...' : 'Analyze & Triage Defect' }}</span>
     </button>
-  </div>
-
-  <div *ngIf="loading" class="loading-indicator">
-    <div class="spinner"></div>
-    <span>Retrieving knowledge context, performing root-cause analysis, and generating code fix diff with AI...</span>
   </div>
 
   <div *ngIf="error" class="error-message">
