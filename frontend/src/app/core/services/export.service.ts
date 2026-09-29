@@ -2498,13 +2498,13 @@ export class ExportService {
     return built.ctx.doc.output('blob');
   }
 
-  downloadTestCasePdf(items: any[], meta?: any): void {
+  downloadTestCasePdf(items: any[], meta?: any, filename?: string): void {
     const built = this.buildTestCaseDoc(items, meta);
     if (!built) {
       alert('No test case data available to export.');
       return;
     }
-    built.ctx.doc.save(built.filename);
+    built.ctx.doc.save(filename || built.filename);
   }
 
   // ============================================================

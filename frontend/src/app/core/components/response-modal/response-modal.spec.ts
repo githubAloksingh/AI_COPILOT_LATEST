@@ -261,4 +261,43 @@ describe('ResponseModal - Acceptance Criteria + Add functionality', () => {
     expect(modal.getItemText(us1.acceptanceCriteria[0])).not.toBe(firstItemText);
     expect(us1.acceptanceCriteria.some((ac: any) => modal.getItemText(ac).includes('successful logout confirmation and redirect'))).toBe(true);
   });
+
+  it('passes the saved test case array to PDF export with the Test Generator filename', () => {
+    let exportArgs: any[] = [];
+    const exportService = {
+      downloadTestCasePdf: (...args: any[]) => { exportArgs = args; }
+    };
+    modal = new ResponseModal(exportService as any, mockCdr);
+    modal.type = 'testcase';
+    const generatedTestCases = [{ tcId: 'TC-001', scenario: 'Saved case', steps: ['Run test'] }];
+    modal.data = { items: generatedTestCases };
+
+    modal.downloadTestCasePdf();
+
+    expect(exportArgs[0]).toBe(generatedTestCases);
+    expect(exportArgs[2]).toBe('Test_Cases.pdf');
+  });
+
+  it('passes the saved defect data to the existing defect PDF exporter', () => {
+    let exportArgs: any[] = [];
+    const exportService = {
+      downloadDefectPdf: (...args: any[]) => { exportArgs = args; }
+    };
+    modal = new ResponseModal(exportService as any, mockCdr);
+    modal.type = 'defect';
+    const savedDefects = { defects: [{ defectId: 'DEF-001', title: 'Saved defect' }] };
+    modal.data = savedDefects;
+    modal.meta = { project: 'BRD2', inputType: 'Defect Triage' };
+
+    modal.downloadDefectPdf();
+
+    expect(exportArgs[0]).toBe(savedDefects);
+    expect(exportArgs[1]).toBe('defect-triage');
+    expect(exportArgs[2]).toEqual({
+      documentName: '',
+      project: 'BRD2',
+      work: 'Defect Triage',
+      version: ''
+    });
+  });
 });

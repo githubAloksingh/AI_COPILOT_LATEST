@@ -972,7 +972,7 @@ export class ResponseModal implements OnInit, OnChanges {
   downloadTestCasePdf() {
     const finalData = this.mode === 'EDIT_ALL' ? this.editableData : this.data;
     const items = Array.isArray(finalData) ? finalData : (finalData.items || []);
-    this.exportService.downloadTestCasePdf(items, this.getPdfMeta());
+    this.exportService.downloadTestCasePdf(items, this.getPdfMeta(), 'Test_Cases.pdf');
   }
 
   download() {
