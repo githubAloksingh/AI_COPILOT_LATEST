@@ -146,6 +146,18 @@ describe('ExportService - Master PDF Specification Compliance', () => {
     }).not.toThrow();
   });
 
+  it('downloads Test Case PDF using the provided filename', () => {
+    const save = vi.fn();
+    vi.spyOn(service, 'buildTestCaseDoc').mockReturnValue({
+      ctx: { doc: { save } },
+      filename: 'default.pdf'
+    } as any);
+
+    service.downloadTestCasePdf([{ tcId: 'TC-001' }], {}, 'Test_Cases.pdf');
+
+    expect(save).toHaveBeenCalledWith('Test_Cases.pdf');
+  });
+
   it('7. generates Defect Triage PDF with code blocks without error', () => {
     const mockDefect = {
       defects: [

@@ -426,7 +426,7 @@ export class FeatureHistoryComponent implements OnChanges {
     }
   }
 
-  private downloadDefectTriage(item: any): void {
+  downloadDefectTriage(item: any): void {
     const downloadPdf = (content: string) => {
       const defectData = this.parseDefectTriageContent(content);
       if (!defectData) {
