@@ -268,13 +268,10 @@ public class AiServiceClient {
         }
     }
 
-    public AiMockScreensPlanResponse planMockScreens(Long documentId, String prompt) {
+    public AiMockScreensPlanResponse planMockScreens(Long documentId) {
         String url = aiServiceUrl + "/api/ai/mock-screens/plan";
         HttpHeaders headers = mockScreensHeaders();
-        Map<String, Object> body = Map.of(
-                "document_id", String.valueOf(documentId),
-                "prompt", prompt
-        );
+        Map<String, Object> body = Map.of("document_id", String.valueOf(documentId));
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
         try {
             ResponseEntity<AiMockScreensPlanResponse> response = restTemplate.postForEntity(
@@ -292,14 +289,12 @@ public class AiServiceClient {
 
     public AiMockScreenGenerationResponse generateMockScreen(
             Long documentId,
-            String prompt,
             AiMockScreenPlanItem plannedScreen,
             List<AiMockScreenSpecification> previousScreens) {
         String url = aiServiceUrl + "/api/ai/mock-screens/generate-screen";
         HttpHeaders headers = mockScreensHeaders();
         Map<String, Object> body = Map.of(
                 "document_id", String.valueOf(documentId),
-                "prompt", prompt,
                 "sequence", plannedScreen.getSequence(),
                 "screen_name", plannedScreen.getScreenName(),
                 "purpose", plannedScreen.getPurpose(),

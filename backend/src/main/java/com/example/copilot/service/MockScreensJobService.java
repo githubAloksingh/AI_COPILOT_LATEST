@@ -41,11 +41,6 @@ public class MockScreensJobService {
     public MockScreensJobResponse createJob(MockScreensStartRequest request) {
         validateRequest(request);
 
-        Optional<MockScreensJob> existingJob = jobRepository.findByIdempotencyKey(request.getIdempotencyKey());
-        if (existingJob.isPresent()) {
-            return responseForIdempotentRequest(existingJob.get(), request);
-        }
-
         if (!projectRepository.existsById(request.getProjectId())) {
             throw new MockScreensJobException(HttpStatus.NOT_FOUND, "PROJECT_NOT_FOUND", "Project was not found.");
         }
@@ -59,18 +54,13 @@ public class MockScreensJobService {
         job.setJobId(UUID.randomUUID().toString());
         job.setProjectId(request.getProjectId());
         job.setBrdId(request.getBrdId());
-        job.setIdempotencyKey(request.getIdempotencyKey().trim());
-        job.setPrompt(request.getPrompt().trim());
+        job.setIdempotencyKey(UUID.randomUUID().toString());
+        job.setPrompt("");
         job.setStatus(MockScreensJobStatus.QUEUED);
 
         try {
             return toResponse(jobRepository.saveAndFlush(job));
         } catch (DataIntegrityViolationException exception) {
-            Optional<MockScreensJob> concurrentlyCreated = jobRepository
-                    .findByIdempotencyKey(request.getIdempotencyKey().trim());
-            if (concurrentlyCreated.isPresent()) {
-                return responseForIdempotentRequest(concurrentlyCreated.get(), request);
-            }
             throw exception;
         }
     }
@@ -274,18 +264,6 @@ public class MockScreensJobService {
         job.setLeaseUntil(null);
     }
 
-    private MockScreensJobResponse responseForIdempotentRequest(
-            MockScreensJob existing, MockScreensStartRequest request) {
-        boolean sameRequest = Objects.equals(existing.getProjectId(), request.getProjectId())
-                && Objects.equals(existing.getBrdId(), request.getBrdId())
-                && Objects.equals(existing.getPrompt(), request.getPrompt().trim());
-        if (!sameRequest) {
-            throw new MockScreensJobException(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED",
-                    "The idempotency key was already used for a different Mock Screens request.");
-        }
-        return toResponse(existing);
-    }
-
     private void validateRequest(MockScreensStartRequest request) {
         if (request == null) {
             throw new MockScreensJobException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Request body is required.");
@@ -295,14 +273,6 @@ public class MockScreensJobService {
         }
         if (request.getBrdId() == null || request.getBrdId() <= 0) {
             throw new MockScreensJobException(HttpStatus.BAD_REQUEST, "INVALID_BRD_ID", "A valid brdId is required.");
-        }
-        if (request.getPrompt() == null || request.getPrompt().isBlank()) {
-            throw new MockScreensJobException(HttpStatus.BAD_REQUEST, "PROMPT_REQUIRED", "A non-empty prompt is required.");
-        }
-        if (request.getIdempotencyKey() == null || request.getIdempotencyKey().isBlank()
-                || request.getIdempotencyKey().trim().length() > 128) {
-            throw new MockScreensJobException(HttpStatus.BAD_REQUEST, "INVALID_IDEMPOTENCY_KEY",
-                    "A non-empty idempotencyKey of at most 128 characters is required.");
         }
     }
 

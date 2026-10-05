@@ -143,7 +143,7 @@ def test_technical_design_uses_500_relevant_selected_brd_chunks(monkeypatch):
     assert resp.sources == ["Section 1", "Section 2"]
 
 
-def test_mock_screen_planning_analyzes_every_brd_chunk_and_requested_scope():
+def test_mock_screen_planning_analyzes_every_brd_chunk_without_user_scope():
     source_chunks = ["CHUNK_ONE " + ("A" * 12000), "CHUNK_TWO " + ("B" * 12000)]
 
     class FakeRetrieval:
@@ -166,7 +166,7 @@ def test_mock_screen_planning_analyzes_every_brd_chunk_and_requested_scope():
                 )
 
             assert schema is MockScreensPlan
-            assert "Focus only on the customer enrollment flow" in prompt
+            assert "USER REQUESTED SCOPE" not in prompt
             assert "Requirement from CHUNK_ONE" in prompt
             assert "Requirement from CHUNK_TWO" in prompt
             return MockScreensPlan(screens=[
@@ -188,10 +188,7 @@ def test_mock_screen_planning_analyzes_every_brd_chunk_and_requested_scope():
     service.retrieval = FakeRetrieval()
     service.gemini = FakeGemini()
 
-    response = service.plan_mock_screens(MockScreensPlanRequest(
-        document_id="42",
-        prompt="Focus only on the customer enrollment flow"
-    ))
+    response = service.plan_mock_screens(MockScreensPlanRequest(document_id="42"))
 
     assert [screen.sequence for screen in response.screens] == [1, 2]
     assert response.screens[0].screenName == "Enrollment"
@@ -252,7 +249,6 @@ def test_mock_screen_generation_uses_selected_brd_and_preserves_planned_sequence
 
     response = service.generate_mock_screen(MockScreenGenerationRequest(
         document_id="42",
-        prompt="Create the enrollment flow",
         sequence=2,
         screen_name="Review",
         purpose="Review enrollment details",
@@ -293,7 +289,6 @@ def test_mock_screen_generation_rejects_output_for_different_planned_screen():
     with pytest.raises(ValueError, match="does not match its planned sequence and name"):
         service.generate_mock_screen(MockScreenGenerationRequest(
             document_id="42",
-            prompt="Create screens",
             sequence=2,
             screen_name="Review",
             purpose="Review details",

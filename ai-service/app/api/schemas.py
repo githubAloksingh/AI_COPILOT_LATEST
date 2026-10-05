@@ -44,9 +44,8 @@ class RetrieveResponse(BaseModel):
 # ----------------------------------------------------
 class MockScreensPlanRequest(BaseModel):
     document_id: str
-    prompt: str
 
-    @field_validator("document_id", "prompt")
+    @field_validator("document_id")
     @classmethod
     def validate_required_text(cls, value):
         if not value or not value.strip():
@@ -137,14 +136,13 @@ class MockScreenSpecification(BaseModel):
 
 class MockScreenGenerationRequest(BaseModel):
     document_id: str
-    prompt: str
     sequence: int = Field(gt=0)
     screen_name: str = Field(min_length=1)
     purpose: str = Field(min_length=1)
     relevant_requirements: List[str] = Field(min_length=1)
     previous_screens: List[MockScreenSpecification] = Field(default_factory=list)
 
-    @field_validator("document_id", "prompt", "screen_name", "purpose")
+    @field_validator("document_id", "screen_name", "purpose")
     @classmethod
     def validate_required_text(cls, value):
         if not value or not value.strip():

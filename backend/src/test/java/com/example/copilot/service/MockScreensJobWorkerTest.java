@@ -93,10 +93,10 @@ class MockScreensJobWorkerTest {
         when(jobService.getJobForScreenGeneration(51L, CLAIM.leaseToken())).thenReturn(job);
         when(jobService.getScreenOutputsForGeneration(51L, CLAIM.leaseToken())).thenReturn(List.of());
         List<Integer> startedSequences = new ArrayList<>();
-        when(aiServiceClient.generateMockScreen(eq(9L), eq(job.getPrompt()), any(AiMockScreenPlanItem.class), anyList()))
+        when(aiServiceClient.generateMockScreen(eq(9L), any(AiMockScreenPlanItem.class), anyList()))
             .thenAnswer(invocation -> {
-                AiMockScreenPlanItem planned = invocation.getArgument(2);
-                List<AiMockScreenSpecification> previous = invocation.getArgument(3);
+                AiMockScreenPlanItem planned = invocation.getArgument(1);
+                List<AiMockScreenSpecification> previous = invocation.getArgument(2);
                 assertEquals(startedSequences.size(), previous.size());
                 startedSequences.add(planned.getSequence());
                 return generatedScreen(planned);
@@ -111,11 +111,11 @@ class MockScreensJobWorkerTest {
         assertEquals(List.of(1, 2), storedScreens.getAllValues().stream()
             .map(AiMockScreenSpecification::getSequence).toList());
         InOrder order = inOrder(aiServiceClient, jobService);
-        order.verify(aiServiceClient).generateMockScreen(eq(9L), eq(job.getPrompt()),
+        order.verify(aiServiceClient).generateMockScreen(eq(9L),
             argThat((AiMockScreenPlanItem screen) -> screen.getSequence() == 1), eq(List.of()));
         order.verify(jobService).storeGeneratedScreen(eq(51L), eq(CLAIM.leaseToken()),
             argThat(screen -> screen.getSequence() == 1), any());
-        order.verify(aiServiceClient).generateMockScreen(eq(9L), eq(job.getPrompt()),
+        order.verify(aiServiceClient).generateMockScreen(eq(9L),
             argThat((AiMockScreenPlanItem screen) -> screen.getSequence() == 2),
             argThat((List<AiMockScreenSpecification> previous) -> previous.size() == 1));
         order.verify(jobService).storeGeneratedScreen(eq(51L), eq(CLAIM.leaseToken()),
@@ -132,14 +132,14 @@ class MockScreensJobWorkerTest {
             generatedScreen(plannedScreen(1, "Account Details")).getScreen()));
         when(jobService.getJobForScreenGeneration(51L, CLAIM.leaseToken())).thenReturn(job);
         when(jobService.getScreenOutputsForGeneration(51L, CLAIM.leaseToken())).thenReturn(List.of(existing));
-        when(aiServiceClient.generateMockScreen(eq(9L), eq(job.getPrompt()), any(AiMockScreenPlanItem.class), anyList()))
-            .thenAnswer(invocation -> generatedScreen(invocation.getArgument(2)));
+        when(aiServiceClient.generateMockScreen(eq(9L), any(AiMockScreenPlanItem.class), anyList()))
+            .thenAnswer(invocation -> generatedScreen(invocation.getArgument(1)));
 
         worker.generateScreens(CLAIM);
 
-        verify(aiServiceClient).generateMockScreen(eq(9L), eq(job.getPrompt()),
+        verify(aiServiceClient).generateMockScreen(eq(9L),
             argThat((AiMockScreenPlanItem screen) -> screen.getSequence() == 2), anyList());
-        verify(aiServiceClient, never()).generateMockScreen(eq(9L), eq(job.getPrompt()),
+        verify(aiServiceClient, never()).generateMockScreen(eq(9L),
             argThat((AiMockScreenPlanItem screen) -> screen.getSequence() == 1), anyList());
         verify(jobService).storeGeneratedScreen(eq(51L), eq(CLAIM.leaseToken()),
             argThat((AiMockScreenSpecification screen) -> screen.getSequence() == 2), any());
@@ -155,9 +155,9 @@ class MockScreensJobWorkerTest {
         when(jobService.getJobForScreenGeneration(51L, CLAIM.leaseToken())).thenReturn(job);
         when(jobService.getScreenOutputsForGeneration(51L, CLAIM.leaseToken())).thenReturn(List.of());
         List<Integer> startedSequences = new ArrayList<>();
-        when(aiServiceClient.generateMockScreen(eq(9L), eq(job.getPrompt()), any(AiMockScreenPlanItem.class), anyList()))
+        when(aiServiceClient.generateMockScreen(eq(9L), any(AiMockScreenPlanItem.class), anyList()))
             .thenAnswer(invocation -> {
-                AiMockScreenPlanItem planned = invocation.getArgument(2);
+                AiMockScreenPlanItem planned = invocation.getArgument(1);
                 startedSequences.add(planned.getSequence());
                 if (planned.getSequence() == 2) {
                 throw new RuntimeException("provider internal response");
@@ -262,7 +262,7 @@ class MockScreensJobWorkerTest {
     @Test
     void planningFailureMarksJobFailedWithSafeMessage() {
         when(jobService.getClaimedJobForPlanning(51L, CLAIM.leaseToken())).thenReturn(processingJob());
-        when(aiServiceClient.planMockScreens(9L, "Create the onboarding flow"))
+        when(aiServiceClient.planMockScreens(9L))
                 .thenThrow(new RuntimeException("provider response contains internal details"));
 
         worker.planJob(CLAIM);
