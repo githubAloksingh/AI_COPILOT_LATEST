@@ -69,6 +69,14 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
                 <span>Requirement Assistant</span>
               </a>
 
+              <a routerLink="/mock-screens" routerLinkActive="active-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="13" rx="2"/>
+                  <path d="M8 21h8M12 17v4"/>
+                </svg>
+                <span>Mock Screens</span>
+              </a>
+
               <a routerLink="/test-generator" routerLinkActive="active-link">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="9 11 12 14 22 4"/>

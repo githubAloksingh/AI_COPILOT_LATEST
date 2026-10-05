@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 import re
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from app.config import settings
 from app.api.schemas import (
     HealthResponse,
@@ -17,8 +17,13 @@ from app.api.schemas import (
     ReleaseNoteGenerateRequest,
     ReleaseNoteGenerateResponse,
     DailyStatusGenerateRequest,
-    DailyStatusGenerateResponse
+    DailyStatusGenerateResponse,
+    MockScreensPlanRequest,
+    MockScreensPlanResponse,
+    MockScreenGenerationRequest,
+    MockScreenGenerationResponse
 )
+from app.api.security import require_mock_screens_service_token
 from app.services import (
     document_service,
     chunking_service,
@@ -270,6 +275,46 @@ def generate_daily_status(req: DailyStatusGenerateRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Daily status generation failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/mock-screens/plan",
+    response_model=MockScreensPlanResponse,
+    dependencies=[Depends(require_mock_screens_service_token)],
+)
+def plan_mock_screens(req: MockScreensPlanRequest):
+    """Analyze the complete selected BRD and return an ordered screen plan only."""
+    try:
+        return rag_service.plan_mock_screens(req)
+    except ValueError as e:
+        logger.warning("Mock Screens planning rejected: %s", e)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    except Exception as e:
+        logger.error("Mock Screens planning failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mock Screens planning failed. Please retry the job."
+        )
+
+
+@router.post(
+    "/mock-screens/generate-screen",
+    response_model=MockScreenGenerationResponse,
+    dependencies=[Depends(require_mock_screens_service_token)],
+)
+def generate_mock_screen(req: MockScreenGenerationRequest):
+    """Generate one structured screen specification; the backend controls ordering."""
+    try:
+        return rag_service.generate_mock_screen(req)
+    except ValueError as e:
+        logger.warning("Mock Screens generation rejected: %s", e)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    except Exception as e:
+        logger.error("Mock Screens screen generation failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Mock Screens screen generation failed. Please retry the job."
         )
 
 

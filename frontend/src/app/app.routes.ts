@@ -6,6 +6,7 @@ import { UserStoryComponent } from './knowledge-base/user-story/user-story';
 import { FunctionalDesignComponent } from './knowledge-base/functional-design/functional-design';
 import { TechnicalDesignComponent } from './knowledge-base/technical-design/technical-design';
 import { RequirementAssistant } from './requirement-assistant/requirement-assistant';
+import { MockScreens } from './mock-screens/mock-screens';
 import { TestGenerator } from './test-generator/test-generator';
 import { DefectTriage } from './defect-triage/defect-triage';
 import { ReleaseNotes } from './release-notes/release-notes';
@@ -24,6 +25,7 @@ export const routes: Routes = [
   { path: 'knowledge-base/functional-design', component: FunctionalDesignComponent },
   { path: 'knowledge-base/technical-design', component: TechnicalDesignComponent },
   { path: 'requirements', component: RequirementAssistant },
+  { path: 'mock-screens', component: MockScreens },
   { path: 'test-generator', component: TestGenerator },
   { path: 'defect-triage', component: DefectTriage },
   { path: 'release-notes', component: ReleaseNotes },

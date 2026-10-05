@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -24,7 +25,14 @@ from app.api.schemas import (
     ReleaseNoteResult,
     DailyStatusGenerateRequest,
     DailyStatusGenerateResponse,
-    DailyStatusResult
+    DailyStatusResult,
+    MockScreensPlanRequest,
+    MockScreensPlanResponse,
+    MockScreensContextSummary,
+    MockScreensPlan,
+    MockScreenGenerationRequest,
+    MockScreenGenerationResponse,
+    MockScreenSpecification,
 )
 from app.prompts import (
     REQUIREMENT_PROMPT_VERSION,
@@ -42,7 +50,13 @@ from app.prompts import (
     RELEASE_NOTE_PROMPT_VERSION,
     build_release_notes_prompt,
     DAILY_STATUS_PROMPT_VERSION,
-    build_daily_status_prompt
+    build_daily_status_prompt,
+    MOCK_SCREENS_PROMPT_VERSION,
+    MOCK_SCREENS_SUMMARY_PROMPT_VERSION,
+    MOCK_SCREEN_GENERATION_PROMPT_VERSION,
+    build_mock_screens_context_prompt,
+    build_mock_screens_plan_prompt,
+    build_mock_screen_generation_prompt
 )
 from app.services.retrieval_service import retrieval_service
 from app.services.gemini_service import gemini_service
@@ -68,6 +82,99 @@ class RagService:
         if document_id and not chunks:
             raise ValueError("No relevant source content was found for the selected document.")
         return chunks, sources
+
+    @staticmethod
+    def _group_document_chunks(chunks: List[str], max_chars: int = 20000):
+        groups = []
+        current_group = []
+        current_size = 0
+        for chunk_index, chunk in enumerate(chunks):
+            chunk_text = str(chunk or "").strip()
+            if not chunk_text:
+                continue
+            if current_group and current_size + len(chunk_text) > max_chars:
+                groups.append(current_group)
+                current_group = []
+                current_size = 0
+            current_group.append((chunk_index, chunk_text))
+            current_size += len(chunk_text)
+        if current_group:
+            groups.append(current_group)
+        return groups
+
+    def plan_mock_screens(self, req: MockScreensPlanRequest) -> MockScreensPlanResponse:
+        start_time = time.time()
+        chunks, _ = self.retrieval.retrieve_document_context(req.document_id)
+        if not chunks:
+            raise ValueError("No indexed BRD content was found for the selected document.")
+
+        chunk_groups = self._group_document_chunks(chunks)
+        summaries = []
+        for group_number, group in enumerate(chunk_groups, start=1):
+            first_chunk = group[0][0]
+            last_chunk = group[-1][0]
+            group_text = self._build_context([chunk for _, chunk in group])
+            prompt = build_mock_screens_context_prompt(
+                group_text,
+                f"{first_chunk + 1}-{last_chunk + 1} of {len(chunks)}",
+                req.prompt
+            )
+            summary = self.gemini.generate_structured(prompt, MockScreensContextSummary)
+            summaries.append({
+                "chunk_group": group_number,
+                "source_chunk_range": [first_chunk + 1, last_chunk + 1],
+                **summary.model_dump()
+            })
+
+        plan_prompt = build_mock_screens_plan_prompt(
+            req.prompt,
+            json.dumps(summaries, ensure_ascii=False)
+        )
+        plan = self.gemini.generate_structured(plan_prompt, MockScreensPlan)
+        exec_time_ms = int((time.time() - start_time) * 1000)
+        return MockScreensPlanResponse(
+            screens=plan.screens,
+            model=settings.gemini_model,
+            prompt_version=MOCK_SCREENS_PROMPT_VERSION,
+            execution_time_ms=exec_time_ms
+        )
+
+    def generate_mock_screen(self, req: MockScreenGenerationRequest) -> MockScreenGenerationResponse:
+        start_time = time.time()
+        query = "\n".join([
+            req.prompt,
+            req.screen_name,
+            req.purpose,
+            *req.relevant_requirements
+        ])
+        chunks, _ = self._retrieve_generation_context(
+            query=query,
+            document_id=req.document_id,
+            top_k=max(settings.top_k, 10)
+        )
+        context = self._build_context(chunks)
+        prompt = build_mock_screen_generation_prompt(
+            user_prompt=req.prompt,
+            sequence=req.sequence,
+            screen_name=req.screen_name,
+            purpose=req.purpose,
+            relevant_requirements=req.relevant_requirements,
+            brd_context=context,
+            previous_screens=json.dumps(
+                [screen.model_dump() for screen in req.previous_screens],
+                ensure_ascii=False
+            )
+        )
+        screen = self.gemini.generate_structured(prompt, MockScreenSpecification)
+        if screen.sequence != req.sequence or screen.screenName != req.screen_name:
+            raise ValueError("Generated screen does not match its planned sequence and name.")
+
+        return MockScreenGenerationResponse(
+            screen=screen,
+            model=settings.gemini_model,
+            prompt_version=MOCK_SCREEN_GENERATION_PROMPT_VERSION,
+            execution_time_ms=int((time.time() - start_time) * 1000)
+        )
 
     def generate_requirement(self, req: RequirementGenerateRequest) -> RequirementGenerateResponse:
         start_time = time.time()

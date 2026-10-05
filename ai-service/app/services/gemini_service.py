@@ -47,15 +47,16 @@ class GeminiService:
         last_error = None
         with httpx.Client(timeout=self.timeout) as client:
             for model_name in models_to_try:
-                url = (
-                    f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-                    f"?key={api_key.strip()}"
-                )
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
                 try:
                     resp = None
                     for attempt in range(2):
                         try:
-                            resp = client.post(url, json=request_body)
+                            resp = client.post(
+                                url,
+                                json=request_body,
+                                headers={"x-goog-api-key": api_key.strip()},
+                            )
                             break
                         except httpx.RequestError as e:
                             last_error = e
