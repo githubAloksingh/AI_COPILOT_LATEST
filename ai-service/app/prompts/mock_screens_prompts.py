@@ -68,5 +68,15 @@ ADDITIONAL RETRIEVED BRD CONTEXT:
 PREVIOUSLY COMPLETED SCREENS (for navigation and terminology consistency only):
 {previous_screens}
 
-Return exactly one JSON object using these exact keys and types: "sequence" (integer, exactly {sequence}), "screenName" (string, exactly "{screen_name}"), "purpose" (string), "layoutDescription" (string), "components" (non-empty array of objects with "componentType", "label", "description", "required", and "options"), and "interactionNotes" (array of strings). Do not rename keys to alternatives such as screenNumber, screenSequence, screenPurpose, or layout. Use only these componentType values: header, navigation, text, button, input, select, checkbox, radio, table, card, modal, alert, imagePlaceholder. Do not return HTML, CSS, JavaScript, SVG, code, URLs, or images. The output is an abstract specification for later backend rendering, not a rendered screen. Use BRD evidence as the source of truth and do not invent product requirements.
+Return exactly one JSON object using these exact keys and types: "sequence" (integer, exactly {sequence}), "screenName" (string, exactly "{screen_name}"), "purpose" (string), "layoutDescription" (string), "components" (non-empty array of objects with "componentType", "label", "description", "required", and "options"), and "interactionNotes" (array of strings). Do not rename keys to alternatives such as screenNumber, screenSequence, screenPurpose, or layout. Use only these componentType values: header, navigation, text, button, input, select, checkbox, radio, table, card, modal, alert, imagePlaceholder.
+
+VISUAL DIRECTION:
+- Follow the user's requested theme, emphasis, layout, fields, and actions. When a dark PCP/banking theme is requested, use a dark navy application surface, persistent left navigation, light text, compact dark information cards, and orange accents for active navigation, section highlights, statuses, and primary buttons. Do not use a light/browser-frame design.
+- The BRD remains the source of truth for business functionality. The user prompt controls presentation and requested scope, not unsupported business facts.
+- The renderer supplies PCP branding and persistent navigation. Use components for screen-specific content rather than repeating the full navigation.
+- Build a compact enterprise screen with a header, clearly named sections/cards, relevant filters/context where applicable, concise fields, a table for record lists, visible status/alerts, and screen-appropriate actions. Keep component order in a natural reading order and avoid redundant content.
+- For tables, put concise column headings and, where useful, one illustrative fictional sample row in "options" as strings separated by " | ". Identify sample data as illustrative in the description; do not invent business rules or imply sample values came from the BRD.
+- Use labels such as "FILTERS / CONTEXT" for applicable tracker/report filters and actionable buttons supported by the screen purpose, such as Search, Reset, View Details, Update, Approve, Reject, Save, Export PDF, or Export Excel.
+
+Do not return HTML, CSS, JavaScript, SVG, code, URLs, or images. The output is an abstract specification for later backend rendering, not a rendered screen. Use BRD evidence as the source of truth and do not invent product requirements.
 """

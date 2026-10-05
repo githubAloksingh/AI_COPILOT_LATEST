@@ -37,6 +37,11 @@ class MockScreensPdfServiceTest {
             String secondPage = stripper.getText(document);
             assertTrue(firstPage.contains("FIRST_SCREEN"));
             assertTrue(secondPage.contains("SECOND_SCREEN"));
+            assertTrue(firstPage.contains("PCP"));
+            assertTrue(firstPage.contains("PREFERRED CUSTODY PLATFORM"));
+            assertTrue(firstPage.contains("Mock Screen 01 / 2"));
+            assertTrue(firstPage.contains("Dashboard"));
+            assertTrue(firstPage.contains("Illustrative mock screen"));
         }
     }
 
