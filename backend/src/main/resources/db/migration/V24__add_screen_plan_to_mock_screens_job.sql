@@ -1,0 +1,1 @@
+ALTER TABLE mock_screens_job ADD COLUMN screen_plan LONGTEXT NULL;

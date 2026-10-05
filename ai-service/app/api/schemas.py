@@ -1,5 +1,5 @@
-from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import List, Literal, Optional
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ----------------------------------------------------
@@ -37,6 +37,126 @@ class RetrieveResponse(BaseModel):
     query: str
     chunks: List[str]
     sources: List[SourceDto]
+
+
+# ----------------------------------------------------
+# Mock Screens Planning Models
+# ----------------------------------------------------
+class MockScreensPlanRequest(BaseModel):
+    document_id: str
+    prompt: str
+
+    @field_validator("document_id", "prompt")
+    @classmethod
+    def validate_required_text(cls, value):
+        if not value or not value.strip():
+            raise ValueError("Field must not be empty")
+        return value.strip()
+
+
+class MockScreensContextSummary(BaseModel):
+    requirements: List[str] = Field(default_factory=list)
+    workflows: List[str] = Field(default_factory=list)
+    constraints: List[str] = Field(default_factory=list)
+
+
+class MockScreenPlanItem(BaseModel):
+    sequence: int = Field(gt=0)
+    screenName: str = Field(min_length=1)
+    purpose: str = Field(min_length=1)
+    relevantRequirements: List[str] = Field(min_length=1)
+
+
+class MockScreensPlan(BaseModel):
+    screens: List[MockScreenPlanItem] = Field(min_length=1)
+
+    @field_validator("screens")
+    @classmethod
+    def validate_screen_sequence(cls, screens):
+        expected = list(range(1, len(screens) + 1))
+        actual = [screen.sequence for screen in screens]
+        if actual != expected:
+            raise ValueError("Screen sequences must be ordered and contiguous starting at 1")
+        return screens
+
+
+class MockScreensPlanResponse(BaseModel):
+    screens: List[MockScreenPlanItem]
+    model: str
+    prompt_version: str
+    execution_time_ms: int
+
+
+class MockScreenComponent(BaseModel):
+    componentType: Literal[
+        "header", "navigation", "text", "button", "input", "select",
+        "checkbox", "radio", "table", "card", "modal", "alert", "imagePlaceholder"
+    ]
+    label: str = ""
+    description: Optional[str] = ""
+    required: bool = False
+    options: List[str] = Field(default_factory=list)
+
+
+class MockScreenSpecification(BaseModel):
+    sequence: int = Field(gt=0)
+    screenName: str = Field(min_length=1)
+    purpose: str = Field(min_length=1)
+    layoutDescription: str = Field(min_length=1)
+    components: List[MockScreenComponent] = Field(min_length=1)
+    interactionNotes: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_generated_screen(cls, value):
+        if not isinstance(value, dict):
+            return value
+
+        normalized = dict(value)
+        aliases = {
+            "sequence": ("screenSequence", "screenNumber", "screen_sequence", "screen_number"),
+            "screenName": ("screen_name", "title"),
+            "purpose": ("screenPurpose", "screen_purpose"),
+            "layoutDescription": ("layout", "layout_description", "layoutType", "layout_type"),
+            "interactionNotes": ("interaction_notes", "interactions", "userFlow", "user_flow"),
+        }
+        for field_name, field_aliases in aliases.items():
+            if field_name not in normalized:
+                for alias in field_aliases:
+                    if alias in normalized:
+                        normalized[field_name] = normalized[alias]
+                        break
+
+        notes = normalized.get("interactionNotes")
+        if isinstance(notes, str):
+            normalized["interactionNotes"] = [notes] if notes.strip() else []
+        elif notes is not None and not isinstance(notes, list):
+            normalized["interactionNotes"] = [str(notes)]
+        return normalized
+
+
+class MockScreenGenerationRequest(BaseModel):
+    document_id: str
+    prompt: str
+    sequence: int = Field(gt=0)
+    screen_name: str = Field(min_length=1)
+    purpose: str = Field(min_length=1)
+    relevant_requirements: List[str] = Field(min_length=1)
+    previous_screens: List[MockScreenSpecification] = Field(default_factory=list)
+
+    @field_validator("document_id", "prompt", "screen_name", "purpose")
+    @classmethod
+    def validate_required_text(cls, value):
+        if not value or not value.strip():
+            raise ValueError("Field must not be empty")
+        return value.strip()
+
+
+class MockScreenGenerationResponse(BaseModel):
+    screen: MockScreenSpecification
+    model: str
+    prompt_version: str
+    execution_time_ms: int
 
 
 # ----------------------------------------------------

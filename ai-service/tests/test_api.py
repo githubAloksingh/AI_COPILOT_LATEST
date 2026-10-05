@@ -1,16 +1,24 @@
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from app.main import app
+from app.config import settings
 from app.api.schemas import (
     RequirementResult,
     RequirementItem,
     TestCaseItem,
     DefectResult,
     ReleaseNoteResult,
-    DailyStatusResult
+    DailyStatusResult,
+    MockScreenComponent,
+    MockScreenGenerationResponse,
+    MockScreenSpecification,
+    MockScreenPlanItem,
+    MockScreensPlanResponse
 )
 
 client = TestClient(app)
+settings.mock_screens_service_token = "test-mock-screens-service-token"
+MOCK_SCREENS_HEADERS = {"X-Service-Token": settings.mock_screens_service_token}
 
 
 def test_health_endpoint():
@@ -107,4 +115,137 @@ def test_testcases_generate_endpoint(mock_retrieval, mock_gemini):
 def test_testcases_direct_upload_endpoint_is_removed():
     response = client.post("/api/ai/test-cases/generate-upload")
     assert response.status_code == 404
+
+
+@patch("app.api.routes.rag_service.plan_mock_screens")
+def test_mock_screens_plan_endpoint_returns_ordered_plan_only(mock_plan):
+    mock_plan.return_value = MockScreensPlanResponse(
+        screens=[
+            MockScreenPlanItem(
+                sequence=1,
+                screenName="Enrollment",
+                purpose="Start enrollment",
+                relevantRequirements=["Collect required customer details"]
+            )
+        ],
+        model="gemini-test",
+        prompt_version="mock-screens-plan-v1",
+        execution_time_ms=12
+    )
+
+    response = client.post(
+        "/api/ai/mock-screens/plan",
+        json={"document_id": "42", "prompt": "Plan customer enrollment screens"},
+        headers=MOCK_SCREENS_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["screens"][0]["sequence"] == 1
+    assert payload["screens"][0]["screenName"] == "Enrollment"
+    assert "html" not in payload
+    mock_plan.assert_called_once()
+
+
+@patch("app.api.routes.rag_service.plan_mock_screens", side_effect=ValueError("No indexed BRD content"))
+def test_mock_screens_plan_endpoint_rejects_missing_document_content(mock_plan):
+    response = client.post(
+        "/api/ai/mock-screens/plan",
+        json={"document_id": "42", "prompt": "Plan customer enrollment screens"},
+        headers=MOCK_SCREENS_HEADERS,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "No indexed BRD content"
+    mock_plan.assert_called_once()
+
+
+@patch("app.api.routes.rag_service.generate_mock_screen")
+def test_mock_screens_generation_endpoint_returns_one_screen_specification(mock_generate):
+    mock_generate.return_value = MockScreenGenerationResponse(
+        screen=MockScreenSpecification(
+            sequence=2,
+            screenName="Review",
+            purpose="Review enrollment details",
+            layoutDescription="A review panel with a confirmation action.",
+            components=[MockScreenComponent(componentType="button", label="Confirm")]
+        ),
+        model="gemini-test",
+        prompt_version="mock-screen-spec-v1",
+        execution_time_ms=15
+    )
+
+    response = client.post("/api/ai/mock-screens/generate-screen", json={
+        "document_id": "42",
+        "prompt": "Create an enrollment flow",
+        "sequence": 2,
+        "screen_name": "Review",
+        "purpose": "Review enrollment details",
+        "relevant_requirements": ["Review before confirmation"],
+        "previous_screens": []
+    }, headers=MOCK_SCREENS_HEADERS)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["screen"]["sequence"] == 2
+    assert payload["screen"]["screenName"] == "Review"
+    assert "screens" not in payload
+    mock_generate.assert_called_once()
+
+
+def test_mock_screens_plan_endpoint_rejects_unauthenticated_requests():
+    with patch("app.api.routes.rag_service.plan_mock_screens") as mock_plan:
+        response = client.post(
+            "/api/ai/mock-screens/plan",
+            json={"document_id": "42", "prompt": "Plan customer enrollment screens"},
+        )
+
+    assert response.status_code == 401
+    mock_plan.assert_not_called()
+
+
+def test_mock_screens_generation_endpoint_rejects_unauthenticated_requests():
+    with patch("app.api.routes.rag_service.generate_mock_screen") as mock_generate:
+        response = client.post("/api/ai/mock-screens/generate-screen", json={
+            "document_id": "42",
+            "prompt": "Create an enrollment flow",
+            "sequence": 1,
+            "screen_name": "Enrollment",
+            "purpose": "Start enrollment",
+            "relevant_requirements": ["Enter customer data"],
+            "previous_screens": []
+        })
+
+    assert response.status_code == 401
+    mock_generate.assert_not_called()
+
+
+def test_mock_screens_plan_endpoint_rejects_invalid_service_token():
+    response = client.post(
+        "/api/ai/mock-screens/plan",
+        json={"document_id": "42", "prompt": "Plan customer enrollment screens"},
+        headers={"X-Service-Token": "invalid"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_cors_allows_local_frontend_and_rejects_unconfigured_origin():
+    allowed = client.options(
+        "/api/ai/mock-screens/plan",
+        headers={
+            "Origin": "http://localhost:4200",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    rejected = client.options(
+        "/api/ai/mock-screens/plan",
+        headers={
+            "Origin": "https://untrusted.example",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert allowed.headers.get("access-control-allow-origin") == "http://localhost:4200"
+    assert "access-control-allow-origin" not in rejected.headers
 

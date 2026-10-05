@@ -29,7 +29,7 @@ public class AiServiceClientTest {
     void setUp() {
         restTemplate = new RestTemplate();
         mockServer = MockRestServiceServer.createServer(restTemplate);
-        aiServiceClient = new AiServiceClient(restTemplate, BASE_URL);
+        aiServiceClient = new AiServiceClient(restTemplate, BASE_URL, "test-service-token");
         objectMapper = new ObjectMapper();
     }
 
@@ -96,6 +96,18 @@ public class AiServiceClientTest {
         request.setDescription("Fail Desc");
 
         assertThrows(RuntimeException.class, () -> aiServiceClient.generateRequirement(request));
+        mockServer.verify();
+    }
+
+    @Test
+    void mockScreensPlanningSendsServerToServerAuthentication() throws Exception {
+        mockServer.expect(requestTo(BASE_URL + "/api/ai/mock-screens/plan"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Service-Token", "test-service-token"))
+                .andRespond(withSuccess("{\"screens\":[]}", MediaType.APPLICATION_JSON));
+
+        aiServiceClient.planMockScreens(42L, "Create enrollment screens");
+
         mockServer.verify();
     }
 }

@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -22,6 +23,9 @@ public class AiServiceClient {
 
     @Value("${copilot.ai-service.url:http://localhost:8000}")
     private String aiServiceUrl;
+
+    @Value("${copilot.ai-service.mock-screens-token:}")
+    private String mockScreensServiceToken;
 
     private final RestTemplate restTemplate;
 
@@ -35,6 +39,11 @@ public class AiServiceClient {
     public AiServiceClient(RestTemplate restTemplate, String aiServiceUrl) {
         this.restTemplate = restTemplate;
         this.aiServiceUrl = aiServiceUrl;
+    }
+
+    public AiServiceClient(RestTemplate restTemplate, String aiServiceUrl, String mockScreensServiceToken) {
+        this(restTemplate, aiServiceUrl);
+        this.mockScreensServiceToken = mockScreensServiceToken;
     }
 
     public AiIngestionResponse ingestDocument(Long documentId, String fileName, String fileType, byte[] content) {
@@ -257,6 +266,70 @@ public class AiServiceClient {
             log.error("Failed to generate daily status via AI service: {}", detail);
             throw new RuntimeException("AI Service Daily Status Generation Failed: " + detail, e);
         }
+    }
+
+    public AiMockScreensPlanResponse planMockScreens(Long documentId, String prompt) {
+        String url = aiServiceUrl + "/api/ai/mock-screens/plan";
+        HttpHeaders headers = mockScreensHeaders();
+        Map<String, Object> body = Map.of(
+                "document_id", String.valueOf(documentId),
+                "prompt", prompt
+        );
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        try {
+            ResponseEntity<AiMockScreensPlanResponse> response = restTemplate.postForEntity(
+                    url, requestEntity, AiMockScreensPlanResponse.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            String detail = extractErrorDetail(e);
+            log.error("Failed to plan Mock Screens via AI service: {}", detail);
+            throw new RuntimeException("AI Service Mock Screens planning failed: " + detail, e);
+        }
+    }
+
+    public AiMockScreenGenerationResponse generateMockScreen(
+            Long documentId,
+            String prompt,
+            AiMockScreenPlanItem plannedScreen,
+            List<AiMockScreenSpecification> previousScreens) {
+        String url = aiServiceUrl + "/api/ai/mock-screens/generate-screen";
+        HttpHeaders headers = mockScreensHeaders();
+        Map<String, Object> body = Map.of(
+                "document_id", String.valueOf(documentId),
+                "prompt", prompt,
+                "sequence", plannedScreen.getSequence(),
+                "screen_name", plannedScreen.getScreenName(),
+                "purpose", plannedScreen.getPurpose(),
+                "relevant_requirements", plannedScreen.getRelevantRequirements(),
+                "previous_screens", previousScreens
+        );
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        try {
+            ResponseEntity<AiMockScreenGenerationResponse> response = restTemplate.postForEntity(
+                    url, requestEntity, AiMockScreenGenerationResponse.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate Mock Screens screen {} via AI service: {}",
+                    plannedScreen.getSequence(), detail);
+            throw new RuntimeException("AI Service Mock Screens screen generation failed: " + detail, e);
+        }
+    }
+
+    private HttpHeaders mockScreensHeaders() {
+        if (mockScreensServiceToken == null || mockScreensServiceToken.isBlank()) {
+            throw new IllegalStateException("Mock Screens service authentication is not configured.");
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Service-Token", mockScreensServiceToken);
+        return headers;
     }
 
     private String extractErrorDetail(Exception e) {

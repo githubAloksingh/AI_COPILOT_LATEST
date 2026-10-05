@@ -1,0 +1,112 @@
+<div class="page-header">
+  <h1>Mock Screens</h1>
+</div>
+
+<div class="card">
+  <div class="form-group">
+    <label class="field-label">1. Select Project <span class="required">*</span></label>
+    <div class="kb-select-wrap">
+      <select
+        [ngModel]="selectedProjectId"
+        (ngModelChange)="onProjectChange($event)"
+        class="form-control"
+        [disabled]="loadingProjects || isGenerating">
+        <option [ngValue]="null">Select Project</option>
+        <option *ngFor="let project of projects" [value]="project.id">
+          {{ project.projectName }} ({{ project.department || 'General' }})
+        </option>
+      </select>
+    </div>
+    <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects" style="color: #64748b; margin-top: 4px; display: block;">
+      No projects found. Please create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+    </small>
+  </div>
+
+  <div *ngIf="selectedProjectId" style="margin-top: 16px;">
+    <div class="form-group">
+      <label class="field-label">2. Select Artifact Type <span class="required">*</span></label>
+      <div class="kb-select-wrap">
+        <select class="form-control" disabled style="background-color: #f8fafc; color: #1e293b; font-weight: 500; cursor: not-allowed; border: 1px solid #cbd5e1;">
+          <option value="BRD" selected>BRD</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 16px;">
+      <label class="field-label">3. Select BRD <span class="required">*</span></label>
+      <div class="kb-select-wrap">
+        <select
+          [ngModel]="selectedBrdId"
+          (ngModelChange)="onBrdChange($event)"
+          class="form-control"
+          [disabled]="loadingBrds || availableBrds.length === 0 || isGenerating">
+          <option [ngValue]="null">Select BRD</option>
+          <option *ngFor="let brd of availableBrds" [value]="brd.id">
+            {{ brd.fileName }}
+          </option>
+        </select>
+      </div>
+      <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingBrds" style="color: #ef4444; margin-top: 4px; display: block;">
+        No BRD documents are available for this project.
+      </small>
+      <small class="helper-text" *ngIf="loadingBrds" style="color: #64748b; margin-top: 4px; display: block;">
+        Loading BRD documents...
+      </small>
+    </div>
+  </div>
+
+  <div class="form-group" style="margin-top: 16px;">
+    <label class="field-label" for="mock-screen-prompt">4. Prompt <span class="required">*</span></label>
+    <textarea
+      id="mock-screen-prompt"
+      class="form-control"
+      [(ngModel)]="prompt"
+      [disabled]="isGenerating"
+      rows="4"
+      placeholder="Describe the mock screens to generate"></textarea>
+  </div>
+
+  <div class="action-row">
+    <button
+      type="button"
+      class="btn btn-primary"
+      (click)="openEstimateDialog()"
+      [disabled]="loadingProjects || loadingBrds || isGenerating">
+      Generate Mock Screens
+    </button>
+  </div>
+
+  <div *ngIf="isGenerating" class="generation-placeholder" role="status" aria-live="polite">
+    <strong>Generating Mock Screens...</strong>
+  </div>
+  <div *ngIf="generationError" class="generation-placeholder generation-error" role="alert">
+    {{ generationError }}
+  </div>
+</div>
+
+<app-pdf-viewer footerDescription="Backend-generated Mock Screens PDF"></app-pdf-viewer>
+
+<div
+  class="estimate-backdrop"
+  *ngIf="isEstimateDialogOpen"
+  (click)="cancelEstimate()">
+  <section
+    class="estimate-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="mock-screen-estimate-title"
+    (click)="$event.stopPropagation()">
+    <header class="estimate-header">
+      <h2 id="mock-screen-estimate-title">Generate Mock Screens</h2>
+      <button type="button" class="estimate-close" aria-label="Close" (click)="cancelEstimate()">&times;</button>
+    </header>
+    <div class="estimate-body">
+      <p class="estimate-time">Estimated time: <strong>approximately 3-5 minutes</strong></p>
+      <p class="estimate-note">This estimate is for the complete Mock Screens PDF.</p>
+    </div>
+    <footer class="estimate-footer">
+      <button type="button" class="btn btn-outline" (click)="cancelEstimate()">Cancel</button>
+      <button type="button" class="btn btn-primary" (click)="continueToGeneration()">Continue</button>
+    </footer>
+  </section>
+</div>
