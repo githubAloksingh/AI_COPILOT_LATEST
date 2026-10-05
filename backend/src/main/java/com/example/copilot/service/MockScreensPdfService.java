@@ -30,19 +30,23 @@ public class MockScreensPdfService {
     private static final PDRectangle PAGE_SIZE = PDRectangle.A4;
     private static final float PAGE_WIDTH = PAGE_SIZE.getWidth();
     private static final float PAGE_HEIGHT = PAGE_SIZE.getHeight();
-    private static final float FRAME_X = 36;
-    private static final float FRAME_TOP = 139;
-    private static final float FRAME_WIDTH = PAGE_WIDTH - 2 * FRAME_X;
-    private static final float FRAME_HEIGHT = PAGE_HEIGHT - FRAME_TOP - 35;
-    private static final float COMPONENT_ROW_HEIGHT = 55;
-    private static final int COMPONENTS_PER_PAGE = 10;
+    private static final float SIDEBAR_WIDTH = 143;
+    private static final float MAIN_X = 164;
+    private static final float MAIN_WIDTH = PAGE_WIDTH - MAIN_X - 27;
+    private static final float PANEL_TOP = 111;
+    private static final float PANEL_HEIGHT = PAGE_HEIGHT - PANEL_TOP - 68;
+    private static final int COMPONENTS_PER_PAGE = 12;
 
-    private static final Color TEXT = new Color(30, 41, 59);
-    private static final Color MUTED = new Color(100, 116, 139);
-    private static final Color BORDER = new Color(203, 213, 225);
-    private static final Color SURFACE = new Color(248, 250, 252);
+    private static final Color BACKGROUND = new Color(8, 23, 37);
+    private static final Color SIDEBAR = new Color(11, 27, 42);
+    private static final Color PANEL = new Color(16, 36, 56);
+    private static final Color SURFACE = new Color(23, 47, 67);
+    private static final Color FIELD = new Color(10, 27, 42);
+    private static final Color TEXT = new Color(242, 246, 250);
+    private static final Color MUTED = new Color(154, 175, 192);
+    private static final Color BORDER = new Color(41, 68, 90);
     private static final Color ACCENT = new Color(243, 111, 33);
-    private static final Color ACCENT_LIGHT = new Color(255, 243, 235);
+    private static final Color ALERT = new Color(67, 47, 33);
 
     private final ObjectMapper objectMapper;
 
@@ -116,106 +120,146 @@ public class MockScreensPdfService {
             PDPage page = new PDPage(PAGE_SIZE);
             document.addPage(page);
             try (PDPageContentStream stream = new PDPageContentStream(document, page)) {
-                renderPageHeader(stream, screen, ordinal, total, pageIndex > 0);
-                renderViewport(stream);
+                renderApplicationChrome(stream, screen, ordinal, total, pageIndex > 0);
+                drawRoundedBox(stream, MAIN_X, PANEL_TOP, MAIN_WIDTH, PANEL_HEIGHT, 8, PANEL, BORDER);
+                drawText(stream, screen.getPurpose(), MAIN_X + 16, PANEL_TOP + 13,
+                        MAIN_WIDTH - 32, regularFont(), 8, MUTED, false);
 
-                float rowTop = FRAME_TOP + 66;
                 int start = pageIndex * COMPONENTS_PER_PAGE;
                 int end = Math.min(start + COMPONENTS_PER_PAGE, components.size());
+                int count = end - start;
+                float availableHeight = PANEL_HEIGHT - 57;
+                float gap = count > 1 ? 6 : 0;
+                float rowHeight = Math.min(62, (availableHeight - gap * (count - 1)) / count);
+                float rowTop = PANEL_TOP + 39;
                 for (int index = start; index < end; index++) {
-                    renderComponent(stream, components.get(index), rowTop);
-                    rowTop += COMPONENT_ROW_HEIGHT;
+                    renderComponent(stream, components.get(index), MAIN_X + 12, rowTop,
+                            MAIN_WIDTH - 24, rowHeight);
+                    rowTop += rowHeight + gap;
                 }
             }
         }
     }
 
-    private void renderPageHeader(
+    private void renderApplicationChrome(
             PDPageContentStream stream,
             AiMockScreenSpecification screen,
             int ordinal,
             int total,
             boolean continued) throws IOException {
-        PDFont bold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
-        PDFont regular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-        drawText(stream, "Mock Screens | Screen " + ordinal + " of " + total
-                        + (continued ? " (continued)" : ""),
-            36, 33, PAGE_WIDTH - 72, bold, 16, TEXT, true);
-        drawText(stream, screen.getScreenName(), 36, 58, PAGE_WIDTH - 72,
-                bold, 12, MUTED, true);
-        drawText(stream, screen.getPurpose(), 36, 77, PAGE_WIDTH - 72,
-                regular, 10, MUTED, true);
-        drawRule(stream, FRAME_X, 118, FRAME_WIDTH);
+        PDFont bold = boldFont();
+        PDFont regular = regularFont();
+        drawBox(stream, 0, 0, PAGE_WIDTH, PAGE_HEIGHT, BACKGROUND, BACKGROUND);
+        drawBox(stream, 0, 0, SIDEBAR_WIDTH, PAGE_HEIGHT, SIDEBAR, SIDEBAR);
+
+        drawText(stream, "PCP", 19, 23, SIDEBAR_WIDTH - 34, bold, 22, ACCENT, false);
+        drawText(stream, "PREFERRED CUSTODY PLATFORM", 20, 51, SIDEBAR_WIDTH - 32,
+                bold, 5.8f, TEXT, false);
+        drawRule(stream, 16, 76, SIDEBAR_WIDTH - 32, BORDER, 0.7f);
+
+        String[] navigation = {"Dashboard", "Overdraft", "Un-Invested Cash", "Approvals",
+                "Notifications", "Reports", "Audit Trail", "DMS"};
+        String active = activeNavigation(screen.getScreenName());
+        float navTop = 101;
+        for (String item : navigation) {
+            boolean selected = item.equals(active);
+            if (selected) {
+                drawRoundedBox(stream, 10, navTop, SIDEBAR_WIDTH - 20, 27, 5, ACCENT, ACCENT);
+            }
+            drawText(stream, item, 20, navTop + 8, SIDEBAR_WIDTH - 38, bold,
+                    item.length() > 13 ? 7 : 8, selected ? Color.WHITE : MUTED, false);
+            navTop += 36;
+        }
+
+        drawText(stream, fitOneLine(screen.getScreenName(), bold, 15, MAIN_WIDTH), MAIN_X, 24,
+                MAIN_WIDTH, bold, 15, TEXT, false);
+        drawText(stream, "Mock Screen " + String.format("%02d", ordinal) + " / " + total
+                        + (continued ? "  |  continued" : ""),
+                MAIN_X, 53, MAIN_WIDTH, regular, 8, MUTED, false);
+        drawBox(stream, MAIN_X, 78, MAIN_WIDTH, 2.5f, ACCENT, ACCENT);
+        drawText(stream, "Illustrative mock screen | Fictional data | Based on PCP BRD requirements",
+                MAIN_X, PAGE_HEIGHT - 34, MAIN_WIDTH, regular, 6.1f, MUTED, false);
     }
 
-    private void renderViewport(PDPageContentStream stream) throws IOException {
-        drawBox(stream, FRAME_X, FRAME_TOP, FRAME_WIDTH, FRAME_HEIGHT, Color.WHITE, BORDER);
-        drawBox(stream, FRAME_X + 1, FRAME_TOP + 1, FRAME_WIDTH - 2, 28, SURFACE, SURFACE);
-        drawCircle(stream, FRAME_X + 17, FRAME_TOP + 15, 3, new Color(248, 113, 113));
-        drawCircle(stream, FRAME_X + 29, FRAME_TOP + 15, 3, new Color(251, 191, 36));
-        drawCircle(stream, FRAME_X + 41, FRAME_TOP + 15, 3, new Color(74, 222, 128));
-        drawText(stream, "APPLICATION PREVIEW", FRAME_X + 54, FRAME_TOP + 9,
-                FRAME_WIDTH - 70, new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD),
-                7, MUTED, false);
+    private String activeNavigation(String screenName) {
+        String name = textOr(screenName, "").toLowerCase();
+        if (name.contains("approval")) return "Approvals";
+        if (name.contains("notification")) return "Notifications";
+        if (name.contains("report")) return "Reports";
+        if (name.contains("audit")) return "Audit Trail";
+        if (name.contains("dms") || name.contains("document")) return "DMS";
+        if (name.contains("un-invested") || name.contains("cash")) return "Un-Invested Cash";
+        if (name.contains("overdraft")) return "Overdraft";
+        return "Dashboard";
     }
 
-    private void renderComponent(PDPageContentStream stream, AiMockScreenComponent component, float top)
+    private void renderComponent(
+            PDPageContentStream stream,
+            AiMockScreenComponent component,
+            float x,
+            float top,
+            float width,
+            float height)
             throws IOException {
-        float x = FRAME_X + 14;
-        float width = FRAME_WIDTH - 28;
         String type = component.getComponentType() != null ? component.getComponentType() : "component";
         String label = textOr(component.getLabel(), type);
         String description = textOr(component.getDescription(), "");
-        drawBox(stream, x, top, width, COMPONENT_ROW_HEIGHT - 6, SURFACE, BORDER);
+        PDFont regular = regularFont();
+        PDFont bold = boldFont();
+        Color fill = "alert".equals(type) ? ALERT : SURFACE;
+        drawRoundedBox(stream, x, top, width, height, 5, fill, BORDER);
 
-        PDFont regular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-        PDFont bold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+        if (label.toLowerCase().contains("filter") || label.toLowerCase().contains("context")) {
+            drawBox(stream, x + 1, top + 1, width - 2, 2, ACCENT, ACCENT);
+        }
         switch (type) {
             case "button" -> {
-                float buttonWidth = Math.min(width - 22, Math.max(110, measureText(label, bold, 10) + 28));
-                drawBox(stream, x + 12, top + 12, buttonWidth, 25, ACCENT, ACCENT);
-                drawText(stream, label, x + 20, top + 19, buttonWidth - 16, bold, 10, Color.WHITE, true);
-                drawOptionalDescription(stream, description, x + buttonWidth + 23, top + 17, width - buttonWidth - 35);
+                float buttonWidth = Math.min(width - 18, Math.max(74, measureText(label, bold, 8) + 22));
+                float buttonHeight = Math.min(24, height - 12);
+                drawRoundedBox(stream, x + 9, top + (height - buttonHeight) / 2,
+                        buttonWidth, buttonHeight, 4, ACCENT, ACCENT);
+                drawText(stream, label, x + 14, top + (height - 8) / 2,
+                        buttonWidth - 10, bold, 8, Color.WHITE, true);
+                drawOptionalDescription(stream, description, x + buttonWidth + 18,
+                        top + (height - 7) / 2, width - buttonWidth - 28);
             }
             case "input", "select" -> {
-                drawText(stream, label + (component.isRequired() ? " *" : ""),
-                        x + 12, top + 4, width - 24, bold, 8, TEXT, true);
-                drawBox(stream, x + 12, top + 20, width - 24, 22, Color.WHITE, BORDER);
-                if ("select".equals(type)) {
-                    drawText(stream, "v", x + width - 24, top + 27, 10, bold, 8, MUTED, false);
+                drawText(stream, label + (component.isRequired() ? " *" : ""), x + 10, top + 4,
+                        width - 20, bold, 7, TEXT, false);
+                float fieldTop = top + 17;
+                float fieldHeight = Math.max(13, height - 21);
+                drawRoundedBox(stream, x + 9, fieldTop, width - 18, fieldHeight, 3, FIELD, BORDER);
+                String value = !description.isBlank() ? description
+                        : "select".equals(type) ? "Select..." : "Enter value";
+                if (component.getOptions() != null && !component.getOptions().isEmpty()) {
+                    value = String.join(" / ", component.getOptions());
                 }
-                drawOptionalDescription(stream, description, x + 16, top + 25, width - 48);
+                drawText(stream, value, x + 15, fieldTop + 3, width - 38,
+                        regular, 6.5f, MUTED, false);
             }
             case "checkbox", "radio" -> {
                 if ("radio".equals(type)) {
-                    drawCircle(stream, x + 25, top + 23, 6, Color.WHITE);
-                    drawCircle(stream, x + 25, top + 23, 2.5f, ACCENT);
+                    drawCircle(stream, x + 20, top + height / 2, 5, FIELD);
+                    drawCircle(stream, x + 20, top + height / 2, 2, ACCENT);
                 } else {
-                    drawBox(stream, x + 19, top + 17, 12, 12, Color.WHITE, BORDER);
+                    drawRoundedBox(stream, x + 14, top + height / 2 - 5, 10, 10, 2, FIELD, BORDER);
                 }
-                drawText(stream, label, x + 42, top + 17, width - 55, bold, 9, TEXT, true);
-                drawOptionalDescription(stream, description, x + 42, top + 30, width - 55);
+                drawText(stream, label, x + 32, top + Math.max(6, (height - 8) / 2),
+                        width - 44, bold, 8, TEXT, false);
+                drawOptionalDescription(stream, description, x + 32, top + height - 14, width - 44);
             }
-            case "table" -> renderTable(stream, component, x, top, width, bold, regular);
-            case "card", "modal", "alert", "imagePlaceholder" -> {
-                Color fill = "alert".equals(type) ? ACCENT_LIGHT : Color.WHITE;
-                drawBox(stream, x + 10, top + 8, width - 20, 34, fill, BORDER);
-                drawText(stream, label, x + 19, top + 13, width - 40, bold, 9, TEXT, true);
-                drawOptionalDescription(stream, description, x + 19, top + 26, width - 40);
-            }
+            case "table" -> renderTable(stream, component, x, top, width, height, bold, regular);
             case "header" -> {
-                drawBox(stream, x + 1, top + 1, width - 2, COMPONENT_ROW_HEIGHT - 8, ACCENT_LIGHT, ACCENT_LIGHT);
-                drawText(stream, label, x + 15, top + 16, width - 30, bold, 12, TEXT, true);
-                drawOptionalDescription(stream, description, x + 15, top + 31, width - 30);
+                drawText(stream, label, x + 11, top + 8, width - 22, bold, 10, ACCENT, false);
+                drawOptionalDescription(stream, description, x + 11, top + height - 15, width - 22);
             }
-            case "navigation" -> {
-                drawText(stream, label, x + 12, top + 9, width - 24, bold, 9, TEXT, true);
-                drawOptionalDescription(stream, description, x + 12, top + 25, width - 24);
-                drawRule(stream, x + 12, top + 42, width - 24);
-            }
+            case "navigation" -> drawText(stream, label, x + 11, top + 8,
+                    width - 22, bold, 8, TEXT, false);
             default -> {
-                drawText(stream, label, x + 12, top + 10, width - 24, bold, 9, TEXT, true);
-                drawOptionalDescription(stream, description, x + 12, top + 25, width - 24);
+                boolean alert = "alert".equals(type);
+                drawText(stream, label, x + 11, top + 7, width - 22, bold, 8,
+                        alert ? ACCENT : TEXT, false);
+                drawOptionalDescription(stream, description, x + 11, top + 20, width - 22);
             }
         }
     }
@@ -226,23 +270,40 @@ public class MockScreensPdfService {
             float x,
             float top,
             float width,
+            float height,
             PDFont bold,
             PDFont regular) throws IOException {
-        drawText(stream, textOr(component.getLabel(), "Table"), x + 12, top + 5,
-                width - 24, bold, 8, TEXT, true);
-        float tableTop = top + 20;
-        float cellWidth = (width - 24) / 3;
-        for (int row = 0; row < 2; row++) {
-            for (int column = 0; column < 3; column++) {
-                float cellX = x + 12 + column * cellWidth;
-                float cellTop = tableTop + row * 13;
-                drawBox(stream, cellX, cellTop, cellWidth, 13, row == 0 ? ACCENT_LIGHT : Color.WHITE, BORDER);
-                if (row == 0 && column == 0) {
-                    drawText(stream, "Column", cellX + 3, cellTop + 3, cellWidth - 6,
-                            regular, 6, MUTED, true);
-                }
-            }
+        drawText(stream, textOr(component.getLabel(), "Records"), x + 10, top + 4,
+                width - 20, bold, 7.5f, TEXT, false);
+        List<String> options = component.getOptions() == null ? List.of() : component.getOptions();
+        String[] headings = options.isEmpty() ? new String[]{"Account", "Amount", "Status"}
+                : splitTableRow(options.get(0));
+        String[] values = options.size() < 2 ? new String[]{"Illustrative", "-", "Pending"}
+                : splitTableRow(options.get(1));
+        int columns = Math.max(1, Math.min(5, headings.length));
+        float cellWidth = (width - 20) / columns;
+        float tableTop = top + Math.max(17, (height - 22) / 2);
+        for (int column = 0; column < columns; column++) {
+            float cellX = x + 10 + column * cellWidth;
+            drawRoundedBox(stream, cellX, tableTop, cellWidth - 2, 10, 2, FIELD, BORDER);
+            drawText(stream, headings[column], cellX + 3, tableTop + 2,
+                    cellWidth - 8, bold, 5.5f, ACCENT, false);
+            String value = column < values.length ? values[column] : "-";
+            drawText(stream, value, cellX + 3, tableTop + 11,
+                    cellWidth - 8, regular, 5.7f, TEXT, false);
         }
+    }
+
+    private String[] splitTableRow(String value) {
+        return value.split("\\s*[|]\\s*");
+    }
+
+    private PDFont regularFont() {
+        return new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+    }
+
+    private PDFont boldFont() {
+        return new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
     }
 
     private void drawOptionalDescription(
@@ -253,7 +314,7 @@ public class MockScreensPdfService {
             float maxWidth) throws IOException {
         if (!description.isBlank() && maxWidth > 30) {
             drawText(stream, description, x, top, maxWidth,
-                    new PDType1Font(Standard14Fonts.FontName.HELVETICA), 7, MUTED, true);
+                    regularFont(), 7, MUTED, false);
         }
     }
 
@@ -343,6 +404,16 @@ public class MockScreensPdfService {
         return font.getStringWidth(sanitize(value)) / 1000 * fontSize;
     }
 
+    private String fitOneLine(String value, PDFont font, float fontSize, float maxWidth) throws IOException {
+        String safe = sanitize(textOr(value, "PCP Workspace"));
+        if (measureText(safe, font, fontSize) <= maxWidth) return safe;
+        String shortened = safe;
+        while (!shortened.isEmpty() && measureText(shortened + "...", font, fontSize) > maxWidth) {
+            shortened = shortened.substring(0, shortened.length() - 1);
+        }
+        return shortened + "...";
+    }
+
     private String sanitize(String value) {
         return value.replaceAll("[^\\x20-\\x7E]", "?");
     }
@@ -363,6 +434,39 @@ public class MockScreensPdfService {
         stream.stroke();
     }
 
+        private void drawRoundedBox(PDPageContentStream stream, float x, float top, float width, float height,
+                    float radius, Color fill, Color stroke) throws IOException {
+        float bottom = PAGE_HEIGHT - top - height;
+        float rounded = Math.min(radius, Math.min(width, height) / 2);
+        stream.setNonStrokingColor(fill);
+        addRoundedPath(stream, x, bottom, width, height, rounded);
+        stream.fill();
+        stream.setStrokingColor(stroke);
+        stream.setLineWidth(0.7f);
+        addRoundedPath(stream, x, bottom, width, height, rounded);
+        stream.stroke();
+        }
+
+        private void addRoundedPath(PDPageContentStream stream, float x, float bottom,
+                    float width, float height, float radius) throws IOException {
+        float right = x + width;
+        float top = bottom + height;
+        float control = radius * 0.55228475f;
+        stream.moveTo(x + radius, bottom);
+        stream.lineTo(right - radius, bottom);
+        stream.curveTo(right - radius + control, bottom, right, bottom + radius - control,
+            right, bottom + radius);
+        stream.lineTo(right, top - radius);
+        stream.curveTo(right, top - radius + control, right - radius + control, top,
+            right - radius, top);
+        stream.lineTo(x + radius, top);
+        stream.curveTo(x + radius - control, top, x, top - radius + control, x, top - radius);
+        stream.lineTo(x, bottom + radius);
+        stream.curveTo(x, bottom + radius - control, x + radius - control, bottom,
+            x + radius, bottom);
+        stream.closePath();
+        }
+
     private void drawCircle(PDPageContentStream stream, float centerX, float top, float radius, Color color)
             throws IOException {
         float centerY = PAGE_HEIGHT - top;
@@ -381,9 +485,10 @@ public class MockScreensPdfService {
         stream.fill();
     }
 
-    private void drawRule(PDPageContentStream stream, float x, float top, float width) throws IOException {
-        stream.setStrokingColor(BORDER);
-        stream.setLineWidth(0.7f);
+    private void drawRule(PDPageContentStream stream, float x, float top, float width,
+                          Color color, float lineWidth) throws IOException {
+        stream.setStrokingColor(color);
+        stream.setLineWidth(lineWidth);
         float y = PAGE_HEIGHT - top;
         stream.moveTo(x, y);
         stream.lineTo(x + width, y);

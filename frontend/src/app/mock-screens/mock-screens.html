@@ -1,3 +1,4 @@
+<main class="mock-screens-page">
 <div class="page-header">
   <h1>Mock Screens</h1>
 </div>
@@ -17,22 +18,22 @@
         </option>
       </select>
     </div>
-    <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects" style="color: #64748b; margin-top: 4px; display: block;">
+    <small class="helper-text" *ngIf="projects.length === 0 && !loadingProjects">
       No projects found. Please create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
     </small>
   </div>
 
-  <div *ngIf="selectedProjectId" style="margin-top: 16px;">
+  <div *ngIf="selectedProjectId">
     <div class="form-group">
       <label class="field-label">2. Select Artifact Type <span class="required">*</span></label>
       <div class="kb-select-wrap">
-        <select class="form-control" disabled style="background-color: #f8fafc; color: #1e293b; font-weight: 500; cursor: not-allowed; border: 1px solid #cbd5e1;">
+        <select class="form-control" disabled>
           <option value="BRD" selected>BRD</option>
         </select>
       </div>
     </div>
 
-    <div class="form-group" style="margin-top: 16px;">
+    <div class="form-group">
       <label class="field-label">3. Select BRD <span class="required">*</span></label>
       <div class="kb-select-wrap">
         <select
@@ -46,16 +47,16 @@
           </option>
         </select>
       </div>
-      <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingBrds" style="color: #ef4444; margin-top: 4px; display: block;">
+      <small class="helper-text error-text" *ngIf="availableBrds.length === 0 && !loadingBrds">
         No BRD documents are available for this project.
       </small>
-      <small class="helper-text" *ngIf="loadingBrds" style="color: #64748b; margin-top: 4px; display: block;">
+      <small class="helper-text" *ngIf="loadingBrds">
         Loading BRD documents...
       </small>
     </div>
   </div>
 
-  <div class="form-group" style="margin-top: 16px;">
+  <div class="form-group">
     <label class="field-label" for="mock-screen-prompt">4. Prompt <span class="required">*</span></label>
     <textarea
       id="mock-screen-prompt"
@@ -78,9 +79,13 @@
 
   <div *ngIf="isGenerating" class="generation-placeholder" role="status" aria-live="polite">
     <strong>Generating Mock Screens...</strong>
+    <span>Elapsed time: {{ formatElapsedTime(elapsedSeconds) }}</span>
   </div>
   <div *ngIf="generationError" class="generation-placeholder generation-error" role="alert">
     {{ generationError }}
+  </div>
+  <div *ngIf="completionMessage" class="generation-placeholder generation-success" role="status">
+    {{ completionMessage }}
   </div>
 </div>
 
@@ -101,7 +106,7 @@
       <button type="button" class="estimate-close" aria-label="Close" (click)="cancelEstimate()">&times;</button>
     </header>
     <div class="estimate-body">
-      <p class="estimate-time">Estimated time: <strong>approximately 3-5 minutes</strong></p>
+      <p class="estimate-time">Estimated time: <strong>{{ estimatedTimeText }}</strong></p>
       <p class="estimate-note">This estimate is for the complete Mock Screens PDF.</p>
     </div>
     <footer class="estimate-footer">
@@ -110,3 +115,5 @@
     </footer>
   </section>
 </div>
+
+</main>
