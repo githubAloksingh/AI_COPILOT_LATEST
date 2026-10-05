@@ -106,7 +106,7 @@ public class AiServiceClientTest {
                 .andExpect(header("X-Service-Token", "test-service-token"))
                 .andRespond(withSuccess("{\"screens\":[]}", MediaType.APPLICATION_JSON));
 
-        aiServiceClient.planMockScreens(42L, "Create enrollment screens");
+        aiServiceClient.planMockScreens(42L);
 
         mockServer.verify();
     }

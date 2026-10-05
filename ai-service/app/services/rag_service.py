@@ -116,8 +116,7 @@ class RagService:
             group_text = self._build_context([chunk for _, chunk in group])
             prompt = build_mock_screens_context_prompt(
                 group_text,
-                f"{first_chunk + 1}-{last_chunk + 1} of {len(chunks)}",
-                req.prompt
+                f"{first_chunk + 1}-{last_chunk + 1} of {len(chunks)}"
             )
             summary = self.gemini.generate_structured(prompt, MockScreensContextSummary)
             summaries.append({
@@ -126,10 +125,7 @@ class RagService:
                 **summary.model_dump()
             })
 
-        plan_prompt = build_mock_screens_plan_prompt(
-            req.prompt,
-            json.dumps(summaries, ensure_ascii=False)
-        )
+        plan_prompt = build_mock_screens_plan_prompt(json.dumps(summaries, ensure_ascii=False))
         plan = self.gemini.generate_structured(plan_prompt, MockScreensPlan)
         exec_time_ms = int((time.time() - start_time) * 1000)
         return MockScreensPlanResponse(
@@ -142,7 +138,6 @@ class RagService:
     def generate_mock_screen(self, req: MockScreenGenerationRequest) -> MockScreenGenerationResponse:
         start_time = time.time()
         query = "\n".join([
-            req.prompt,
             req.screen_name,
             req.purpose,
             *req.relevant_requirements
@@ -154,7 +149,6 @@ class RagService:
         )
         context = self._build_context(chunks)
         prompt = build_mock_screen_generation_prompt(
-            user_prompt=req.prompt,
             sequence=req.sequence,
             screen_name=req.screen_name,
             purpose=req.purpose,

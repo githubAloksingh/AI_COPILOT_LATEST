@@ -26,7 +26,6 @@ export class MockScreens implements OnInit, OnDestroy {
   selectedBrdId: number | null = null;
   loadingBrds = false;
   isEstimateDialogOpen = false;
-  prompt = '';
   jobId: string | null = null;
   isGenerating = false;
   generationError = '';
@@ -38,8 +37,14 @@ export class MockScreens implements OnInit, OnDestroy {
   private generationStartedAt: number | null = null;
   private readonly activeSubscriptions = new Subscription();
   private destroyed = false;
-  private idempotencyKey: string | null = null;
-  private idempotencyFingerprint: string | null = null;
+
+  get canGenerate(): boolean {
+    return !this.loadingProjects
+      && !this.loadingBrds
+      && !this.isGenerating
+      && this.isValidId(this.selectedProjectId)
+      && this.availableBrds.some((document: any) => Number(document.id) === this.selectedBrdId);
+  }
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
@@ -117,10 +122,6 @@ export class MockScreens implements OnInit, OnDestroy {
       this.generationError = 'Select a valid BRD before generating Mock Screens.';
       return;
     }
-    if (!this.prompt.trim()) {
-      this.generationError = 'Enter a prompt before generating Mock Screens.';
-      return;
-    }
     if (!this.isGenerating) {
       this.completionMessage = '';
       this.estimatedTimeText = this.calculateEstimatedTime();
@@ -142,11 +143,6 @@ export class MockScreens implements OnInit, OnDestroy {
       this.generationError = 'Select a valid BRD before generating Mock Screens.';
       return;
     }
-    const prompt = this.prompt.trim();
-    if (!prompt) {
-      this.generationError = 'Enter a prompt before generating Mock Screens.';
-      return;
-    }
     if (this.isGenerating) return;
 
     this.generationError = '';
@@ -156,17 +152,9 @@ export class MockScreens implements OnInit, OnDestroy {
     this.generationStartedAt = Date.now();
     this.elapsedSeconds = 0;
     this.startElapsedTimer();
-    const fingerprint = JSON.stringify([this.selectedProjectId, this.selectedBrdId, prompt]);
-    if (fingerprint !== this.idempotencyFingerprint || !this.idempotencyKey) {
-      this.idempotencyFingerprint = fingerprint;
-      this.idempotencyKey = crypto.randomUUID();
-    }
-    const idempotencyKey = this.idempotencyKey;
     const request = {
       projectId: this.selectedProjectId,
-      brdId: this.selectedBrdId,
-      prompt,
-      idempotencyKey
+      brdId: this.selectedBrdId
     };
 
     this.activeSubscriptions.add(this.api.createMockScreensJob(request).subscribe({
@@ -202,7 +190,6 @@ export class MockScreens implements OnInit, OnDestroy {
           this.stopElapsedTimer();
           this.loadCompletedPdf(response.data);
         } else if (response.data.status === 'FAILED') {
-          this.clearIdempotencyKey();
           this.failGeneration('Mock Screens generation failed. Please try again.');
         }
         this.cdr.markForCheck();
@@ -230,17 +217,11 @@ export class MockScreens implements OnInit, OnDestroy {
         this.isGenerating = false;
         this.completionMessage = `Mock Screens generated successfully in ${this.formatCompletedTime(this.elapsedSeconds)}.`;
         this.generationStartedAt = null;
-        this.clearIdempotencyKey();
         this.pdfViewer?.openBlob(preview, fileName, preview, fileName);
         this.cdr.markForCheck();
       },
       error: () => this.failGeneration('Unable to retrieve the completed Mock Screens PDF. Please try again.')
     }));
-  }
-
-  private clearIdempotencyKey(): void {
-    this.idempotencyKey = null;
-    this.idempotencyFingerprint = null;
   }
 
   private failGeneration(message: string): void {
@@ -262,34 +243,10 @@ export class MockScreens implements OnInit, OnDestroy {
     const fileSizeBytes = Number(selectedBrd?.fileSize);
     if (!Number.isFinite(fileSizeBytes) || fileSizeBytes <= 0) return 'Calculating...';
 
-    const screenCount = this.estimateScreenCount(this.prompt);
-    const promptUnits = this.prompt.trim().length / 1000;
     const documentGroups = Math.max(1, Math.ceil(fileSizeBytes / (512 * 1024)));
-    const estimatedSeconds = 30
-      + documentGroups * 20
-      + promptUnits * 4
-      + screenCount * 32
-      + promptUnits * screenCount * 2;
+    const estimatedSeconds = 30 + documentGroups * 52;
     const minutes = Math.max(1, Math.ceil(estimatedSeconds / 60));
     return `approximately ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
-  }
-
-  private estimateScreenCount(prompt: string): number {
-    const explicitCount = prompt.match(/\b(\d{1,2})\s+(?:mock\s+)?screens?\b/i);
-    if (explicitCount) return Math.max(1, Number(explicitCount[1]));
-
-    const screenAreas = [
-      /\bdashboard\b|\bhome\b/i,
-      /\boverdraft\b/i,
-      /\bun[-\s]?invested cash\b/i,
-      /\bapprovals?\b/i,
-      /\bnotifications?\b/i,
-      /\breports?\b/i,
-      /\baudit trail\b/i,
-      /\bdms\b|\bdocuments?\b/i
-    ];
-    const namedAreas = screenAreas.filter((area) => area.test(prompt)).length;
-    return namedAreas > 0 ? Math.max(3, namedAreas) : 6;
   }
 
   private startElapsedTimer(): void {

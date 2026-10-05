@@ -9,8 +9,6 @@ export type MockScreensJobStatus =
 export interface MockScreensJobRequest {
   projectId: number;
   brdId: number;
-  prompt: string;
-  idempotencyKey: string;
 }
 
 export interface MockScreensPdfResponse {

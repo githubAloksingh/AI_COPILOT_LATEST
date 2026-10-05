@@ -64,8 +64,7 @@ class MockScreensJobServiceTest {
         when(documentRepository.findById(9L)).thenReturn(Optional.of(completedBrd(5L)));
         when(jobRepository.saveAndFlush(any(MockScreensJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        MockScreensJobResponse response = service.createJob(
-            new MockScreensStartRequest(5L, 9L, "  Design the main flow  ", "key-001"));
+        MockScreensJobResponse response = service.createJob(new MockScreensStartRequest(5L, 9L));
 
         assertEquals(MockScreensJobStatus.QUEUED, response.getStatus());
         assertEquals(5L, response.getProjectId());
@@ -73,49 +72,9 @@ class MockScreensJobServiceTest {
         assertTrue(response.getJobId().matches("[0-9a-f-]{36}"));
         ArgumentCaptor<MockScreensJob> jobCaptor = ArgumentCaptor.forClass(MockScreensJob.class);
         verify(jobRepository).saveAndFlush(jobCaptor.capture());
-        assertEquals("Design the main flow", jobCaptor.getValue().getPrompt());
+        assertEquals("", jobCaptor.getValue().getPrompt());
         assertEquals(response.getJobId(), jobCaptor.getValue().getJobId());
-        assertEquals("key-001", jobCaptor.getValue().getIdempotencyKey());
-        }
-
-        @Test
-        void createJobReturnsExistingJobForSameIdempotentRequest() {
-        MockScreensJob existing = queuedJob("key-001");
-        when(jobRepository.findByIdempotencyKey("key-001")).thenReturn(Optional.of(existing));
-
-        MockScreensJobResponse response = service.createJob(
-            new MockScreensStartRequest(5L, 9L, "Design the main flow", "key-001"));
-
-        assertEquals(existing.getJobId(), response.getJobId());
-        verify(jobRepository, org.mockito.Mockito.never()).saveAndFlush(any());
-        }
-
-        @Test
-        void createJobRejectsReusingKeyForDifferentRequest() {
-        when(jobRepository.findByIdempotencyKey("key-001"))
-            .thenReturn(Optional.of(queuedJob("key-001")));
-
-        MockScreensJobException exception = assertThrows(
-            MockScreensJobException.class,
-            () -> service.createJob(new MockScreensStartRequest(5L, 9L, "Different prompt", "key-001")));
-
-        assertEquals("IDEMPOTENCY_KEY_REUSED", exception.getCode());
-        }
-
-        @Test
-        void concurrentIdempotencyInsertReturnsTheWinningJob() {
-        MockScreensJob winner = queuedJob("key-001");
-        when(projectRepository.existsById(5L)).thenReturn(true);
-        when(documentRepository.findById(9L)).thenReturn(Optional.of(completedBrd(5L)));
-        when(jobRepository.saveAndFlush(any(MockScreensJob.class)))
-            .thenThrow(new DataIntegrityViolationException("unique idempotency key"));
-        when(jobRepository.findByIdempotencyKey("key-001"))
-            .thenReturn(Optional.empty(), Optional.of(winner));
-
-        MockScreensJobResponse response = service.createJob(
-            new MockScreensStartRequest(5L, 9L, "Design the main flow", "key-001"));
-
-        assertEquals(winner.getJobId(), response.getJobId());
+        assertTrue(jobCaptor.getValue().getIdempotencyKey().matches("[0-9a-f-]{36}"));
     }
 
     @Test
@@ -125,7 +84,7 @@ class MockScreensJobServiceTest {
 
         MockScreensJobException exception = assertThrows(
                 MockScreensJobException.class,
-                () -> service.createJob(new MockScreensStartRequest(5L, 9L, "Create screens", "key-002")));
+                () -> service.createJob(new MockScreensStartRequest(5L, 9L)));
 
         assertEquals("BRD_PROJECT_MISMATCH", exception.getCode());
     }
@@ -139,18 +98,18 @@ class MockScreensJobServiceTest {
 
         MockScreensJobException exception = assertThrows(
                 MockScreensJobException.class,
-                () -> service.createJob(new MockScreensStartRequest(5L, 9L, "Create screens", "key-003")));
+                () -> service.createJob(new MockScreensStartRequest(5L, 9L)));
 
         assertEquals("BRD_NOT_COMPLETED", exception.getCode());
     }
 
     @Test
-    void createJobRejectsBlankPromptBeforeDatabaseAccess() {
+    void createJobRejectsInvalidProjectIdBeforeDatabaseAccess() {
         MockScreensJobException exception = assertThrows(
                 MockScreensJobException.class,
-                () -> service.createJob(new MockScreensStartRequest(5L, 9L, "  ", "key-004")));
+                () -> service.createJob(new MockScreensStartRequest(0L, 9L)));
 
-        assertEquals("PROMPT_REQUIRED", exception.getCode());
+        assertEquals("INVALID_PROJECT_ID", exception.getCode());
     }
 
     @Test

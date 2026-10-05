@@ -29,7 +29,7 @@ class MockScreensJobControllerTest {
 
     @Test
     void createJobReturnsAcceptedAndStatusLocation() {
-        MockScreensStartRequest request = new MockScreensStartRequest(5L, 9L, "Create screens", "controller-key");
+        MockScreensStartRequest request = new MockScreensStartRequest(5L, 9L);
         MockScreensJobResponse job = jobResponse("e77c2dc5-e6bf-4d7c-9a8c-9053a9064438", MockScreensJobStatus.QUEUED);
         when(jobService.createJob(request)).thenReturn(job);
 

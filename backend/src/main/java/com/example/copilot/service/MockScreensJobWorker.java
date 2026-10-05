@@ -106,7 +106,7 @@ public class MockScreensJobWorker {
         try {
             MockScreensJob job = jobService.getClaimedJobForPlanning(id, claim.leaseToken());
             if (job.getScreenPlan() == null || job.getScreenPlan().isBlank()) {
-                AiMockScreensPlanResponse response = aiServiceClient.planMockScreens(job.getBrdId(), job.getPrompt());
+                AiMockScreensPlanResponse response = aiServiceClient.planMockScreens(job.getBrdId());
                 validatePlan(response);
                 String planJson = objectMapper.writeValueAsString(response.getScreens());
                 jobService.storeScreenPlan(id, claim.leaseToken(), planJson);
@@ -151,7 +151,7 @@ public class MockScreensJobWorker {
                 activeSequence = plannedScreen.getSequence();
                 jobService.getJobForScreenGeneration(id, claim.leaseToken());
                 AiMockScreenGenerationResponse response = aiServiceClient.generateMockScreen(
-                        job.getBrdId(), job.getPrompt(), plannedScreen, List.copyOf(completedScreens));
+                    job.getBrdId(), plannedScreen, List.copyOf(completedScreens));
                 validateGeneratedScreen(response, plannedScreen);
 
                 String specificationJson = objectMapper.writeValueAsString(response.getScreen());

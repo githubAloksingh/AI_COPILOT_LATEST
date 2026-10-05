@@ -56,23 +56,12 @@
     </div>
   </div>
 
-  <div class="form-group">
-    <label class="field-label" for="mock-screen-prompt">4. Prompt <span class="required">*</span></label>
-    <textarea
-      id="mock-screen-prompt"
-      class="form-control"
-      [(ngModel)]="prompt"
-      [disabled]="isGenerating"
-      rows="4"
-      placeholder="Describe the mock screens to generate"></textarea>
-  </div>
-
   <div class="action-row">
     <button
       type="button"
       class="btn btn-primary"
       (click)="openEstimateDialog()"
-      [disabled]="loadingProjects || loadingBrds || isGenerating">
+      [disabled]="!canGenerate">
       Generate Mock Screens
     </button>
   </div>

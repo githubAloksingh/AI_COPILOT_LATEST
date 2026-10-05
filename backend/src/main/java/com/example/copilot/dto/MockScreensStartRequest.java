@@ -10,12 +10,4 @@ import lombok.NoArgsConstructor;
 public class MockScreensStartRequest {
     private Long projectId;
     private Long brdId;
-    private String prompt;
-    private String idempotencyKey;
-
-    public MockScreensStartRequest(Long projectId, Long brdId, String prompt) {
-        this.projectId = projectId;
-        this.brdId = brdId;
-        this.prompt = prompt;
-    }
 }
