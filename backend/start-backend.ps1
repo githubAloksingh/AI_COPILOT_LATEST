@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+Set-Location $PSScriptRoot
 
 $envFile = Join-Path $PSScriptRoot '..\.env'
 if (Test-Path $envFile) {
