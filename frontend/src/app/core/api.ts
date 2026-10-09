@@ -248,5 +248,38 @@ export class ApiService {
   getHistoryContent(id: number): Observable<ApiResponse<string>> {
     return this.http.get<ApiResponse<string>>(`${this.baseUrl}/history/${id}/content`);
   }
+
+  // Mock Screens (BRD-Driven Dynamic UI Engine)
+  getMockScreenBrdDocuments(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/mock-screens/documents`);
+  }
+
+  generateMockScreens(documentId: number): Observable<ApiResponse<{ jobId: string; status: string; documentId: number }>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/mock-screens/generate`, { documentId }, { headers: this.getAuthHeaders() });
+  }
+
+  getMockScreenJob(jobId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/mock-screens/jobs/${jobId}`);
+  }
+
+  getMockScreenScreens(jobId: string): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/mock-screens/jobs/${jobId}/screens`);
+  }
+
+  getMockScreenPdfUrl(jobId: string): string {
+    return `${this.baseUrl}/mock-screens/jobs/${jobId}/pdf`;
+  }
+
+  getMockScreenImageUrl(screenId: number): string {
+    return `${this.baseUrl}/mock-screens/${screenId}/image`;
+  }
+
+  retryMockScreen(screenId: number): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/mock-screens/${screenId}/retry`, {}, { headers: this.getAuthHeaders() });
+  }
+
+  getMockScreenHistory(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/mock-screens/history`);
+  }
 }
 

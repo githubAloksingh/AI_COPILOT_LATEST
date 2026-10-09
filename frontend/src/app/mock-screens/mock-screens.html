@@ -1,0 +1,431 @@
+<div class="mock-screens-page">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage" class="toast-banner" [ngClass]="'toast-' + toastType">
+    {{ toastMessage }}
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Mock Screens</h1>
+      <p>Select a project and its completed BRD to generate application screen blueprints.</p>
+    </div>
+    <div class="header-right">
+      <button 
+        type="button" 
+        class="btn btn-outline" 
+        (click)="activeView = 'kb'" 
+        *ngIf="activeView !== 'kb'">
+        ← Choose another BRD
+      </button>
+    </div>
+  </div>
+
+  <!-- Main View Navigation Tabs -->
+  <div class="nav-tabs-bar" *ngIf="currentJob">
+    <button 
+      type="button" 
+      class="nav-tab-btn" 
+      [class.active]="activeView === 'progress'" 
+      (click)="activeView = 'progress'">
+      Generation Progress
+      <span class="pulse-indicator" *ngIf="currentJob.status !== 'COMPLETED' && currentJob.status !== 'FAILED'"></span>
+    </button>
+    <button 
+      type="button" 
+      class="nav-tab-btn" 
+      [class.active]="activeView === 'result'" 
+      *ngIf="currentJob && (currentJob.status === 'COMPLETED' || currentJob.status === 'PARTIAL_SUCCESS')" 
+      (click)="activeView = 'result'">
+      Generated Mock Screens ({{ currentJob.totalScreens || currentJob.screens?.length || 0 }})
+    </button>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 1: PROJECT-SCOPED BRD SELECTION                                     -->
+  <!-- ========================================================================= -->
+  <div class="card" *ngIf="activeView === 'kb'">
+    
+
+    <form class="selection-form" (ngSubmit)="startGeneration()">
+      <div class="form-group">
+        <label class="field-label" for="mock-project">1. Select Project <span class="required">*</span></label>
+        <select
+          id="mock-project"
+          [ngModel]="selectedProjectId"
+          (ngModelChange)="onProjectChange($event)"
+          name="projectId"
+          class="form-control"
+          [disabled]="loadingProjects || startingGeneration"
+          [attr.aria-invalid]="selectionError && selectedProjectId === null ? 'true' : null"
+          [attr.aria-describedby]="projectsError ? 'mock-project-error' : 'mock-project-help'"
+          >
+          <option [ngValue]="null">-- Select a project --</option>
+          <option *ngFor="let project of projects" [ngValue]="project.id">
+            {{ project.projectName }}
+          </option>
+        </select>
+        
+        <div *ngIf="loadingProjects" class="inline-loading" role="status">Loading projects…</div>
+        <div *ngIf="projectsError" id="mock-project-error" class="selection-error" role="alert">
+          {{ projectsError }}
+          <button type="button" class="text-button" (click)="loadProjects()">Try again</button>
+        </div>
+        <small class="helper-text" *ngIf="!loadingProjects && !projectsError && projects.length === 0">
+          No projects found. Create a project in the <a routerLink="/knowledge-base">Knowledge Base</a> first.
+        </small>
+        <small id="mock-project-help" class="helper-text" *ngIf="projects.length > 0">
+          Choose the project that contains your BRD.
+        </small>
+      </div>
+
+      <ng-container *ngIf="selectedProjectId">
+        <div class="form-group">
+          <label class="field-label" for="mock-artifact-type">2. Select Artifact Type</label>
+          <input id="mock-artifact-type" class="form-control readonly-control" type="text" value="BRD — Business Requirements Document" readonly aria-readonly="true" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label" for="mock-brd">3. Select BRD <span class="required">*</span></label>
+          <select
+            id="mock-brd"
+            [ngModel]="selectedDocumentId"
+            (ngModelChange)="onBrdChange($event)"
+            name="documentId"
+            class="form-control"
+            [disabled]="loadingDocs || startingGeneration || !!documentsError"
+            [attr.aria-invalid]="selectionError && selectedDocumentId === null ? 'true' : null"
+            [attr.aria-describedby]="documentsError ? 'mock-brd-error' : 'mock-brd-help'"
+            >
+            <option [ngValue]="null">-- Select a completed BRD --</option>
+            <option *ngFor="let document of brdDocuments" [ngValue]="document.id">{{ document.fileName }}</option>
+          </select>
+          <div *ngIf="loadingDocs" class="inline-loading" role="status">Loading documents for {{ selectedProject?.projectName }}…</div>
+          <div *ngIf="documentsError" id="mock-brd-error" class="selection-error" role="alert">
+            {{ documentsError }}
+            <button type="button" class="text-button" (click)="loadProjectDocuments()">Try again</button>
+          </div>
+          <small class="helper-text" *ngIf="selectedProjectId && !loadingDocs && !documentsError && brdDocuments.length === 0">
+            No completed BRD or PDF documents are available in this project. Upload one in
+            <a [routerLink]="['/project', selectedProjectId]">Project Details</a>.
+          </small>
+          <small id="mock-brd-help" class="helper-text" *ngIf="brdDocuments.length > 0">
+            Select a completed BRD from the chosen project.
+          </small>
+        </div>
+      </ng-container>
+
+      <div *ngIf="selectionError" class="selection-error selection-error-summary" role="alert">{{ selectionError }}</div>
+
+      <div *ngIf="generationError" class="error-banner" role="alert">
+        <strong>Generation could not start.</strong> {{ generationError }}
+      </div>
+
+      <div class="selection-actions">
+        
+        <button type="submit" class="btn btn-generate"
+          [disabled]="loadingProjects || loadingDocs || startingGeneration || !!documentsError || !selectedProjectId || !selectedDocumentId || !selectedDocument">
+          <span *ngIf="startingGeneration" class="button-spinner" aria-hidden="true"></span>
+          {{ startingGeneration ? 'Starting generation…' : 'Generate Mock Screens' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 2: GENERATION PROGRESS SCREEN (Section 14 & 15)                      -->
+  <!-- ========================================================================= -->
+  <div class="card" *ngIf="activeView === 'progress' && currentJob">
+    <div class="progress-header">
+      <div class="progress-title-meta">
+        <h2>Generating Mock Screens</h2>
+        <p>Source BRD: <strong>{{ currentJob.documentName }}</strong> • Project: <strong>{{ currentJob.projectName }}</strong></p>
+      </div>
+      <div class="job-id-badge">
+        Job ID: {{ currentJob.jobId }}
+      </div>
+    </div>
+
+    <!-- Real Pipeline Stages -->
+    <div class="pipeline-stages-grid">
+      <div class="stage-item" [class.completed]="currentJob.status !== 'QUEUED'" [class.active]="currentJob.status === 'ANALYZING'">
+        <div class="stage-icon">
+          <span *ngIf="currentJob.status === 'QUEUED' || currentJob.status === 'ANALYZING'">1</span>
+          <span *ngIf="currentJob.status !== 'QUEUED' && currentJob.status !== 'ANALYZING'">✓</span>
+        </div>
+        <div class="stage-info">
+          <h4>BRD Holistic Analysis</h4>
+          <span *ngIf="currentJob.status === 'QUEUED'">Queued</span>
+          <span *ngIf="currentJob.status === 'ANALYZING'" class="text-active">Analyzing complete BRD...</span>
+          <span *ngIf="currentJob.status !== 'QUEUED' && currentJob.status !== 'ANALYZING'" class="text-success">Completed</span>
+        </div>
+      </div>
+
+      <div class="stage-item" [class.completed]="currentJob.status === 'GENERATING' || currentJob.status === 'COMBINING' || currentJob.status === 'COMPLETED'" [class.active]="currentJob.status === 'PLANNING'">
+        <div class="stage-icon">
+          <span *ngIf="currentJob.status === 'QUEUED' || currentJob.status === 'ANALYZING' || currentJob.status === 'PLANNING'">2</span>
+          <span *ngIf="currentJob.status === 'GENERATING' || currentJob.status === 'COMBINING' || currentJob.status === 'COMPLETED'">✓</span>
+        </div>
+        <div class="stage-info">
+          <h4>Gemini Screen Planning</h4>
+          <span *ngIf="currentJob.status === 'QUEUED' || currentJob.status === 'ANALYZING'">Pending</span>
+          <span *ngIf="currentJob.status === 'PLANNING'" class="text-active">Deriving dynamic screens & UX...</span>
+          <span *ngIf="currentJob.status === 'GENERATING' || currentJob.status === 'COMBINING' || currentJob.status === 'COMPLETED'" class="text-success">Completed ({{ currentJob.totalScreens }} screens)</span>
+        </div>
+      </div>
+
+      <div class="stage-item" [class.completed]="currentJob.status === 'COMBINING' || currentJob.status === 'COMPLETED'" [class.active]="currentJob.status === 'GENERATING'">
+        <div class="stage-icon">
+          <span *ngIf="currentJob.status !== 'COMBINING' && currentJob.status !== 'COMPLETED'">3</span>
+          <span *ngIf="currentJob.status === 'COMBINING' || currentJob.status === 'COMPLETED'">✓</span>
+        </div>
+        <div class="stage-info">
+          <h4>Screen Vector Generation</h4>
+          <span *ngIf="currentJob.status === 'QUEUED' || currentJob.status === 'ANALYZING' || currentJob.status === 'PLANNING'">Pending</span>
+          <span *ngIf="currentJob.status === 'GENERATING'" class="text-active">Rendering screens in sequence...</span>
+          <span *ngIf="currentJob.status === 'COMBINING' || currentJob.status === 'COMPLETED'" class="text-success">Completed</span>
+        </div>
+      </div>
+
+      <div class="stage-item" [class.completed]="currentJob.status === 'COMPLETED'" [class.active]="currentJob.status === 'COMBINING'">
+        <div class="stage-icon">
+          <span *ngIf="currentJob.status !== 'COMPLETED'">4</span>
+          <span *ngIf="currentJob.status === 'COMPLETED'">✓</span>
+        </div>
+        <div class="stage-info">
+          <h4>Consolidated PDF Assembly</h4>
+          <span *ngIf="currentJob.status !== 'COMBINING' && currentJob.status !== 'COMPLETED'">Pending</span>
+          <span *ngIf="currentJob.status === 'COMBINING'" class="text-active">Compiling PDF blueprint...</span>
+          <span *ngIf="currentJob.status === 'COMPLETED'" class="text-success">Blueprint Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Step Status Banner -->
+    <div class="current-screen-banner" *ngIf="currentJob.status === 'GENERATING'">
+      <div class="spinner-small"></div>
+      <div class="banner-text">
+        <strong>Generating screen {{ currentJob.currentScreenSequence || 1 }} of {{ currentJob.totalScreens }}...</strong>
+        <span>{{ currentJob.currentScreen || 'Preparing screen specifications...' }}</span>
+      </div>
+      <div class="progress-bar-container">
+        <div 
+          class="progress-bar-fill" 
+          [style.width.%]="currentJob.totalScreens ? ((currentJob.completedScreens / currentJob.totalScreens) * 100) : 10">
+        </div>
+      </div>
+    </div>
+
+    <!-- Screens Progression List (Section 14) -->
+    <div class="screen-generation-tracker" *ngIf="currentJob.screens && currentJob.screens.length > 0">
+      <h3 class="tracker-title">Screen Generation Sequence</h3>
+      <div class="tracker-list">
+        <div 
+          class="tracker-row" 
+          *ngFor="let sc of currentJob.screens" 
+          [ngClass]="'tracker-' + (sc.status | lowercase)">
+          <div class="tracker-seq">
+            <span class="seq-num">#{{ sc.sequence }}</span>
+            <span class="status-icon" *ngIf="sc.status === 'COMPLETED'">✓</span>
+            <span class="status-icon active-spin" *ngIf="sc.status === 'GENERATING'">●</span>
+            <span class="status-icon" *ngIf="sc.status === 'PENDING'">○</span>
+            <span class="status-icon text-error" *ngIf="sc.status === 'FAILED'">✕</span>
+          </div>
+          <div class="tracker-name">
+            <strong>{{ sc.name }}</strong>
+            <span class="tracker-meta">{{ sc.screenType }} • {{ sc.userRole }}</span>
+          </div>
+          <div class="tracker-status">
+            <span class="badge" [ngClass]="'badge-' + (sc.status | lowercase)">{{ sc.status }}</span>
+            <button 
+              type="button" 
+              class="btn-retry-inline" 
+              *ngIf="sc.status === 'FAILED'" 
+              (click)="retryScreen(sc, $event)">
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Failure Notice -->
+    <div class="error-banner" *ngIf="currentJob.status === 'FAILED'">
+      <strong>Generation Error:</strong> {{ currentJob.error || 'An unexpected error occurred during generation.' }}
+      <div style="margin-top: 12px;">
+        <button type="button" class="btn btn-primary" (click)="startGeneration()">Retry Full Generation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 3: GENERATED MOCK SCREENS RESULT (Section 23)                        -->
+  <!-- ========================================================================= -->
+  <div *ngIf="activeView === 'result' && currentJob">
+    <!-- Success Banner -->
+    <div class="result-summary-card">
+      <div class="summary-top">
+        <div class="summary-left">
+          <span class="success-badge">✓ MOCK SCREENS GENERATED</span>
+          <h2>{{ currentJob.applicationName || 'Enterprise Application Blueprint' }}</h2>
+          <p class="summary-brd">Derived from BRD: <strong>{{ currentJob.documentName }}</strong> • Project: <strong>{{ currentJob.projectName }}</strong></p>
+        </div>
+        <div class="summary-actions">
+          <button type="button" class="btn btn-download-pdf" (click)="downloadPdf()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Mock Screens PDF
+          </button>
+          <button type="button" class="btn btn-outline" (click)="showPlanModal = true">
+            View Screen Plan JSON
+          </button>
+        </div>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-box">
+          <span class="m-label">TOTAL SCREENS</span>
+          <span class="m-val">{{ currentJob.totalScreens || currentJob.screens?.length || 0 }}</span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">COMPLETED SCREENS</span>
+          <span class="m-val text-success">{{ currentJob.completedScreens || currentJob.screens?.length || 0 }}</span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">GENERATION STATUS</span>
+          <span class="m-val text-primary">{{ currentJob.status }}</span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">DESIGN SYSTEM</span>
+          <span class="m-val">Enterprise Consistent</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequential Thumbnails Grid (Section 23) -->
+    <div class="screens-grid-container">
+      <div class="grid-header">
+        <h3>Sequential Screen Blueprints</h3>
+        <span class="grid-hint">Click any screen thumbnail to open the high-resolution inspection viewer</span>
+      </div>
+
+      <div class="screens-grid">
+        <div 
+          class="screen-card" 
+          *ngFor="let sc of currentJob.screens; let idx = index" 
+          (click)="openScreenPreview(sc, idx)">
+          
+          <div class="screen-card-header">
+            <span class="screen-seq-badge">Screen {{ sc.sequence < 10 ? '0' + sc.sequence : sc.sequence }}</span>
+            <span class="screen-type-tag">{{ sc.screenType }}</span>
+          </div>
+
+          <div class="screen-thumbnail-frame">
+            <img 
+              *ngIf="sc.imageUrl" 
+              [src]="getScreenImageUrl(sc)" 
+              [alt]="sc.name" 
+              loading="lazy" 
+              class="screen-img" />
+            <div *ngIf="!sc.imageUrl && sc.status === 'FAILED'" class="thumb-failed">
+              <span>✕ Generation Failed</span>
+              <button type="button" class="btn-retry-card" (click)="retryScreen(sc, $event)">Retry Screen</button>
+            </div>
+            <div *ngIf="!sc.imageUrl && sc.status !== 'FAILED'" class="thumb-loading">
+              <div class="spinner-small"></div>
+            </div>
+            <div class="zoom-overlay">
+              <span>🔍 Click to Zoom</span>
+            </div>
+          </div>
+
+          <div class="screen-card-footer">
+            <h4 class="card-screen-title" [title]="sc.name">{{ sc.name }}</h4>
+            <p class="card-screen-purpose">{{ sc.purpose }}</p>
+            <div class="card-screen-meta">
+              <span>Role: {{ sc.userRole }}</span>
+              <span *ngIf="sc.workflowState">State: {{ sc.workflowState }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN PREVIEW LIGHTBOX MODAL                                             -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="selectedScreenForPreview" (click)="closeScreenPreview()">
+    <div class="modal-dialog modal-lightbox" (click)="$event.stopPropagation()">
+      <div class="lightbox-header">
+        <div class="lightbox-title-wrap">
+          <span class="lightbox-seq-pill">SCREEN {{ selectedScreenForPreview.sequence }} OF {{ currentJob?.screens?.length }}</span>
+          <h3>{{ selectedScreenForPreview.name }}</h3>
+          <span class="lightbox-type-pill">{{ selectedScreenForPreview.screenType }} • {{ selectedScreenForPreview.userRole }}</span>
+        </div>
+        <div class="lightbox-nav-controls">
+          <button type="button" class="btn-lightbox-nav" (click)="prevScreen()" [disabled]="selectedScreenIndex === 0">‹ Previous</button>
+          <button type="button" class="btn-lightbox-nav" (click)="nextScreen()" [disabled]="selectedScreenIndex >= (currentJob?.screens?.length - 1)">Next ›</button>
+          <button type="button" class="btn-close-lightbox" (click)="closeScreenPreview()">✕</button>
+        </div>
+      </div>
+
+      <div class="lightbox-body">
+        <div class="lightbox-image-container">
+          <img [src]="getScreenImageUrl(selectedScreenForPreview)" [alt]="selectedScreenForPreview.name" class="lightbox-full-img" />
+        </div>
+
+        <!-- Sidebar Details -->
+        <div class="lightbox-details-drawer">
+          <h4>Screen Architecture Details</h4>
+          <div class="detail-block">
+            <label>Business Purpose</label>
+            <p>{{ selectedScreenForPreview.purpose }}</p>
+          </div>
+          <div class="detail-block">
+            <label>Target User Role</label>
+            <p>{{ selectedScreenForPreview.userRole }}</p>
+          </div>
+          <div class="detail-block" *ngIf="selectedScreenForPreview.workflowState">
+            <label>Workflow State</label>
+            <p>{{ selectedScreenForPreview.workflowState }}</p>
+          </div>
+          <div class="detail-block" *ngIf="getParsedSpec(selectedScreenForPreview)?.business_rules?.length">
+            <label>Business Rules Grounded in BRD</label>
+            <ul>
+              <li *ngFor="let rule of getParsedSpec(selectedScreenForPreview).business_rules">{{ rule }}</li>
+            </ul>
+          </div>
+          <div class="detail-block" *ngIf="getParsedSpec(selectedScreenForPreview)?.components?.length">
+            <label>Screen Components</label>
+            <div class="comp-tag" *ngFor="let c of getParsedSpec(selectedScreenForPreview).components">
+              {{ c.title || c.type }} ({{ c.type }})
+            </div>
+          </div>
+          <div class="detail-block" *ngIf="selectedScreenForPreview.status === 'FAILED'">
+            <button type="button" class="btn btn-primary" (click)="retryScreen(selectedScreenForPreview)">Retry Generation</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN PLAN JSON MODAL                                                    -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="showPlanModal" (click)="showPlanModal = false">
+    <div class="modal-dialog modal-json" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Structured Screen Plan (Gemini Derived)</h3>
+        <button type="button" class="modal-close-btn" (click)="showPlanModal = false">✕</button>
+      </div>
+      <div class="modal-body">
+        <pre class="json-code-box">{{ currentJob?.screenPlanJson || (currentJob | json) }}</pre>
+      </div>
+    </div>
+  </div>
+
+</div>

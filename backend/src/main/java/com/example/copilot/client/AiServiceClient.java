@@ -259,6 +259,63 @@ public class AiServiceClient {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public java.util.Map<String, Object> generateMockScreenPlan(java.util.Map<String, Object> request) {
+        String url = aiServiceUrl + "/api/ai/mock-screens/plan";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<java.util.Map<String, Object>> requestEntity = new HttpEntity<>(request, headers);
+        try {
+            ResponseEntity<java.util.Map> response = restTemplate.postForEntity(url, requestEntity, java.util.Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            String detail = extractErrorDetail(e);
+            log.error("Failed to generate mock screen plan via AI service: {}", detail);
+            throw new RuntimeException("AI Service Mock Screen Plan Failed: " + detail, e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public java.util.Map<String, Object> renderMockScreen(java.util.Map<String, Object> request) {
+        String url = aiServiceUrl + "/api/ai/mock-screens/render-screen";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<java.util.Map<String, Object>> requestEntity = new HttpEntity<>(request, headers);
+        try {
+            ResponseEntity<java.util.Map> response = restTemplate.postForEntity(url, requestEntity, java.util.Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            String detail = extractErrorDetail(e);
+            log.error("Failed to render mock screen via AI service: {}", detail);
+            throw new RuntimeException("AI Service Mock Screen Rendering Failed: " + detail, e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public java.util.Map<String, Object> compileMockScreenPdf(java.util.Map<String, Object> request) {
+        String url = aiServiceUrl + "/api/ai/mock-screens/compile-pdf";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<java.util.Map<String, Object>> requestEntity = new HttpEntity<>(request, headers);
+        try {
+            ResponseEntity<java.util.Map> response = restTemplate.postForEntity(url, requestEntity, java.util.Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
+        } catch (Exception e) {
+            String detail = extractErrorDetail(e);
+            log.error("Failed to compile mock screen PDF via AI service: {}", detail);
+            throw new RuntimeException("AI Service Mock Screen PDF Compilation Failed: " + detail, e);
+        }
+    }
+
     private String extractErrorDetail(Exception e) {
         if (e instanceof org.springframework.web.client.HttpStatusCodeException statusEx) {
             String body = statusEx.getResponseBodyAsString();

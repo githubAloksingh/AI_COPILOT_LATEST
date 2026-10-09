@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Gemini
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"
-    gemini_timeout_seconds: float = 90.0
+    gemini_timeout_seconds: float = 300.0
     transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
         "gemini-3.5-flash-lite",

@@ -13,6 +13,12 @@ __all__ = [
     "gemini_service",
     "RagService",
     "rag_service",
+    "ScreenPlanService",
+    "screen_plan_service",
+    "ImageGenerationService",
+    "image_generation_service",
+    "PdfCompilationService",
+    "pdf_compilation_service",
 ]
 
 
@@ -30,6 +36,12 @@ def __getattr__(name):
         "gemini_service": (".gemini_service", "gemini_service"),
         "RagService": (".rag_service", "RagService"),
         "rag_service": (".rag_service", "rag_service"),
+        "ScreenPlanService": (".screen_plan_service", "ScreenPlanService"),
+        "screen_plan_service": (".screen_plan_service", "screen_plan_service"),
+        "ImageGenerationService": (".image_generation_service", "ImageGenerationService"),
+        "image_generation_service": (".image_generation_service", "image_generation_service"),
+        "PdfCompilationService": (".pdf_compilation_service", "PdfCompilationService"),
+        "pdf_compilation_service": (".pdf_compilation_service", "pdf_compilation_service"),
     }
     if name in module_map:
         module_name, attribute_name = module_map[name]

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -276,3 +276,136 @@ class HealthResponse(BaseModel):
     service: str
     chroma: str
     gemini_configured: bool
+
+
+# ----------------------------------------------------
+# Mock Screens Models (BRD-Driven Dynamic UI Engine)
+# ----------------------------------------------------
+class DesignContext(BaseModel):
+    application_type: str = "Enterprise Web Application"
+    design_style: str = "enterprise"
+    primary_color: str = "#1E40AF"
+    secondary_color: str = "#0D9488"
+    accent_color: str = "#F59E0B"
+    neutral_dark: str = "#0F172A"
+    neutral_light: str = "#F8FAFC"
+    surface_color: str = "#FFFFFF"
+    density: str = "comfortable"
+    navigation_pattern: str = "sidebar_and_header"
+    brand_name: str = "Enterprise Suite"
+
+
+class ScreenField(BaseModel):
+    label: str
+    type: str = "text"
+    value: Optional[str] = ""
+    placeholder: Optional[str] = ""
+    required: bool = False
+    options: List[str] = Field(default_factory=list)
+
+
+class ScreenTable(BaseModel):
+    title: Optional[str] = ""
+    columns: List[str] = Field(default_factory=list)
+    rows: List[Dict[str, Any]] = Field(default_factory=list)
+    pagination_info: Optional[str] = "Showing 1 to 10 entries"
+
+
+class ScreenAction(BaseModel):
+    label: str
+    type: str = "primary"
+    icon: Optional[str] = ""
+    target: Optional[str] = ""
+
+
+class HeaderStat(BaseModel):
+    label: str
+    value: str
+    change: Optional[str] = ""
+    status: Optional[str] = "normal"
+
+
+class ScreenComponent(BaseModel):
+    type: str
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+    fields: List[ScreenField] = Field(default_factory=list)
+    columns: List[str] = Field(default_factory=list)
+    rows: List[Dict[str, Any]] = Field(default_factory=list)
+    stats: List[HeaderStat] = Field(default_factory=list)
+    actions: List[ScreenAction] = Field(default_factory=list)
+    steps: List[str] = Field(default_factory=list)
+    badges: List[Dict[str, str]] = Field(default_factory=list)
+
+
+class ScreenSpecification(BaseModel):
+    screen_id: str = "SCREEN-001"
+    sequence: int = 1
+    name: str
+    purpose: str
+    user_role: str = "Enterprise User"
+    screen_type: str = "dashboard"
+    navigation_context: Dict[str, Any] = Field(default_factory=dict)
+    header_stats: List[HeaderStat] = Field(default_factory=list)
+    components: List[ScreenComponent] = Field(default_factory=list)
+    fields: List[ScreenField] = Field(default_factory=list)
+    tables: List[ScreenTable] = Field(default_factory=list)
+    actions: List[ScreenAction] = Field(default_factory=list)
+    workflow_state: Optional[str] = ""
+    business_rules: List[str] = Field(default_factory=list)
+    notifications: List[str] = Field(default_factory=list)
+    data_sources: List[str] = Field(default_factory=list)
+    related_requirements: List[str] = Field(default_factory=list)
+    image_prompt: Optional[str] = None
+
+
+class ScreenPlan(BaseModel):
+    application_name: str
+    application_summary: str
+    user_roles: List[str] = Field(default_factory=list)
+    design_context: DesignContext = Field(default_factory=DesignContext)
+    screens: List[ScreenSpecification] = Field(default_factory=list)
+
+
+class MockScreenPlanRequest(BaseModel):
+    document_id: Optional[str] = None
+    brd_text: str
+    project_name: Optional[str] = ""
+
+
+class MockScreenPlanResponse(BaseModel):
+    plan: ScreenPlan
+    total_screens: int
+    model: str
+    execution_time_ms: int
+
+
+class MockScreenRenderRequest(BaseModel):
+    specification: ScreenSpecification
+    design_context: Optional[DesignContext] = None
+    prompt: Optional[str] = None
+
+
+class MockScreenRenderResponse(BaseModel):
+    screen_id: str
+    sequence: int
+    name: str
+    image_base64: str
+    mime_type: str = "image/png"
+    width: int = 1600
+    height: int = 900
+    image_prompt: Optional[str] = None
+
+
+class MockScreenCompilePdfRequest(BaseModel):
+    application_name: str
+    project_name: Optional[str] = ""
+    brd_name: Optional[str] = ""
+    summary: Optional[str] = ""
+    screens: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class MockScreenCompilePdfResponse(BaseModel):
+    pdf_base64: str
+    page_count: int
+    file_size_bytes: int

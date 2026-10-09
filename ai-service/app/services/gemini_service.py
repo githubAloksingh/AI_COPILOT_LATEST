@@ -40,7 +40,7 @@ class GeminiService:
             ],
             "generationConfig": {
                 "responseMimeType": "application/json",
-                "maxOutputTokens": 8192
+                "maxOutputTokens": 65536
             }
         }
 

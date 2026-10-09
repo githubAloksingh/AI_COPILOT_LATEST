@@ -81,7 +81,10 @@ def root():
     }
 
 
+from app.api.mock_screens import router as mock_screens_router
+
 app.include_router(router)
+app.include_router(mock_screens_router)
 
 
 if __name__ == "__main__":

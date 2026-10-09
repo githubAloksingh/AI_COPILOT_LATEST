@@ -1,0 +1,48 @@
+-- V22: Create mock_screen_generation and mock_screen tables for dynamic BRD mock screens
+CREATE TABLE IF NOT EXISTS mock_screen_generation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    document_id BIGINT NOT NULL,
+    job_id VARCHAR(100) NOT NULL UNIQUE,
+    project_id BIGINT NULL,
+    status VARCHAR(50) NOT NULL,
+    total_screens INT DEFAULT 0,
+    completed_screens INT DEFAULT 0,
+    current_screen VARCHAR(255) NULL,
+    current_screen_sequence INT NULL,
+    application_name VARCHAR(255) NULL,
+    application_summary TEXT NULL,
+    design_system_json LONGTEXT NULL,
+    screen_plan_json LONGTEXT NULL,
+    pdf_path VARCHAR(1024) NULL,
+    pdf_data LONGBLOB NULL,
+    error_message TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    CONSTRAINT fk_msg_document FOREIGN KEY (document_id) REFERENCES document(id) ON DELETE CASCADE,
+    INDEX idx_msg_job_id (job_id),
+    INDEX idx_msg_document_id (document_id)
+);
+
+CREATE TABLE IF NOT EXISTS mock_screen (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    generation_id BIGINT NOT NULL,
+    sequence INT NOT NULL,
+    screen_name VARCHAR(255) NOT NULL,
+    screen_type VARCHAR(100) NOT NULL,
+    purpose TEXT NULL,
+    user_role VARCHAR(100) NULL,
+    workflow_state VARCHAR(100) NULL,
+    specification_json LONGTEXT NULL,
+    image_prompt TEXT NULL,
+    image_path VARCHAR(1024) NULL,
+    image_data LONGBLOB NULL,
+    image_mime_type VARCHAR(50) DEFAULT 'image/png',
+    status VARCHAR(50) NOT NULL,
+    error_message TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mock_screen_generation FOREIGN KEY (generation_id) REFERENCES mock_screen_generation(id) ON DELETE CASCADE,
+    INDEX idx_ms_gen_id (generation_id),
+    INDEX idx_ms_sequence (sequence)
+);
