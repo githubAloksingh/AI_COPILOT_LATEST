@@ -3,138 +3,60 @@ import logging
 import re
 import time
 from typing import Any, Dict, List, Optional
+from pydantic import ValidationError
 from app.api.schemas import (
     DesignContext,
-    ScreenAction,
-    ScreenComponent,
-    ScreenField,
     ScreenPlan,
     ScreenSpecification,
-    ScreenTable,
-    HeaderStat
 )
+from app.prompts.mock_screen_prompts import build_mock_screen_plan_prompt
 from app.services.gemini_service import gemini_service
 
 logger = logging.getLogger(__name__)
 
-MOCK_SCREEN_PLAN_SYSTEM_PROMPT = """You are a Senior Product Architect, UX Architect, and Principal Business Analyst specializing in enterprise application systems.
 
-Your objective is to read a COMPLETE Business Requirements Document (BRD) and architect the exact, comprehensive UI screen flow, specifications, and design system required to build the real enterprise application.
-
-CRITICAL RULES:
-1. GROUNDED IN BRD: Derive all application features, entities, workflows, screens, fields, tables, actions, and validation rules directly from the BRD content.
-2. DYNAMIC SCREEN DISCOVERY: DO NOT assume a fixed list of screens or fixed screen count. Different BRDs have completely different screen counts, journeys, and purposes. A typical enterprise BRD produces 12-25 screens. A complex BRD may require 30+. DO NOT stop at 7 or 8 screens.
-3. EXHAUSTIVE COVERAGE: Every distinct feature, workflow, entity lifecycle, approval step, report, and configuration panel mentioned in the BRD must have a corresponding screen. DO NOT skip or merge screens to shorten the output.
-4. LOGICAL USER JOURNEY: Determine the natural, logical progression from initial entry/login to main working queues, detail forms, approval checkpoints, settlements, reports, and audit trails as mandated by the BRD.
-5. SCREEN TYPES: Choose realistic enterprise screen types appropriate for each requirement (e.g., login, dashboard, work_queue, detail_view, create_form, edit_form, approval_checkpoint, workflow_stepper, adhoc_report, audit_trail, document_viewer, configuration, error_exception).
-6. TASK-SPECIFIC CONTENT: Include only fields, tables, metrics, actions, statuses, and rules that serve the screen's BRD-defined task. Do not force KPI tiles, tables, or forms onto every screen and do not invent sample business facts.
-7. DESIGN SYSTEM: Formulate a cohesive enterprise color palette and visual design context that reflects the business domain (e.g. Banking, Healthcare, Supply Chain, Insurance).
-8. DISTINCT COMPOSITION: Assign each screen a screen_type that accurately expresses its user task. Use overview layouts for monitoring, work queues for triage, focused forms for data entry, split case workspaces for record review, document-review layouts for document inspection, report layouts for analysis, and decision panels for approvals. Screens in one application share their visual identity, not an identical content structure.
-9. COMPLETE JSON OUTPUT: You MUST output the complete JSON. Do NOT truncate, do NOT stop mid-array, do NOT summarize remaining screens. The JSON must contain all screens from screen 1 to the last screen. If you are about to run out of space, write shorter but still include EVERY screen.
-10. RETURN VALID JSON ONLY: Return a single strictly valid JSON object matching the requested schema. No markdown formatting outside the JSON, no explanations.
-"""
-
+class ScreenPlanValidationError(ValueError):
+    """Raised when Gemini output cannot form a usable screen plan."""
 
 class ScreenPlanService:
     def __init__(self):
         self.gemini = gemini_service
 
     def build_planning_prompt(self, brd_text: str, project_name: Optional[str] = "") -> str:
-        truncated_brd = brd_text.strip()
-        # Ensure we send comprehensive BRD content while remaining safely within token limits
-        if len(truncated_brd) > 180000:
-            truncated_brd = truncated_brd[:180000] + "\n\n...[Content truncated for analysis length]..."
-
-        return f"""{MOCK_SCREEN_PLAN_SYSTEM_PROMPT}
-
-Project Context: {project_name or 'Enterprise Initiative'}
-
-FULL BUSINESS REQUIREMENTS DOCUMENT (BRD):
-\"\"\"
-{truncated_brd}
-\"\"\"
-
-Analyze the complete BRD above and produce the structured Screen Plan JSON object matching the following structure exactly:
-
-{{
-  "application_name": "Official or derived Name of the Application",
-  "application_summary": "High-level summary of the application and its business purpose",
-  "user_roles": ["Role 1", "Role 2", ...],
-  "design_context": {{
-    "application_type": "e.g. Retail Banking Portal, Enterprise Credit Platform, etc.",
-    "design_style": "enterprise",
-    "primary_color": "Hex color code e.g. #1E40AF or #0284C7",
-    "secondary_color": "Hex color code e.g. #0D9488 or #475569",
-    "accent_color": "Hex color code e.g. #F59E0B",
-    "neutral_dark": "#0F172A",
-    "neutral_light": "#F8FAFC",
-    "surface_color": "#FFFFFF",
-    "density": "comfortable",
-    "navigation_pattern": "sidebar_and_header",
-    "brand_name": "Company/System Brand"
-  }},
-  "screens": [
-    {{
-      "screen_id": "SCREEN-001",
-      "sequence": 1,
-      "name": "Screen Title",
-      "purpose": "Precise business purpose of this screen according to the BRD",
-      "user_role": "Primary user role interacting with this screen",
-      "screen_type": "dashboard | search | work_queue | detail_view | create_form | approval | report | audit | login | etc.",
-      "navigation_context": {{
-        "active_nav_item": "Sidebar navigation item name",
-        "breadcrumbs": ["Home", "Section", "Current Screen"]
-      }},
-      "header_stats": [],
-      "components": [
-        {{
-          "type": "kpi_grid | table | form | filters | detail_card | workflow_stepper | alert_banner",
-          "title": "Component Title",
-          "description": "Optional description",
-          "fields": [
-            {{ "label": "Field Name", "type": "text|select|date|number|textarea", "value": "Sample Value", "placeholder": "Placeholder text", "required": true }}
-          ],
-          "columns": ["Col 1", "Col 2", "Status", "Actions"],
-          "rows": [
-            {{ "Col 1": "Val 1", "Col 2": "Val 2", "Status": "Active" }}
-          ],
-          "actions": [
-            {{ "label": "Button Label", "type": "primary|secondary|danger", "icon": "check" }}
-          ],
-          "steps": ["Step 1", "Step 2", "Step 3"]
-        }}
-      ],
-      "fields": [],
-      "tables": [],
-      "actions": [
-        {{ "label": "Primary Page Action", "type": "primary", "target": "Next Screen" }}
-      ],
-      "workflow_state": "e.g. Draft / Pending Approval / Active",
-      "business_rules": ["Rule 1 explicitly from BRD", "Rule 2"],
-      "notifications": ["Notification alert text if applicable"],
-      "data_sources": ["Entities/Tables affected"],
-      "related_requirements": ["BR-01", "BR-02"]
-    }}
-  ]
-}}
-
-For each screen, choose components that support its own task and hierarchy. Use header_stats only when the screen is genuinely about monitoring or analysis; use steps for guided workflows; use fields for entry or record details; and use tables for actual searchable/triageable collections. Populate data only when grounded in the BRD, otherwise leave the corresponding arrays empty. Avoid copying the same component mix to adjacent screens.
-
-Generate the COMPLETE, unhurried, exhaustive list of ALL screens required by this BRD.
-IMPORTANT: You MUST include EVERY screen. DO NOT stop early. DO NOT truncate the array.
-Count all features, entities, workflows, approval stages, and reports in the BRD — each one that requires UI interaction MUST become a screen.
-Output the full JSON array with all screens. A typical BRD requires 12-25 screens or more.
-"""
+        return build_mock_screen_plan_prompt(brd_text, project_name)
 
     def generate_plan(self, brd_text: str, project_name: Optional[str] = "") -> ScreenPlan:
+        normalized_brd = brd_text.strip() if brd_text else ""
+        if not normalized_brd:
+            raise ScreenPlanValidationError("BRD text is empty; a screen plan cannot be generated.")
+
+        source_character_count = len(normalized_brd)
+        analyzed_character_count = source_character_count
+        source_content_truncated = False
         start_time = time.time()
-        logger.info("Starting Gemini Screen Plan analysis for BRD (%d characters)...", len(brd_text))
+        logger.info(
+            "Starting Gemini screen-plan analysis: source_characters=%d",
+            source_character_count,
+        )
         
-        prompt = self.build_planning_prompt(brd_text, project_name)
-        raw_json_dict = self.gemini.generate_dict(prompt)
+        prompt = self.build_planning_prompt(normalized_brd, project_name)
+        try:
+            raw_json_dict = self.gemini.generate_dict(prompt)
+        except RuntimeError as exc:
+            if "Invalid JSON from Gemini" in str(exc):
+                raise ScreenPlanValidationError(
+                    "Gemini returned malformed JSON for the screen plan."
+                ) from exc
+            raise
         
         # Validate and normalize into ScreenPlan model
-        plan = self._parse_and_validate_plan(raw_json_dict, brd_text, project_name)
+        plan = self._parse_and_validate_plan(
+            raw_json_dict,
+            project_name=project_name,
+            source_content_truncated=source_content_truncated,
+            source_character_count=source_character_count,
+            analyzed_character_count=analyzed_character_count,
+        )
         
         duration = int((time.time() - start_time) * 1000)
         logger.info(
@@ -148,17 +70,26 @@ Output the full JSON array with all screens. A typical BRD requires 12-25 screen
     def _parse_and_validate_plan(
         self,
         data: Dict[str, Any],
-        brd_text: str,
-        project_name: Optional[str] = ""
+        project_name: Optional[str] = "",
+        source_content_truncated: bool = False,
+        source_character_count: int = 0,
+        analyzed_character_count: int = 0,
     ) -> ScreenPlan:
-        """Section 25: Comprehensive Validation of Screen Plan."""
-        # Check root fields
-        app_name = data.get("application_name") or project_name or "Enterprise Solution"
-        app_summary = data.get("application_summary") or "Comprehensive enterprise application system derived from BRD."
-        user_roles = data.get("user_roles") or ["Enterprise User"]
-        
+        """Validate planner output against the screen-plan Pydantic schemas."""
+        if not isinstance(data, dict):
+            raise ScreenPlanValidationError("Gemini screen-plan response must be a JSON object.")
+        if not isinstance(data.get("screens"), list) or not data["screens"]:
+            raise ScreenPlanValidationError(
+                "Gemini screen plan contains no screens; refusing to substitute a generic screen."
+            )
+
         # Parse design context
         dc_data = data.get("design_context") or {}
+        if not isinstance(dc_data, dict):
+            raise ScreenPlanValidationError("Screen plan design_context must be a JSON object.")
+        app_name = data.get("application_name")
+        if not isinstance(app_name, str) or not app_name.strip():
+            raise ScreenPlanValidationError("Screen plan application_name is required.")
         design_context = DesignContext(
             application_type=dc_data.get("application_type") or "Enterprise Web Application",
             design_style=dc_data.get("design_style") or "enterprise",
@@ -173,130 +104,93 @@ Output the full JSON array with all screens. A typical BRD requires 12-25 screen
             brand_name=dc_data.get("brand_name") or app_name
         )
 
-        screens_raw = data.get("screens") or []
-        if not isinstance(screens_raw, list) or len(screens_raw) == 0:
-            logger.warning("Screen list is empty from raw Gemini output. Attempting recovery parsing...")
-            screens_raw = self._extract_fallback_screens_from_dict(data)
-
-        # Validation Rule 1: At least one screen exists
-        if not screens_raw:
-            screens_raw = [
-                {
-                    "screen_id": "SCREEN-001",
-                    "sequence": 1,
-                    "name": "Dashboard",
-                    "purpose": "Overview of operational activities and summaries",
-                    "user_role": user_roles[0] if user_roles else "User",
-                    "screen_type": "dashboard",
-                    "components": []
-                }
-            ]
-
         validated_screens: List[ScreenSpecification] = []
         seen_ids = set()
+        seen_sequences = set()
 
-        for idx, s in enumerate(screens_raw, start=1):
+        for idx, s in enumerate(data["screens"], start=1):
             if not isinstance(s, dict):
-                continue
-            
-            # Sequence validation
-            seq = s.get("sequence") or idx
-            
-            # Screen ID validation: ensure unique, non-duplicate
-            raw_id = s.get("screen_id") or f"SCREEN-{seq:03d}"
-            if raw_id in seen_ids:
-                raw_id = f"SCREEN-{seq:03d}"
-            seen_ids.add(raw_id)
+                raise ScreenPlanValidationError(f"Screen {idx} must be a JSON object.")
 
-            screen_name = s.get("name") or s.get("title") or f"Screen {seq}"
-            purpose = s.get("purpose") or f"View and manage {screen_name} operations"
-            user_role = s.get("user_role") or (user_roles[0] if user_roles else "Enterprise User")
-            screen_type = s.get("screen_type") or self._infer_screen_type(screen_name)
+            screen_name = s.get("name")
+            purpose = s.get("purpose")
+            if not isinstance(screen_name, str) or not screen_name.strip():
+                raise ScreenPlanValidationError(f"Screen {idx} is missing required property 'name'.")
+            if not isinstance(purpose, str) or not purpose.strip():
+                raise ScreenPlanValidationError(f"Screen {idx} is missing required property 'purpose'.")
 
-            # Components validation
-            components = []
-            for c in s.get("components", []):
-                if isinstance(c, dict):
-                    components.append(ScreenComponent(
-                        type=c.get("type", "detail_card"),
-                        title=c.get("title", ""),
-                        description=c.get("description", ""),
-                        fields=[ScreenField(**f) for f in c.get("fields", []) if isinstance(f, dict)],
-                        columns=c.get("columns", []) if isinstance(c.get("columns"), list) else [],
-                        rows=c.get("rows", []) if isinstance(c.get("rows"), list) else [],
-                        stats=[HeaderStat(**st) for st in c.get("stats", []) if isinstance(st, dict)],
-                        actions=[ScreenAction(**a) for a in c.get("actions", []) if isinstance(a, dict)],
-                        steps=c.get("steps", []) if isinstance(c.get("steps"), list) else []
-                    ))
-
-            # Header stats validation
-            header_stats = []
-            for st in s.get("header_stats", []):
-                if isinstance(st, dict) and "label" in st and "value" in st:
-                    header_stats.append(HeaderStat(
-                        label=str(st.get("label", "")),
-                        value=str(st.get("value", "")),
-                        change=st.get("change"),
-                        status=st.get("status", "normal")
-                    ))
-
-            # Actions validation
-            actions = []
-            for a in s.get("actions", []):
-                if isinstance(a, dict) and "label" in a:
-                    actions.append(ScreenAction(
-                        label=str(a.get("label", "")),
-                        type=a.get("type", "primary"),
-                        icon=a.get("icon", ""),
-                        target=a.get("target", "")
-                    ))
-
-            # Fields validation
-            fields = []
-            for f in s.get("fields", []):
-                if isinstance(f, dict) and "label" in f:
-                    fields.append(ScreenField(**f))
-
-            # Tables validation
-            tables = []
-            for t in s.get("tables", []):
-                if isinstance(t, dict):
-                    tables.append(ScreenTable(**t))
-
-            validated_spec = ScreenSpecification(
-                screen_id=raw_id,
-                sequence=seq,
-                name=screen_name,
-                purpose=purpose,
-                user_role=user_role,
-                screen_type=screen_type,
-                navigation_context=s.get("navigation_context") or {"active_nav_item": screen_name, "breadcrumbs": [app_name, screen_name]},
-                header_stats=header_stats,
-                components=components,
-                fields=fields,
-                tables=tables,
-                actions=actions,
-                workflow_state=s.get("workflow_state", ""),
-                business_rules=s.get("business_rules", []) if isinstance(s.get("business_rules"), list) else [],
-                notifications=s.get("notifications", []) if isinstance(s.get("notifications"), list) else [],
-                data_sources=s.get("data_sources", []) if isinstance(s.get("data_sources"), list) else [],
-                related_requirements=s.get("related_requirements", []) if isinstance(s.get("related_requirements"), list) else []
+            screen_data = dict(s)
+            screen_data.setdefault("screen_id", f"SCREEN-{idx:03d}")
+            screen_data.setdefault("sequence", idx)
+            screen_data.setdefault("screen_type", self._infer_screen_type(screen_name))
+            screen_data.setdefault(
+                "navigation_context",
+                {"active_nav_item": screen_name, "breadcrumbs": [app_name, screen_name]},
             )
+            try:
+                validated_spec = ScreenSpecification.model_validate(screen_data)
+            except ValidationError as exc:
+                errors = "; ".join(
+                    f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+                    for error in exc.errors(include_input=False)
+                )
+                raise ScreenPlanValidationError(f"Screen {idx} is invalid: {errors}") from exc
+
+            if validated_spec.screen_id in seen_ids:
+                raise ScreenPlanValidationError(
+                    f"Screen {idx} has duplicate screen_id '{validated_spec.screen_id}'."
+                )
+            if validated_spec.sequence < 1:
+                raise ScreenPlanValidationError(
+                    f"Screen {idx} sequence must be a positive integer."
+                )
+            if validated_spec.sequence in seen_sequences:
+                raise ScreenPlanValidationError(
+                    f"Screen plan has duplicate sequence {validated_spec.sequence}."
+                )
+            seen_ids.add(validated_spec.screen_id)
+            seen_sequences.add(validated_spec.sequence)
             validated_screens.append(validated_spec)
 
-        # Sort strictly by sequence
         validated_screens.sort(key=lambda x: x.sequence)
-        # Re-number sequence sequentially if gaps existed
+        navigation_items = []
+        for screen in validated_screens:
+            nav_context = screen.navigation_context
+            label = nav_context.get("active_nav_item") if isinstance(nav_context, dict) else None
+            label = label if isinstance(label, str) and label.strip() else screen.name
+            if label not in navigation_items:
+                navigation_items.append(label)
         for i, sc in enumerate(validated_screens, start=1):
             sc.sequence = i
+            if isinstance(sc.navigation_context, dict):
+                sc.navigation_context.setdefault("navigation_items", navigation_items)
 
-        return ScreenPlan(
-            application_name=app_name,
-            application_summary=app_summary,
-            user_roles=user_roles,
-            design_context=design_context,
-            screens=validated_screens
-        )
+        plan_data = dict(data)
+        plan_data.update({
+            "application_name": app_name,
+            "design_context": design_context,
+            "screens": validated_screens,
+            "source_content_truncated": source_content_truncated,
+            "source_character_count": source_character_count,
+            "analyzed_character_count": analyzed_character_count,
+        })
+        try:
+            plan = ScreenPlan.model_validate(plan_data)
+        except ValidationError as exc:
+            errors = "; ".join(
+                f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+                for error in exc.errors(include_input=False)
+            )
+            raise ScreenPlanValidationError(f"Screen plan is invalid: {errors}") from exc
+
+        if not plan.application_summary.strip():
+            raise ScreenPlanValidationError("Screen plan application_summary is required.")
+        if source_content_truncated:
+            plan.application_summary = (
+                f"{plan.application_summary.rstrip()} "
+                "This plan is based on a truncated BRD excerpt; omitted content was not analyzed."
+            )
+        return plan
 
     def _sanitize_hex(self, color: Any, default: str) -> str:
         if isinstance(color, str) and re.match(r"^#(?:[0-9a-fA-F]{3}){1,2}$", color.strip()):
@@ -320,12 +214,5 @@ Output the full JSON array with all screens. A typical BRD requires 12-25 screen
         if "list" in lower or "queue" in lower or "tracker" in lower or "search" in lower:
             return "work_queue"
         return "detail_view"
-
-    def _extract_fallback_screens_from_dict(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        for k, v in data.items():
-            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict) and ("name" in v[0] or "title" in v[0]):
-                return v
-        return []
-
 
 screen_plan_service = ScreenPlanService()

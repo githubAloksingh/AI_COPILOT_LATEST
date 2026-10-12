@@ -23,6 +23,46 @@ def test_clean_json_with_prose():
     assert cleaned == "{\"summary\": \"Test summary\"}"
 
 
+def test_gemini_api_key_is_sent_in_header_not_url(monkeypatch):
+    from app.services import gemini_service as gemini_service_module
+
+    captured_request = {}
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {
+                "candidates": [
+                    {"content": {"parts": [{"text": "generated"}]}}
+                ]
+            }
+
+    class Client:
+        def __init__(self, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def post(self, url, json, headers):
+            captured_request.update(url=url, body=json, headers=headers)
+            return Response()
+
+    monkeypatch.setattr(gemini_service_module.httpx, "Client", Client)
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_api_key", "test-api-key")
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_model", "test-model")
+    service = GeminiService()
+    service.candidate_models = []
+
+    assert service.generate_content("prompt") == "generated"
+    assert "test-api-key" not in captured_request["url"]
+    assert captured_request["headers"]["x-goog-api-key"] == "test-api-key"
+
+
 def test_prompt_builders_include_guardrails():
     req_prompt = build_requirement_prompt("User login", "User context")
     assert GUARDRAILS in req_prompt

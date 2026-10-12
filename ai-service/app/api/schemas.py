@@ -303,12 +303,19 @@ class ScreenField(BaseModel):
     required: bool = False
     options: List[str] = Field(default_factory=list)
 
+    @field_validator("value", mode="before")
+    @classmethod
+    def coerce_display_value(cls, value):
+        if isinstance(value, (bool, int, float)):
+            return str(value)
+        return value
+
 
 class ScreenTable(BaseModel):
     title: Optional[str] = ""
     columns: List[str] = Field(default_factory=list)
     rows: List[Dict[str, Any]] = Field(default_factory=list)
-    pagination_info: Optional[str] = "Showing 1 to 10 entries"
+    pagination_info: Optional[str] = ""
 
 
 class ScreenAction(BaseModel):
@@ -365,6 +372,9 @@ class ScreenPlan(BaseModel):
     user_roles: List[str] = Field(default_factory=list)
     design_context: DesignContext = Field(default_factory=DesignContext)
     screens: List[ScreenSpecification] = Field(default_factory=list)
+    source_content_truncated: bool = False
+    source_character_count: int = 0
+    analyzed_character_count: int = 0
 
 
 class MockScreenPlanRequest(BaseModel):
@@ -392,8 +402,8 @@ class MockScreenRenderResponse(BaseModel):
     name: str
     image_base64: str
     mime_type: str = "image/png"
-    width: int = 1600
-    height: int = 900
+    width: int
+    height: int
     image_prompt: Optional[str] = None
 
 

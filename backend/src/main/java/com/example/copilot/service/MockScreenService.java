@@ -21,8 +21,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -146,11 +144,11 @@ public class MockScreenService {
         try {
             // STEP 1: RETRIEVE & ANALYZE COMPLETE BRD
             updateJobStatus(gen, "ANALYZING", null, null);
-            String fullBrdText = retrieveCompleteBrdText(documentId, doc);
+            String fullBrdText = retrieveCompleteBrdText(documentId);
             if (fullBrdText == null || fullBrdText.trim().isEmpty()) {
-                throw new IllegalStateException("Failed to extract readable text from the complete BRD.");
+                throw new IllegalStateException("No usable extracted BRD text is available. Re-upload or reprocess the document and confirm text extraction completed.");
             }
-            log.info("Retrieved complete BRD content for job {}: {} characters", jobId, fullBrdText.length());
+            log.info("Retrieved extracted BRD text for job {}: {} characters", jobId, fullBrdText.length());
 
             // STEP 2: GEMINI SCREEN PLANNING
             updateJobStatus(gen, "PLANNING", null, null);
@@ -223,10 +221,12 @@ public class MockScreenService {
                     renderReq.put("design_context", designContext);
 
                     Map<String, Object> renderResp = aiServiceClient.renderMockScreen(renderReq);
+                    validateRenderedScreenResponse(renderResp, specMap, sc);
                     String imgB64 = (String) renderResp.get("image_base64");
                     if (imgB64 != null && !imgB64.isBlank()) {
                         byte[] imgBytes = Base64.getDecoder().decode(imgB64);
                         sc.setImageData(imgBytes);
+                        sc.setImagePrompt((String) renderResp.get("image_prompt"));
 
                         Path imgPath = jobDir.resolve("screen-" + sc.getSequence() + ".png");
                         Files.write(imgPath, imgBytes);
@@ -250,6 +250,7 @@ public class MockScreenService {
 
             // STEP 4: COMBINE INTO CONSOLIDATED PDF (Section 17)
             updateJobStatus(gen, "COMBINING", null, null);
+            String pdfCompilationError = null;
             List<MockScreen> finalScreens = mockScreenRepository.findByGenerationIdOrderBySequenceAsc(gen.getId());
             List<Map<String, Object>> pdfScreens = new ArrayList<>();
             for (MockScreen s : finalScreens) {
@@ -266,7 +267,11 @@ public class MockScreenService {
                 }
             }
 
-            if (!pdfScreens.isEmpty()) {
+            if (pdfScreens.size() != completedCount) {
+                pdfCompilationError = "PDF compilation input is missing one or more completed screen images.";
+                log.error("PDF compilation input mismatch for job {}: {} images for {} completed screens",
+                        jobId, pdfScreens.size(), completedCount);
+            } else if (!pdfScreens.isEmpty()) {
                 try {
                     Map<String, Object> pdfReq = new HashMap<>();
                     pdfReq.put("application_name", appName);
@@ -277,21 +282,33 @@ public class MockScreenService {
 
                     Map<String, Object> pdfResp = aiServiceClient.compileMockScreenPdf(pdfReq);
                     String pdfB64 = (String) pdfResp.get("pdf_base64");
-                    if (pdfB64 != null) {
-                        byte[] pdfBytes = Base64.getDecoder().decode(pdfB64);
-                        gen.setPdfData(pdfBytes);
-                        Path pdfPath = jobDir.resolve("mock-screens-" + jobId + ".pdf");
-                        Files.write(pdfPath, pdfBytes);
-                        gen.setPdfPath(pdfPath.toString());
+                    if (pdfB64 == null || pdfB64.isBlank()) {
+                        throw new IllegalStateException("AI service returned an empty compiled PDF.");
                     }
+                    byte[] pdfBytes = Base64.getDecoder().decode(pdfB64);
+                    Object pageCountValue = pdfResp.get("page_count");
+                    if (pdfBytes.length == 0
+                            || !(pageCountValue instanceof Number pageCount)
+                            || pageCount.intValue() < pdfScreens.size() + 1) {
+                        throw new IllegalStateException(
+                                "AI service returned an incomplete PDF for " + pdfScreens.size() + " screens."
+                        );
+                    }
+                    Path pdfPath = jobDir.resolve("mock-screens-" + jobId + ".pdf");
+                    Files.write(pdfPath, pdfBytes);
+                    gen.setPdfData(pdfBytes);
+                    gen.setPdfPath(pdfPath.toString());
                 } catch (Exception pdfErr) {
-                    log.error("PDF combination failed for job {}: {}", jobId, pdfErr.getMessage());
+                    pdfCompilationError = "PDF compilation failed: " + pdfErr.getMessage();
+                    log.error("PDF combination failed for job {}: {}", jobId, pdfErr.getMessage(), pdfErr);
                 }
             }
 
-            String finalStatus = completedCount == screenEntities.size() ? "COMPLETED"
-                    : (completedCount > 0 ? "PARTIAL_SUCCESS" : "FAILED");
+            String finalStatus = completedCount == 0 ? "FAILED"
+                    : (completedCount == screenEntities.size() && pdfCompilationError == null
+                    ? "COMPLETED" : "PARTIAL_SUCCESS");
             gen.setStatus(finalStatus);
+            gen.setErrorMessage(pdfCompilationError);
             gen.setCompletedAt(LocalDateTime.now());
             generationRepository.save(gen);
 
@@ -389,23 +406,23 @@ public class MockScreenService {
             renderReq.put("design_context", designMap);
 
             Map<String, Object> renderResp = aiServiceClient.renderMockScreen(renderReq);
+            validateRenderedScreenResponse(renderResp, specMap, sc);
             String imgB64 = (String) renderResp.get("image_base64");
-            if (imgB64 != null) {
-                byte[] imgBytes = Base64.getDecoder().decode(imgB64);
-                sc.setImageData(imgBytes);
-
-                Path jobDir = getStorageDirectory(gen.getJobId());
-                Files.createDirectories(jobDir);
-                Path imgPath = jobDir.resolve("screen-" + sc.getSequence() + ".png");
-                Files.write(imgPath, imgBytes);
-                sc.setImagePath(imgPath.toString());
-                sc.setStatus("COMPLETED");
-                sc.setErrorMessage(null);
-                mockScreenRepository.save(sc);
-
-                // Re-compile PDF if all screens are completed
-                recompilePdfForJob(gen);
+            if (imgB64 == null || imgB64.isBlank()) {
+                throw new IllegalStateException("AI service returned empty image data for the retried screen.");
             }
+            byte[] imgBytes = Base64.getDecoder().decode(imgB64);
+            sc.setImageData(imgBytes);
+            sc.setImagePrompt((String) renderResp.get("image_prompt"));
+
+            Path jobDir = getStorageDirectory(gen.getJobId());
+            Files.createDirectories(jobDir);
+            Path imgPath = jobDir.resolve("screen-" + sc.getSequence() + ".png");
+            Files.write(imgPath, imgBytes);
+            sc.setImagePath(imgPath.toString());
+            sc.setStatus("COMPLETED");
+            sc.setErrorMessage(null);
+            mockScreenRepository.save(sc);
         } catch (Exception e) {
             sc.setStatus("FAILED");
             sc.setErrorMessage(e.getMessage());
@@ -413,7 +430,36 @@ public class MockScreenService {
             throw new RuntimeException("Screen retry failed: " + e.getMessage(), e);
         }
 
+        try {
+            recompilePdfForJob(gen);
+        } catch (Exception pdfError) {
+            gen.setStatus("PARTIAL_SUCCESS");
+            gen.setErrorMessage("PDF compilation failed after retry: " + pdfError.getMessage());
+            gen.setPdfData(null);
+            gen.setPdfPath(null);
+            generationRepository.save(gen);
+            log.error("Could not recompile PDF for job {} after screen retry: {}",
+                    gen.getJobId(), pdfError.getMessage(), pdfError);
+        }
+
         return mapToScreenDto(sc);
+    }
+
+    private void validateRenderedScreenResponse(
+            Map<String, Object> response,
+            Map<String, Object> specification,
+            MockScreen screen
+    ) {
+        if (response == null
+                || !Objects.equals(specification.get("screen_id"), response.get("screen_id"))
+                || !Objects.equals(screen.getSequence(), response.get("sequence"))
+                || !Objects.equals(screen.getScreenName(), response.get("name"))
+                || !"image/png".equals(response.get("mime_type"))) {
+            throw new IllegalStateException(
+                    "AI image response did not match the requested screen " + screen.getSequence()
+                            + " (" + screen.getScreenName() + ")."
+            );
+        }
     }
 
     private void recompilePdfForJob(MockScreenGeneration gen) {
@@ -433,23 +479,40 @@ public class MockScreenService {
                     pdfScreens.add(ps);
                 }
             }
-            if (!pdfScreens.isEmpty()) {
-                Map<String, Object> pdfReq = new HashMap<>();
-                pdfReq.put("application_name", gen.getApplicationName() != null ? gen.getApplicationName() : "Enterprise App");
-                pdfReq.put("project_name", "Enterprise Project");
-                pdfReq.put("brd_name", "BRD Specification");
-                pdfReq.put("summary", gen.getApplicationSummary());
-                pdfReq.put("screens", pdfScreens);
-
-                Map<String, Object> pdfResp = aiServiceClient.compileMockScreenPdf(pdfReq);
-                String pdfB64 = (String) pdfResp.get("pdf_base64");
-                if (pdfB64 != null) {
-                    byte[] pdfBytes = Base64.getDecoder().decode(pdfB64);
-                    gen.setPdfData(pdfBytes);
-                    generationRepository.save(gen);
-                }
+            if (pdfScreens.isEmpty()) {
+                throw new IllegalStateException("No successfully generated screens are available for PDF compilation.");
             }
-        } catch (Exception ignored) {}
+            Map<String, Object> pdfReq = new HashMap<>();
+            pdfReq.put("application_name", gen.getApplicationName() != null ? gen.getApplicationName() : "Enterprise App");
+            pdfReq.put("project_name", "Enterprise Project");
+            pdfReq.put("brd_name", "BRD Specification");
+            pdfReq.put("summary", gen.getApplicationSummary());
+            pdfReq.put("screens", pdfScreens);
+
+            Map<String, Object> pdfResp = aiServiceClient.compileMockScreenPdf(pdfReq);
+            String pdfB64 = (String) pdfResp.get("pdf_base64");
+            Object pageCountValue = pdfResp.get("page_count");
+            if (pdfB64 == null || pdfB64.isBlank() || !(pageCountValue instanceof Number pageCount)
+                    || pageCount.intValue() < pdfScreens.size() + 1) {
+                throw new IllegalStateException("AI service returned an incomplete compiled PDF.");
+            }
+            byte[] pdfBytes = Base64.getDecoder().decode(pdfB64);
+            if (pdfBytes.length == 0) {
+                throw new IllegalStateException("AI service returned an empty compiled PDF.");
+            }
+            Path jobDir = getStorageDirectory(gen.getJobId());
+            Files.createDirectories(jobDir);
+            Path pdfPath = jobDir.resolve("mock-screens-" + gen.getJobId() + ".pdf");
+            Files.write(pdfPath, pdfBytes);
+            gen.setPdfData(pdfBytes);
+            gen.setPdfPath(pdfPath.toString());
+            gen.setStatus(pdfScreens.size() == gen.getTotalScreens() ? "COMPLETED" : "PARTIAL_SUCCESS");
+            gen.setCompletedAt(LocalDateTime.now());
+            gen.setErrorMessage(null);
+            generationRepository.save(gen);
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not compile mock-screen PDF: " + e.getMessage(), e);
+        }
     }
 
     public List<MockScreenJobResponse> getGenerationHistory() {
@@ -461,34 +524,43 @@ public class MockScreenService {
         }).collect(Collectors.toList());
     }
 
-    private String retrieveCompleteBrdText(Long documentId, Document doc) {
-        // 1. Try Document content API (concatenated Chroma chunks)
+    String retrieveCompleteBrdText(Long documentId) {
+        // Prefer the AI service's source-ordered extracted chunks.
         try {
             String content = documentService.getDocumentContent(documentId);
-            if (content != null && content.length() > 500) {
-                return content;
+            if (isUsableExtractedText(content)) {
+                return content.trim();
             }
-        } catch (Exception ignored) {}
-
-        // 2. Try DB Chunks
-        List<com.example.copilot.entity.DocumentChunk> chunks = documentChunkRepository.findByDocumentIdOrderByChunkIndexAsc(documentId);
-        if (chunks != null && !chunks.isEmpty()) {
-            return chunks.stream().map(com.example.copilot.entity.DocumentChunk::getChunkText).collect(Collectors.joining("\n\n"));
+        } catch (Exception e) {
+            log.warn("Could not retrieve extracted BRD text for document {} from AI service: {}", documentId, e.getMessage());
         }
 
-        // 3. Extract directly from stored original file bytes
-        try {
-            byte[] fileBytes = documentService.getOriginalFileBytes(documentId);
-            if (fileBytes != null && fileBytes.length > 0) {
-                // If it's plain text
-                String text = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
-                if (text.contains("Business Requirements") || text.contains("Requirement") || text.length() > 200) {
-                    return text;
-                }
+        // Fall back only to previously extracted and persisted text chunks.
+        List<com.example.copilot.entity.DocumentChunk> chunks = documentChunkRepository.findByDocumentIdOrderByChunkIndexAsc(documentId);
+        if (chunks != null && !chunks.isEmpty()) {
+            String content = chunks.stream()
+                    .map(com.example.copilot.entity.DocumentChunk::getChunkText)
+                    .filter(Objects::nonNull)
+                    .filter(text -> !text.isBlank())
+                    .collect(Collectors.joining("\n\n"));
+            if (isUsableExtractedText(content)) {
+                return content.trim();
             }
-        } catch (Exception ignored) {}
+        }
 
-        return doc != null ? doc.getFileName() : "";
+        throw new IllegalStateException(
+                "No usable extracted BRD text is available for document " + documentId
+                        + ". Re-upload or reprocess the document and confirm text extraction completed."
+        );
+    }
+
+    private boolean isUsableExtractedText(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        String normalized = content.stripLeading().toLowerCase(Locale.ROOT);
+        return !normalized.startsWith("unable to retrieve content for document ")
+                && !normalized.startsWith("failed to fetch document content:");
     }
 
     private void updateJobStatus(MockScreenGeneration gen, String status, String currentScreen, Integer currentSeq) {
@@ -513,7 +585,7 @@ public class MockScreenService {
         }
 
         List<ScreenDto> screenDtos = screens.stream().map(this::mapToScreenDto).collect(Collectors.toList());
-        String pdfUrl = ("COMPLETED".equalsIgnoreCase(gen.getStatus()) || "PARTIAL_SUCCESS".equalsIgnoreCase(gen.getStatus()))
+        String pdfUrl = gen.getPdfPath() != null
                 ? "/api/mock-screens/jobs/" + gen.getJobId() + "/pdf"
                 : null;
 

@@ -12,6 +12,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 - **ChromaDB Vector Store**: Remote Chroma HTTP client and embedded persistent storage with document ID and chunk index tracking.
 - **RAG Generation**: Context retrieval + prompt guardrails + Google Gemini structured JSON generation.
 - **Auditable Source Tracking**: Returns retrieved source chunks and metadata alongside AI responses.
+- **BRD Mock Screens**: Gemini text planning analyzes the complete extracted BRD; PyMuPDF renders screen-specific, high-resolution PNG mockups locally and combines generated screens into an ordered PDF. Image rendering does not call a paid image-generation API.
 
 ---
 
@@ -27,6 +28,9 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 | `POST` | `/api/ai/defects/analyze` | Triage defect logs, stack traces, and suggest root cause fixes |
 | `POST` | `/api/ai/release-notes/generate` | Generate clean release notes from sprint information |
 | `POST` | `/api/ai/daily-status/generate` | Generate structured scrum daily status updates |
+| `POST` | `/api/ai/mock-screens/plan` | Plan BRD-driven screens with Gemini text generation |
+| `POST` | `/api/ai/mock-screens/render-screen` | Render a static PNG locally with PyMuPDF |
+| `POST` | `/api/ai/mock-screens/compile-pdf` | Compile generated screen PNGs in sequence |
 
 ---
 
@@ -35,6 +39,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.7-flash
+IMAGE_GENERATOR_PROVIDER=pymupdf
 TRANSFORMER_EMBEDDING_MODEL=sentence-transformers/paraphrase-MiniLM-L3-v2
 MAX_UPLOAD_SIZE_MB=1024
 CHROMA_URL=http://localhost:8000
@@ -45,6 +50,8 @@ TOP_K=5
 HOST=0.0.0.0
 PORT=8000
 ```
+
+`GEMINI_API_KEY` is used only for text-based BRD analysis and screen planning. PNG rendering and PDF compilation run locally with the existing PyMuPDF dependency and do not require image-generation billing.
 
 ---
 

@@ -291,11 +291,35 @@ class RetrievalService:
             chunks = data.get("documents", []) or []
             metadatas = data.get("metadatas", []) or []
 
+        if len(metadatas) != len(chunks):
+            raise RuntimeError(
+                f"Chroma returned incomplete chunk metadata for document {document_id}."
+            )
+
         entries = []
-        for index, chunk in enumerate(chunks):
-            meta = metadatas[index] if index < len(metadatas) and metadatas[index] else {}
-            entries.append((int(meta.get("chunkIndex", index)), str(chunk or ""), meta))
+        for index, (chunk, meta) in enumerate(zip(chunks, metadatas)):
+            if not isinstance(meta, dict) or "chunkIndex" not in meta:
+                raise RuntimeError(
+                    f"Chroma chunk {index} is missing chunkIndex metadata for document {document_id}."
+                )
+            try:
+                chunk_index = int(meta["chunkIndex"])
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"Chroma chunk {index} has invalid chunkIndex metadata for document {document_id}."
+                ) from exc
+            if chunk_index < 0:
+                raise RuntimeError(
+                    f"Chroma chunk {index} has invalid chunkIndex metadata for document {document_id}."
+                )
+            entries.append((chunk_index, str(chunk or ""), meta))
+
         entries.sort(key=lambda item: item[0])
+        chunk_indices = [entry[0] for entry in entries]
+        if chunk_indices != list(range(len(entries))):
+            raise RuntimeError(
+                f"Chroma chunk indices are incomplete or duplicated for document {document_id}."
+            )
 
         ordered_chunks = []
         for chunk_index, chunk, meta in entries:

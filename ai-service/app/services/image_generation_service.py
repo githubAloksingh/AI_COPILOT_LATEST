@@ -1,9 +1,10 @@
-import base64
+import io
 import logging
 import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 import pymupdf  # PyMuPDF for vector-quality UI layout & rendering
+from PIL import Image
 from app.api.schemas import (
     DesignContext,
     HeaderStat,
@@ -13,105 +14,74 @@ from app.api.schemas import (
     ScreenSpecification,
     ScreenTable
 )
-from app.config import settings
+from app.prompts.mock_screen_prompts import build_mock_screen_render_brief
 
 logger = logging.getLogger(__name__)
 
 
 class ImageGenerationService:
     """
-    Section 21: Image Generator Service Abstraction.
-    Decoupled from specific provider. Supports configured AI image models
-    (Gemini Image) with seamless fallback to High-Fidelity Enterprise Mockup Renderer.
+    Renders screen mockups locally as high-resolution PNGs with PyMuPDF.
     """
 
     def __init__(self):
-        self.provider = os.getenv("IMAGE_GENERATOR_PROVIDER", "enterprise_renderer").strip().lower()
-        self.gemini_image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image").strip()
-        self.api_key = settings.gemini_api_key
+        self.provider = os.getenv("IMAGE_GENERATOR_PROVIDER", "pymupdf").strip().lower()
 
     def build_screen_image_prompt(self, spec: ScreenSpecification, design: DesignContext) -> str:
-        """Section 12: Dynamically create image generation prompt from Screen Specification."""
-        layout = self._classify_layout(spec)
-        comp_summary = []
-        for c in spec.components:
-            f_names = [f.label for f in c.fields]
-            c_info = f"- Component '{c.title or c.type}' ({c.type})"
-            if f_names:
-                c_info += f" with fields: {', '.join(f_names[:6])}"
-            if c.columns:
-                c_info += f" with table columns: {', '.join(c.columns[:6])}"
-            comp_summary.append(c_info)
-
-        action_labels = [a.label for a in spec.actions]
-        rules = "; ".join(spec.business_rules[:3]) if spec.business_rules else "Standard enterprise validation"
-
-        prompt = (
-            f"Professional Enterprise Web Application UI Mockup for '{design.brand_name or 'Enterprise System'}'.\n"
-            f"Screen: {spec.name} (Sequence #{spec.sequence}, Type: {spec.screen_type}).\n"
-            f"Composition: {layout.replace('_', ' ')}; arrange the interface around this screen's primary task, "
-            "not a generic dashboard template.\n"
-            f"Target User Role: {spec.user_role}.\n"
-            f"Purpose: {spec.purpose}.\n"
-            f"Workflow State: {spec.workflow_state or 'Not specified'}.\n"
-            f"Design System: Clean modern enterprise theme, primary color {design.primary_color}, "
-            f"secondary {design.secondary_color}, surface {design.surface_color}, font Inter/Roboto.\n"
-            f"Navigation: {design.navigation_pattern}; retain shared application chrome but let the task determine the body layout.\n"
-            f"Key Components:\n" + "\n".join(comp_summary[:5]) + "\n"
-            f"Action Buttons: {', '.join(action_labels) if action_labels else 'Submit, Cancel'}.\n"
-            f"Business Rules Enforced: {rules}.\n"
-            "Visual Standards: High-resolution, crisp typography, realistic task hierarchy. Do not add generic KPI cards, "
-            "sample records, controls, or business claims unless they are present in the specification."
+        """Describe the local render for API compatibility; no remote image prompt is submitted."""
+        fields = self._resolve_form_fields(spec)
+        columns = self._resolve_table_columns(spec)
+        actions = [action.label for action in spec.actions]
+        navigation_context = spec.navigation_context if isinstance(spec.navigation_context, dict) else {}
+        navigation_items = navigation_context.get("navigation_items", [])
+        if not isinstance(navigation_items, list):
+            navigation_items = []
+        navigation_labels = [
+            str(item.get("label") or item.get("name") or "")
+            if isinstance(item, dict)
+            else str(item)
+            for item in navigation_items
+        ]
+        return build_mock_screen_render_brief(
+            brand_name=design.brand_name,
+            application_type=design.application_type,
+            sequence=spec.sequence,
+            screen_name=spec.name,
+            purpose=spec.purpose,
+            user_role=spec.user_role,
+            layout=self._classify_layout(spec),
+            navigation=", ".join(navigation_labels) or "not specified",
+            fields=", ".join(field.label for field in fields) or "none specified",
+            table_columns=", ".join(columns) or "none specified",
+            actions=", ".join(actions) or "none specified",
         )
-        return prompt
 
     def generate_screen_image(self, spec: ScreenSpecification, design: Optional[DesignContext] = None) -> bytes:
-        """
-        Generate high-resolution PNG image for the given Screen Specification.
-        Uses configured provider, falling back to Enterprise High-Fidelity UI Renderer.
-        """
+        """Render and validate a local PNG for one screen specification."""
+        if self.provider != "pymupdf":
+            raise RuntimeError(
+                f"Unsupported IMAGE_GENERATOR_PROVIDER '{self.provider}'. "
+                "Mock-screen images must use the local PyMuPDF renderer."
+            )
+
         active_design = design or DesignContext()
-        prompt = self.build_screen_image_prompt(spec, active_design)
-        spec.image_prompt = prompt
+        spec.image_prompt = self.build_screen_image_prompt(spec, active_design)
+        image_bytes = self._render_enterprise_mockup(spec, active_design)
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                if image.format != "PNG" or image.width < 1024 or image.height < 576:
+                    raise RuntimeError("PyMuPDF renderer returned an invalid or low-resolution PNG.")
+                image.verify()
+        except (OSError, ValueError) as exc:
+            raise RuntimeError("PyMuPDF renderer returned an invalid or unreadable PNG image.") from exc
 
-        # Attempt Gemini Image API if explicitly configured
-        if self.provider == "gemini" and self.api_key:
-            try:
-                img_bytes = self._generate_with_gemini_image(prompt)
-                if img_bytes:
-                    logger.info("Successfully generated screen image via Gemini Image for screen: %s", spec.name)
-                    return img_bytes
-            except Exception as e:
-                logger.warning("Gemini Image generation failed (%s); falling back to Enterprise UI Renderer", e)
-
-        # High-Fidelity Enterprise UI Renderer
-        return self._render_enterprise_mockup(spec, active_design)
-
-    def _generate_with_gemini_image(self, prompt: str) -> Optional[bytes]:
-        import httpx
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_image_model}:generateContent"
-            f"?key={self.api_key.strip()}"
+        logger.info(
+            "Rendered local mockup for screen %s (sequence=%d, bytes=%d)",
+            spec.screen_id,
+            spec.sequence,
+            len(image_bytes),
         )
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}]
-        }
-        with httpx.Client(timeout=60.0) as client:
-            resp = client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    for p in parts:
-                        inline_data = p.get("inlineData")
-                        if inline_data and "data" in inline_data:
-                            return base64.b64decode(inline_data["data"])
-            elif resp.status_code == 429:
-                raise RuntimeError("Gemini Image API quota limit reached (HTTP 429)")
-            else:
-                raise RuntimeError(f"Gemini Image API returned HTTP {resp.status_code}: {resp.text[:200]}")
-        return None
+        return image_bytes
 
     # =========================================================================
     # HIGH-FIDELITY ENTERPRISE UI VECTOR MOCKUP RENDERER
@@ -130,12 +100,31 @@ class ImageGenerationService:
         c_primary = self._hex_to_rgb(design.primary_color, (0.12, 0.25, 0.69)) # #1E40AF
         c_secondary = self._hex_to_rgb(design.secondary_color, (0.05, 0.58, 0.53))
         c_accent = self._hex_to_rgb(design.accent_color, (0.96, 0.62, 0.07))
-        c_bg = (0.965, 0.975, 0.985) # Crisp light slate #F6F8FA
-        c_card = (1.0, 1.0, 1.0)
+        c_bg = self._hex_to_rgb(design.neutral_light, (0.965, 0.975, 0.985))
+        c_card = self._hex_to_rgb(design.surface_color, (1.0, 1.0, 1.0))
         c_border = (0.88, 0.90, 0.93)
-        c_text_dark = (0.09, 0.12, 0.18)
+        c_text_dark = self._hex_to_rgb(design.neutral_dark, (0.09, 0.12, 0.18))
         c_text_muted = (0.42, 0.48, 0.55)
-        c_sidebar_bg = (1.0, 1.0, 1.0)
+        c_sidebar_bg = c_card
+        layout = self._classify_layout(spec)
+        navigation_context = spec.navigation_context if isinstance(spec.navigation_context, dict) else {}
+        navigation_items = navigation_context.get("navigation_items", [])
+        if not isinstance(navigation_items, list):
+            navigation_items = []
+        nav_labels = [
+            str(item.get("label") or item.get("name") or "").strip()
+            if isinstance(item, dict)
+            else str(item).strip()
+            for item in navigation_items
+        ]
+        nav_labels = [label for label in nav_labels if label]
+        active_nav_item = str(navigation_context.get("active_nav_item") or spec.name).strip()
+        navigation_pattern = design.navigation_pattern.lower()
+        show_navigation = len(nav_labels) > 1 and spec.screen_type.lower() != "login"
+        use_sidebar = show_navigation and "sidebar" in navigation_pattern
+        use_top_navigation = show_navigation and not use_sidebar and "top" in navigation_pattern
+        sidebar_width = 230.0 if use_sidebar else 0.0
+        navigation_height = 48.0 if use_top_navigation else 0.0
 
         # 1. Background
         page.draw_rect(pymupdf.Rect(0, 0, width, height), fill=c_bg, color=None)
@@ -151,66 +140,57 @@ class ImageGenerationService:
         page.draw_rect(pymupdf.Rect(24, 16, 60, 36), fill=c_primary, radius=0.1, color=None)
         page.insert_text((96, 40), brand_title[:28], fontsize=16, color=c_text_dark, fontname="hebo")
 
-        # Global Search Bar in Header
-        search_box = pymupdf.Rect(600, 18, 980, 48)
-        page.draw_rect(search_box, fill=(0.96, 0.97, 0.98), color=c_border, radius=0.15, width=0.8)
-        page.insert_text((615, 36), "Search records, workflows, accounts or IDs...", fontsize=11, color=c_text_muted, fontname="helv")
+        page.insert_text((width - 206, 36), spec.user_role[:24], fontsize=10, color=c_text_dark, fontname="hebo")
 
-        # Role context is specified, but session, online, and notification state are not.
-        page.insert_text((1394, 36), spec.user_role[:24], fontsize=10, color=c_text_dark, fontname="hebo")
-
-        # 3. Sidebar (Left 220px)
-        sidebar_width = 230.0
-        sidebar_top = header_height
-        page.draw_rect(pymupdf.Rect(0, sidebar_top, sidebar_width, height), fill=c_sidebar_bg, color=c_border, width=0.8)
-
-        # Sidebar Header Label
-        page.insert_text((24, sidebar_top + 30), "APPLICATION MODULES", fontsize=9, color=c_text_muted, fontname="hebo")
-
-        # Dynamic Navigation Items
-        nav_items = [
-            ("Dashboard", "dashboard"),
-            ("Search & Tracker", "work_queue"),
-            ("Requests & Details", "detail_view"),
-            ("Approval Queue", "approval"),
-            ("Reports & Analytics", "report"),
-            ("Audit Trail", "audit"),
-            ("Administration", "config")
-        ]
-        # Resolve one active item only; matching by type alone can otherwise highlight
-        # several generic modules (for example, a detail screen and a request module).
-        screen_name = spec.name.lower()
-        active_index = self._active_navigation_index(spec, nav_items)
-        if active_index is None:
-            nav_items[2] = (self._fit_navigation_label(spec.name, 175), spec.screen_type)
-            active_index = 2
-
-        y_nav = sidebar_top + 50
-        for index, (item_name, _) in enumerate(nav_items):
-            is_active = index == active_index
-            nav_rect = pymupdf.Rect(16, y_nav, sidebar_width - 16, y_nav + 36)
-            if is_active:
-                page.draw_rect(nav_rect, fill=(0.92, 0.95, 1.0), color=None, radius=0.1)
-                page.draw_rect(pymupdf.Rect(16, y_nav + 6, 20, y_nav + 30), fill=c_primary, radius=0.1, color=None)
-                page.insert_text((32, y_nav + 23), item_name, fontsize=11, color=c_primary, fontname="hebo")
-            else:
-                page.insert_text((32, y_nav + 23), item_name, fontsize=11, color=c_text_dark, fontname="helv")
-            y_nav += 42
-
-        # Sidebar footer status
-        page.draw_rect(pymupdf.Rect(16, height - 70, sidebar_width - 16, height - 18), fill=(0.97, 0.98, 1.0), color=c_border, radius=0.1, width=0.8)
-        page.insert_text((26, height - 48), "BRD TRACEABILITY", fontsize=8, color=c_primary, fontname="hebo")
-        page.insert_text((26, height - 32), f"Seq #{spec.sequence} | {spec.screen_type[:12].upper()}", fontsize=9, color=c_text_muted, fontname="helv")
+        if use_sidebar:
+            sidebar_top = header_height
+            page.draw_rect(pymupdf.Rect(0, sidebar_top, sidebar_width, height), fill=c_sidebar_bg, color=c_border, width=0.8)
+            page.insert_text((24, sidebar_top + 30), "NAVIGATION", fontsize=9, color=c_text_muted, fontname="hebo")
+            y_nav = sidebar_top + 50
+            for item_name in nav_labels[:12]:
+                is_active = item_name.casefold() == active_nav_item.casefold()
+                nav_rect = pymupdf.Rect(16, y_nav, sidebar_width - 16, y_nav + 36)
+                if is_active:
+                    page.draw_rect(nav_rect, fill=(0.92, 0.95, 1.0), color=None, radius=0.1)
+                    page.draw_rect(pymupdf.Rect(16, y_nav + 6, 20, y_nav + 30), fill=c_primary, radius=0.1, color=None)
+                page.insert_text(
+                    (32, y_nav + 23),
+                    self._fit_navigation_label(item_name, sidebar_width - 56),
+                    fontsize=11,
+                    color=c_primary if is_active else c_text_dark,
+                    fontname="hebo" if is_active else "helv",
+                )
+                y_nav += 42
+        elif use_top_navigation:
+            item_width = (width - 48) / min(len(nav_labels), 8)
+            for index, item_name in enumerate(nav_labels[:8]):
+                nav_x = 24 + index * item_width
+                is_active = item_name.casefold() == active_nav_item.casefold()
+                if is_active:
+                    page.draw_rect(
+                        pymupdf.Rect(nav_x, header_height, nav_x + item_width - 6, header_height + 36),
+                        fill=(0.92, 0.95, 1.0),
+                        color=None,
+                        radius=0.1,
+                    )
+                page.insert_text(
+                    (nav_x + 10, header_height + 23),
+                    self._fit_navigation_label(item_name, item_width - 20),
+                    fontsize=10,
+                    color=c_primary if is_active else c_text_dark,
+                    fontname="hebo" if is_active else "helv",
+                )
 
         # 4. Main Workspace Content Area
-        content_x = sidebar_width + 24
+        content_x = sidebar_width + (24 if use_sidebar else 30)
         content_w = width - content_x - 24
-        content_y = header_height + 20
+        content_y = header_height + navigation_height + 20
 
         # Breadcrumbs
-        crumbs = spec.navigation_context.get("breadcrumbs") if isinstance(spec.navigation_context, dict) else None
-        crumb_text = " > ".join(crumbs) if crumbs else f"{design.brand_name} > {spec.screen_type.replace('_', ' ').title()} > {spec.name}"
-        page.insert_text((content_x, content_y), crumb_text[:80], fontsize=10, color=c_text_muted, fontname="helv")
+        crumbs = navigation_context.get("breadcrumbs")
+        if isinstance(crumbs, list) and crumbs:
+            crumb_text = " > ".join(str(crumb) for crumb in crumbs)
+            page.insert_text((content_x, content_y), crumb_text[:100], fontsize=10, color=c_text_muted, fontname="helv")
 
         # Screen Title & Primary Actions Banner
         content_y += 24
@@ -224,7 +204,6 @@ class ImageGenerationService:
 
         # Task-focused layouts render supplied actions in their content panel instead.
         action_x = width - 24
-        layout = self._classify_layout(spec)
         header_actions = self._header_actions_for_screen(spec, layout)
         primary_actions = header_actions
         for act in reversed(primary_actions[:3]):
@@ -281,39 +260,6 @@ class ImageGenerationService:
         png_bytes = pix.tobytes("png")
         doc.close()
         return png_bytes
-
-    def _active_navigation_index(self, spec, nav_items):
-        screen_name = spec.name.lower()
-        for index, (label, _) in enumerate(nav_items):
-            if screen_name == label.lower():
-                return index
-        for index, (label, _) in enumerate(nav_items):
-            if screen_name in label.lower() or label.lower() in screen_name:
-                return index
-        preferred_labels = {
-            "dashboard": "Dashboard",
-            "work_queue": "Search & Tracker",
-            "search": "Search & Tracker",
-            "detail_view": "Requests & Details",
-            "approval": "Approval Queue",
-            "report": "Reports & Analytics",
-            "audit": "Audit Trail",
-            "audit_trail": "Audit Trail",
-            "configuration": "Administration",
-        }
-        preferred_label = preferred_labels.get(spec.screen_type.lower())
-        if preferred_label:
-            preferred_index = next(
-                (index for index, (label, _) in enumerate(nav_items) if label == preferred_label),
-                None,
-            )
-            if preferred_index is not None:
-                return preferred_index
-        return next(
-            (index for index, (_, item_type) in enumerate(nav_items)
-             if item_type == spec.screen_type.lower()),
-            None,
-        )
 
     def _fit_navigation_label(self, label, max_width):
         font = pymupdf.Font("hebo")
@@ -800,27 +746,45 @@ class ImageGenerationService:
             page.insert_text((x + w - 118, y + 23), export_action.label[:18], fontsize=9, color=c_primary, fontname="hebo")
 
         table_y = y + filter_bar_h + 16
+        table_title = next((table.title for table in spec.tables if table.title), "")
+        if not table_title:
+            table_title = next(
+                (
+                    component.title
+                    for component in spec.components
+                    if component.title and (component.columns or component.rows)
+                ),
+                "",
+            )
+        if table_title:
+            page.insert_text((x + 4, table_y + 20), table_title[:64], fontsize=12,
+                             color=c_text_dark, fontname="hebo")
+            table_y += 34
         table_h = max_y - table_y - 20
         page.draw_rect(pymupdf.Rect(x, table_y, x + w, table_y + table_h), fill=c_card, color=c_border, radius=0.08, width=0.8)
 
-        # Table Header
         columns = self._resolve_table_columns(spec)
         th_h = 38.0
-        page.draw_rect(pymupdf.Rect(x, table_y, x + w, table_y + th_h), fill=(0.95, 0.96, 0.98), color=c_border, width=0.8)
-        
-        col_w = w / len(columns)
-        for i, col in enumerate(columns):
-            cx = x + i * col_w
-            page.insert_text((cx + 14, table_y + 24), col[:20].upper(), fontsize=9, color=(0.28, 0.32, 0.38), fontname="hebo")
-
-        # Table Rows
         rows = self._resolve_table_rows(spec, columns)
-        row_y = table_y + th_h
+        row_y = table_y
+        if columns:
+            page.draw_rect(pymupdf.Rect(x, table_y, x + w, table_y + th_h), fill=(0.95, 0.96, 0.98), color=c_border, width=0.8)
+            col_w = w / len(columns)
+            for i, col in enumerate(columns):
+                cx = x + i * col_w
+                page.insert_text((cx + 14, table_y + 24), col[:20].upper(), fontsize=9, color=(0.28, 0.32, 0.38), fontname="hebo")
+            row_y += th_h
+
         row_h = 36.0
         max_rows = int((table_h - th_h - 44) / row_h)
 
-        if not rows:
-            page.insert_text((x + 18, row_y + 34), "No records match the current criteria.",
+        if not columns or not rows:
+            empty_message = (
+                "No table columns or rows were supplied for this screen."
+                if not columns
+                else "No example rows were supplied."
+            )
+            page.insert_text((x + 18, row_y + 34), empty_message,
                              fontsize=10, color=c_text_muted, fontname="helv")
         for r_idx, r_data in enumerate(rows[:max_rows]):
             bg = (1.0, 1.0, 1.0) if r_idx % 2 == 0 else (0.985, 0.99, 0.995)
@@ -832,8 +796,7 @@ class ImageGenerationService:
                     # Status Badge
                     self._draw_status_badge(page, cx + 12, row_y + 8, val)
                 elif "action" in col_name.lower():
-                    # Action Link
-                    page.insert_text((cx + 14, row_y + 22), "View Details >", fontsize=9, color=c_primary, fontname="hebo")
+                    page.insert_text((cx + 14, row_y + 22), val[:24], fontsize=9, color=c_primary, fontname="hebo")
                 else:
                     page.insert_text((cx + 14, row_y + 22), val[:24], fontsize=10, color=c_text_dark, fontname="helv")
             row_y += row_h
@@ -1011,12 +974,12 @@ class ImageGenerationService:
         page.insert_text((x + 8, y + 14), text[:16], fontsize=8, color=color, fontname="hebo")
 
     def _resolve_table_columns(self, spec: ScreenSpecification) -> List[str]:
-        # Try table from components
         for c in spec.components:
-            if c.columns and len(c.columns) >= 3:
+            if c.columns:
                 return c.columns[:6]
-        if spec.tables and len(spec.tables) > 0 and spec.tables[0].columns:
-            return spec.tables[0].columns[:6]
+        for table in spec.tables:
+            if table.columns:
+                return table.columns[:6]
         for component in spec.components:
             if component.rows:
                 row_columns = list(component.rows[0].keys())
@@ -1027,15 +990,7 @@ class ImageGenerationService:
                 row_columns = list(table.rows[0].keys())
                 if row_columns:
                     return row_columns[:6]
-        # Fallback to realistic context-aware columns
-        st = spec.screen_type.lower()
-        if "audit" in st:
-            return ["Timestamp", "User", "Action", "Entity", "IP Address", "Status"]
-        if "approval" in st:
-            return ["Item ID", "Requested By", "Amount", "Dept", "Submission Date", "Status"]
-        if "report" in st:
-            return ["Metric", "Period", "Value", "Variance", "Target", "Status"]
-        return ["ID", "Title / Entity", "Category", "Assigned To", "Updated", "Status"]
+        return []
 
     def _resolve_table_rows(self, spec: ScreenSpecification, columns: List[str]) -> List[Dict[str, Any]]:
         for c in spec.components:
@@ -1046,12 +1001,19 @@ class ImageGenerationService:
         return []
 
     def _resolve_form_fields(self, spec: ScreenSpecification) -> List[ScreenField]:
-        fields = []
+        fields: List[ScreenField] = []
+        seen_labels = set()
         for c in spec.components:
-            if c.fields:
-                fields.extend(c.fields)
-        if spec.fields:
-            fields.extend(spec.fields)
+            for field in c.fields:
+                label = field.label.casefold()
+                if label not in seen_labels:
+                    fields.append(field)
+                    seen_labels.add(label)
+        for field in spec.fields:
+            label = field.label.casefold()
+            if label not in seen_labels:
+                fields.append(field)
+                seen_labels.add(label)
         return fields
 
     def _hex_to_rgb(self, hex_code: Optional[str], fallback: Tuple[float, float, float]) -> Tuple[float, float, float]:

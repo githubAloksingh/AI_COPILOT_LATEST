@@ -165,21 +165,23 @@ def test_missing_report_and_document_content_use_explicit_empty_states():
     assert "Document preview unavailable" in _render_body_text(document)
 
 
-def test_navigation_selects_exactly_one_item_for_repeated_screen_types():
+def test_navigation_uses_only_destinations_supplied_by_the_screen_plan():
     service = ImageGenerationService()
-    nav_items = [
-        ("Dashboard", "dashboard"),
-        ("Search & Tracker", "detail_view"),
-        ("Requests & Details", "detail_view"),
-        ("Approval Queue", "approval"),
-    ]
-    spec = _screen("detail_view", "Supplier record", "Inspect supplier details.")
+    spec = _screen(
+        "detail_view",
+        "Supplier record",
+        "Inspect supplier details.",
+        navigation_context={
+            "active_nav_item": "Supplier record",
+            "navigation_items": ["Supplier intake", "Supplier record", "Compliance review"],
+        },
+    )
 
-    active_index = service._active_navigation_index(spec, nav_items)
-    assert active_index is not None
-    assert sum(index == active_index for index in range(len(nav_items))) == 1
-    assert nav_items[active_index][0] == "Requests & Details"
+    brief = service.build_screen_image_prompt(spec, DesignContext())
 
+    assert "Supplier intake, Supplier record, Compliance review" in brief
+    assert "Dashboard" not in brief
+    assert "Approval Queue" not in brief
 
 def test_dynamic_navigation_label_is_not_cut_mid_word():
     label = ImageGenerationService()._fit_navigation_label("Create supplier request", 175)

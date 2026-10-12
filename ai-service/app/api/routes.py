@@ -110,20 +110,7 @@ async def ingest_document(
 def get_document_content(document_id: str):
     """Retrieve full text/chunks of an ingested document."""
     try:
-        retrieval_service.ensure_collection()
-        chunks = []
-        if retrieval_service._local_collection:
-            data = retrieval_service._local_collection.get(where={"documentId": str(document_id)})
-            chunks = data.get("documents", [])
-        elif retrieval_service.base_collection_url:
-            import httpx
-            with httpx.Client(timeout=retrieval_service.timeout) as client:
-                fetch_url = f"{retrieval_service.base_collection_url}/get"
-                resp = client.post(fetch_url, json={"where": {"documentId": str(document_id)}, "include": ["documents"]})
-                if resp.status_code == 200:
-                    data = resp.json()
-                    chunks = data.get("documents", [])
-        
+        chunks, _ = retrieval_service.retrieve_document_context(document_id)
         return {
             "document_id": document_id,
             "chunks": chunks,
@@ -321,4 +308,3 @@ def inspect_chroma_contents(limit: int = 50):
     except Exception as e:
         logger.error("Inspection error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
-

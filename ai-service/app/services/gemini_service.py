@@ -49,13 +49,16 @@ class GeminiService:
             for model_name in models_to_try:
                 url = (
                     f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-                    f"?key={api_key.strip()}"
                 )
                 try:
                     resp = None
                     for attempt in range(2):
                         try:
-                            resp = client.post(url, json=request_body)
+                            resp = client.post(
+                                url,
+                                json=request_body,
+                                headers={"x-goog-api-key": api_key.strip()},
+                            )
                             break
                         except httpx.RequestError as e:
                             last_error = e
@@ -149,7 +152,7 @@ class GeminiService:
                 return {"items": parsed}
             return {}
         except Exception as e:
-            logger.error("Failed to parse Gemini JSON: %s | Raw: %s", e, raw_output)
+            logger.error("Failed to parse Gemini JSON: %s", e)
             raise RuntimeError(f"Invalid JSON from Gemini: {e}")
 
     def generate_structured(self, prompt_text: str, schema_cls: Type[T]) -> T:

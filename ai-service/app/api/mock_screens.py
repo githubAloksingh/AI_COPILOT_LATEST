@@ -1,7 +1,9 @@
 import base64
 import logging
 import time
+from io import BytesIO
 from fastapi import APIRouter, HTTPException, status
+from PIL import Image
 from app.api.schemas import (
     MockScreenCompilePdfRequest,
     MockScreenCompilePdfResponse,
@@ -15,6 +17,7 @@ from app.services import (
     image_generation_service,
     pdf_compilation_service
 )
+from app.services.screen_plan_service import ScreenPlanValidationError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai/mock-screens", tags=["Mock Screens AI Engine"])
@@ -24,7 +27,7 @@ router = APIRouter(prefix="/api/ai/mock-screens", tags=["Mock Screens AI Engine"
 def generate_mock_screen_plan(req: MockScreenPlanRequest):
     """
     Section 4, 5, 6, 20: Complete BRD Analysis and Dynamic Screen Plan Generation.
-    Uses Gemini to analyze the complete BRD and produce validated ScreenPlan.
+    Uses Gemini to analyze the supplied BRD text and produce a validated ScreenPlan.
     """
     try:
         if not req.brd_text or not req.brd_text.strip():
@@ -45,6 +48,12 @@ def generate_mock_screen_plan(req: MockScreenPlanRequest):
         )
     except HTTPException:
         raise
+    except ScreenPlanValidationError as e:
+        logger.warning("Rejected invalid mock screen plan: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Screen Plan Validation Failed: {str(e)}"
+        )
     except Exception as e:
         logger.error("Failed to generate mock screen plan: %s", e, exc_info=True)
         raise HTTPException(
@@ -63,6 +72,8 @@ def render_screen(req: MockScreenRenderRequest):
         spec = req.specification
         design = req.design_context
         img_bytes = image_generation_service.generate_screen_image(spec, design)
+        with Image.open(BytesIO(img_bytes)) as image:
+            width, height = image.size
         img_b64 = base64.b64encode(img_bytes).decode("utf-8")
 
         return MockScreenRenderResponse(
@@ -71,8 +82,8 @@ def render_screen(req: MockScreenRenderRequest):
             name=spec.name,
             image_base64=img_b64,
             mime_type="image/png",
-            width=1600,
-            height=920,
+            width=width,
+            height=height,
             image_prompt=spec.image_prompt
         )
     except Exception as e:
@@ -100,8 +111,14 @@ def compile_pdf(req: MockScreenCompilePdfRequest):
 
         return MockScreenCompilePdfResponse(
             pdf_base64=pdf_b64,
-            page_count=len(req.screens) + 1,
+            page_count=pdf_compilation_service.count_pages(pdf_bytes),
             file_size_bytes=len(pdf_bytes)
+        )
+    except ValueError as e:
+        logger.warning("Rejected invalid mock screens PDF request: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"PDF compilation input is invalid: {str(e)}"
         )
     except Exception as e:
         logger.error("Failed to compile mock screens PDF: %s", e, exc_info=True)
