@@ -47,8 +47,10 @@ CHROMA_COLLECTION=ai_work_copilot
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=150
 TOP_K=5
-HOST=0.0.0.0
+HOST=127.0.0.1
 PORT=8000
+FRONTEND_ORIGINS=http://localhost:4200,http://127.0.0.1:4200
+MOCK_SCREENS_SERVICE_TOKEN=shared-with-Spring-Boot-only
 ```
 
 `GEMINI_API_KEY` is used only for text-based BRD analysis and screen planning. PNG rendering and PDF compilation run locally with the existing PyMuPDF dependency and do not require image-generation billing.
@@ -65,5 +67,7 @@ pip install -r requirements.txt
 pytest
 
 # 3. Start development server
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+The Mock Screens routes require `X-Service-Token`; configure the same high-entropy `MOCK_SCREENS_SERVICE_TOKEN` for Spring Boot and this service. Do not put it in frontend configuration. In deployments, connect Spring Boot and the AI service over a private network and do not publish port 8000.

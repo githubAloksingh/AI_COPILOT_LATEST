@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, EventEmitter, HostListener, OnDestroy, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, HostListener, Input, OnDestroy, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 import * as XLSX from 'xlsx-js-style';
@@ -19,6 +19,7 @@ export interface DownloadHandlers {
 })
 export class PdfViewerComponent implements OnDestroy {
   @Output() closed = new EventEmitter<void>();
+  @Input() footerDescription = 'Showing exact uploaded PDF file (unparsed binary)';
 
   visible = false;
   documentName = '';

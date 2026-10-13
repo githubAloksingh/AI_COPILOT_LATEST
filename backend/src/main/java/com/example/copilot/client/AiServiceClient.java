@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -22,6 +23,9 @@ public class AiServiceClient {
 
     @Value("${copilot.ai-service.url:http://localhost:8000}")
     private String aiServiceUrl;
+
+    @Value("${copilot.ai-service.mock-screens-token:}")
+    private String mockScreensServiceToken;
 
     private final RestTemplate restTemplate;
 
@@ -35,6 +39,11 @@ public class AiServiceClient {
     public AiServiceClient(RestTemplate restTemplate, String aiServiceUrl) {
         this.restTemplate = restTemplate;
         this.aiServiceUrl = aiServiceUrl;
+    }
+
+    public AiServiceClient(RestTemplate restTemplate, String aiServiceUrl, String mockScreensServiceToken) {
+        this(restTemplate, aiServiceUrl);
+        this.mockScreensServiceToken = mockScreensServiceToken;
     }
 
     public AiIngestionResponse ingestDocument(Long documentId, String fileName, String fileType, byte[] content) {

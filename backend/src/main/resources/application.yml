@@ -45,3 +45,4 @@ copilot:
     upload-dir: ${UPLOAD_DIR:./uploads}
   ai-service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
+    mock-screens-token: ${MOCK_SCREENS_SERVICE_TOKEN:}

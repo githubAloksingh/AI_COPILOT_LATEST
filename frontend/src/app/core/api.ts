@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { MockScreensJobRequest, MockScreensJobResponse } from './models/mock-screens-job';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -222,6 +223,25 @@ export class ApiService {
 
   generateDailyStatus(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/status`, data);
+  }
+
+  createMockScreensJob(request: MockScreensJobRequest): Observable<ApiResponse<MockScreensJobResponse>> {
+    return this.http.post<ApiResponse<MockScreensJobResponse>>(
+      `${this.baseUrl}/copilot/mock-screens/jobs`,
+      request
+    );
+  }
+
+  getMockScreensJobStatus(jobId: string): Observable<ApiResponse<MockScreensJobResponse>> {
+    return this.http.get<ApiResponse<MockScreensJobResponse>>(
+      `${this.baseUrl}/copilot/mock-screens/jobs/${encodeURIComponent(jobId)}`
+    );
+  }
+
+  getMockScreensPdf(reference: string): Observable<Blob> {
+    const apiBase = new URL(this.baseUrl, window.location.origin);
+    const url = new URL(reference, apiBase).toString();
+    return this.http.get(url, { responseType: 'blob' });
   }
 
   // Audit

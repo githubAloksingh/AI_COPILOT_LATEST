@@ -14,7 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/copilot/defects")
 @RequiredArgsConstructor
 public class DefectController {
-
+     
     private final DefectService defectService;
 
     @PostMapping("/upload-triage")
