@@ -1,5 +1,5 @@
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ----------------------------------------------------
@@ -413,6 +413,44 @@ class DesignContext(BaseModel):
     brand_name: str = "Enterprise Suite"
 
 
+def _coerce_to_str_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, dict):
+        value = [value]
+    if not isinstance(value, list):
+        return [str(value)]
+
+    result = []
+    for item in value:
+        if isinstance(item, str):
+            result.append(item)
+        elif isinstance(item, dict):
+            candidates = [
+                item.get("message"),
+                item.get("text"),
+                item.get("title"),
+                item.get("label"),
+                item.get("description"),
+                item.get("rule"),
+                item.get("summary"),
+                item.get("name"),
+            ]
+            chosen = next((str(c) for c in candidates if c and str(c).strip()), None)
+            if chosen:
+                result.append(chosen)
+            else:
+                formatted = ", ".join(f"{k}: {v}" for k, v in item.items() if v)
+                result.append(formatted if formatted else str(item))
+        elif isinstance(item, (int, float, bool)):
+            result.append(str(item))
+        elif item is not None:
+            result.append(str(item))
+    return result
+
+
 class ScreenField(BaseModel):
     label: str
     type: str = "text"
@@ -427,6 +465,11 @@ class ScreenField(BaseModel):
         if isinstance(value, (bool, int, float)):
             return str(value)
         return value
+
+    @field_validator("options", mode="before")
+    @classmethod
+    def coerce_options(cls, value):
+        return _coerce_to_str_list(value)
 
 
 class ScreenTable(BaseModel):
@@ -462,6 +505,26 @@ class ScreenComponent(BaseModel):
     steps: List[str] = Field(default_factory=list)
     badges: List[Dict[str, str]] = Field(default_factory=list)
 
+    @field_validator("steps", mode="before")
+    @classmethod
+    def coerce_steps(cls, value):
+        return _coerce_to_str_list(value)
+
+    @field_validator("badges", mode="before")
+    @classmethod
+    def coerce_badges(cls, value):
+        if not isinstance(value, list):
+            return []
+        coerced = []
+        for item in value:
+            if isinstance(item, dict):
+                coerced.append({str(k): str(v) for k, v in item.items()})
+            elif isinstance(item, str):
+                coerced.append({"label": item})
+            elif item is not None:
+                coerced.append({"label": str(item)})
+        return coerced
+
 
 class ScreenSpecification(BaseModel):
     screen_id: str = "SCREEN-001"
@@ -483,6 +546,20 @@ class ScreenSpecification(BaseModel):
     related_requirements: List[str] = Field(default_factory=list)
     image_prompt: Optional[str] = None
 
+    @field_validator("business_rules", "notifications", "data_sources", "related_requirements", mode="before")
+    @classmethod
+    def coerce_string_lists(cls, value):
+        return _coerce_to_str_list(value)
+
+    @field_validator("workflow_state", mode="before")
+    @classmethod
+    def coerce_workflow_state(cls, value):
+        if isinstance(value, dict):
+            return value.get("state") or value.get("name") or value.get("status") or str(value)
+        if value is not None and not isinstance(value, str):
+            return str(value)
+        return value or ""
+
 
 class ScreenPlan(BaseModel):
     application_name: str
@@ -493,6 +570,11 @@ class ScreenPlan(BaseModel):
     source_content_truncated: bool = False
     source_character_count: int = 0
     analyzed_character_count: int = 0
+
+    @field_validator("user_roles", mode="before")
+    @classmethod
+    def coerce_user_roles(cls, value):
+        return _coerce_to_str_list(value)
 
 
 class MockScreenPlanRequest(BaseModel):
