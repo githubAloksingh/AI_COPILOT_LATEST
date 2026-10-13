@@ -11,7 +11,6 @@ import { TestGenerator } from './test-generator/test-generator';
 import { DefectTriage } from './defect-triage/defect-triage';
 import { ReleaseNotes } from './release-notes/release-notes';
 import { AuditHistory } from './audit-history/audit-history';
-import { MockScreens } from './mock-screens/mock-screens';
 
 // Authentication has been removed — every route is publicly accessible.
 export const routes: Routes = [
@@ -30,7 +29,6 @@ export const routes: Routes = [
   { path: 'test-generator', component: TestGenerator },
   { path: 'defect-triage', component: DefectTriage },
   { path: 'release-notes', component: ReleaseNotes },
-  { path: 'mock-screens', component: MockScreens },
   { path: 'audit-history', component: AuditHistory },
   { path: '**', redirectTo: 'dashboard' }
 ];

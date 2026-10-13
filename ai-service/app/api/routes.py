@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 import re
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from app.config import settings
 from app.api.schemas import (
     HealthResponse,
@@ -20,6 +20,7 @@ from app.api.schemas import (
     DailyStatusGenerateResponse,
     MockScreensPlanRequest,
     MockScreensPlanResponse,
+    MockScreenPlanRequest,
     MockScreenGenerationRequest,
     MockScreenGenerationResponse
 )
@@ -267,11 +268,31 @@ def generate_daily_status(req: DailyStatusGenerateRequest):
 
 @router.post(
     "/mock-screens/plan",
-    response_model=MockScreensPlanResponse,
-    dependencies=[Depends(require_mock_screens_service_token)],
 )
-def plan_mock_screens(req: MockScreensPlanRequest):
-    """Analyze the complete selected BRD and return an ordered screen plan only."""
+async def plan_mock_screens(
+    request: Request,
+    x_service_token: Optional[str] = Header(default=None),
+):
+    """Analyze BRD and produce screen plan (supports both job-based and interactive UI generation)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    if isinstance(body, dict) and "brd_text" in body:
+        from app.api.mock_screens import generate_mock_screen_plan as handle_mock_screen_plan
+        try:
+            req = MockScreenPlanRequest.model_validate(body)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+        return handle_mock_screen_plan(req)
+
+    require_mock_screens_service_token(x_service_token)
+    try:
+        req = MockScreensPlanRequest.model_validate(body)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
     try:
         return rag_service.plan_mock_screens(req)
     except ValueError as e:
