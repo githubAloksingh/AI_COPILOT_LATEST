@@ -270,6 +270,10 @@ export class ApiService {
     return `${this.baseUrl}/mock-screens/jobs/${jobId}/pdf`;
   }
 
+  downloadMockScreenPdf(jobId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/mock-screens/jobs/${jobId}/pdf`, { responseType: 'blob' });
+  }
+
   getMockScreenImageUrl(screenId: number): string {
     return `${this.baseUrl}/mock-screens/${screenId}/image`;
   }

@@ -12,7 +12,9 @@ import { ApiService } from '../core/api';
   styleUrls: ['./mock-screens.scss']
 })
 export class MockScreens implements OnInit, OnDestroy {
-  activeView: 'kb' | 'progress' | 'result' = 'kb';
+  showResultModal = false;
+  showConfirmModal = false;
+  downloadingPdf = false;
 
   projects: any[] = [];
   selectedProjectId: number | null = null;
@@ -33,11 +35,6 @@ export class MockScreens implements OnInit, OnDestroy {
   currentJob: any = null;
   pollingInterval: any = null;
   generationError: string | null = null;
-
-  // Selected Screen for Zoom / Modal Lightbox
-  selectedScreenForPreview: any = null;
-  selectedScreenIndex: number = 0;
-  showPlanModal = false;
 
   // Notification Toast
   toastMessage = '';
@@ -147,8 +144,47 @@ export class MockScreens implements OnInit, OnDestroy {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. GENERATION JOB TRIGGER & POLLING
+  // 2. GENERATION CONFIRM & JOB TRIGGER
   // ---------------------------------------------------------------------------
+
+  /** Show the confirmation popup when user clicks Generate */
+  onGenerateClick() {
+    if (this.selectedProjectId === null || this.selectedDocumentId === null || !this.selectedDocument) {
+      this.selectionError = 'Select a project and an eligible BRD before generating mock screens.';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.showConfirmModal = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Dismiss the confirmation popup without generating */
+  cancelGenerate() {
+    this.showConfirmModal = false;
+    this.cdr.markForCheck();
+  }
+
+  /** User confirmed — close popup and start generation */
+  confirmAndGenerate() {
+    this.showConfirmModal = false;
+    this.cdr.markForCheck();
+    this.startGeneration();
+  }
+
+  /**
+   * Estimate generation time based on BRD complexity.
+   * Scaled to realistic processing duration: ~2 to 5 minutes.
+   */
+  getEstimatedTime(): string {
+    if (!this.selectedDocument) return '3 – 4 minutes';
+    const name = (this.selectedDocument.fileName || '').toLowerCase();
+    const len = name.length;
+    if (len > 60) return '4 – 5 minutes';
+    if (len > 30) return '3 – 4 minutes';
+    if (len > 15) return '2 – 3 minutes';
+    return '1 – 2 minutes';
+  }
+
   startGeneration() {
     if (this.selectedProjectId === null || this.selectedDocumentId === null || !this.selectedDocument) {
       this.selectionError = 'Select a project and an eligible BRD before generating mock screens.';
@@ -162,7 +198,7 @@ export class MockScreens implements OnInit, OnDestroy {
     this.generationError = null;
     this.currentJobId = null;
     this.startingGeneration = true;
-    this.activeView = 'progress';
+    this.showResultModal = false;
     this.currentJob = {
       jobId: 'INITIALIZING...',
       documentId,
@@ -177,15 +213,15 @@ export class MockScreens implements OnInit, OnDestroy {
 
     this.api.generateMockScreens(documentId).subscribe({
       next: (res) => {
-        this.startingGeneration = false;
+        // Do NOT set startingGeneration = false here — keep spinner visible during polling
         if (res.success && res.data && res.data.jobId) {
           this.currentJobId = res.data.jobId;
           this.currentJob.jobId = this.currentJobId;
           this.currentJob.status = res.data.status || 'QUEUED';
           this.startPolling(this.currentJobId);
         } else {
+          this.startingGeneration = false;
           this.generationError = res.message || 'Could not queue generation job.';
-          this.activeView = 'kb';
           this.showToast(this.generationError, 'error');
         }
         this.cdr.markForCheck();
@@ -193,7 +229,6 @@ export class MockScreens implements OnInit, OnDestroy {
       error: (err) => {
         this.startingGeneration = false;
         this.generationError = this.requestError(err, 'Failed to start mock screen generation.');
-        this.activeView = 'kb';
         this.showToast(this.generationError, 'error');
         this.cdr.markForCheck();
       }
@@ -217,10 +252,12 @@ export class MockScreens implements OnInit, OnDestroy {
 
           if (status === 'COMPLETED' || status === 'PARTIAL_SUCCESS') {
             this.stopPolling();
-            this.activeView = 'result';
-            this.showToast(`Mock screens generated successfully! (${this.currentJob.completedScreens} screens)`, 'success');
+            this.startingGeneration = false;
+            this.showResultModal = true;
+            this.showToast(`Mock screens generated successfully!`, 'success');
           } else if (status === 'FAILED') {
             this.stopPolling();
+            this.startingGeneration = false;
             this.generationError = this.currentJob.error || 'Generation failed. Please try again.';
             this.showToast(this.generationError, 'error');
           }
@@ -238,6 +275,11 @@ export class MockScreens implements OnInit, OnDestroy {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
     }
+  }
+
+  closeResultModal() {
+    this.showResultModal = false;
+    this.cdr.markForCheck();
   }
 
   // ---------------------------------------------------------------------------
@@ -271,64 +313,48 @@ export class MockScreens implements OnInit, OnDestroy {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // 4. SCREEN PREVIEW / LIGHTBOX
-  // ---------------------------------------------------------------------------
-  openScreenPreview(screen: any, index: number) {
-    this.selectedScreenForPreview = screen;
-    this.selectedScreenIndex = index;
-    this.cdr.markForCheck();
-  }
-
-  closeScreenPreview() {
-    this.selectedScreenForPreview = null;
-    this.cdr.markForCheck();
-  }
-
-  prevScreen() {
-    if (!this.currentJob || !this.currentJob.screens) return;
-    if (this.selectedScreenIndex > 0) {
-      this.selectedScreenIndex--;
-      this.selectedScreenForPreview = this.currentJob.screens[this.selectedScreenIndex];
-      this.cdr.markForCheck();
-    }
-  }
-
-  nextScreen() {
-    if (!this.currentJob || !this.currentJob.screens) return;
-    if (this.selectedScreenIndex < this.currentJob.screens.length - 1) {
-      this.selectedScreenIndex++;
-      this.selectedScreenForPreview = this.currentJob.screens[this.selectedScreenIndex];
-      this.cdr.markForCheck();
-    }
-  }
-
   downloadPdf() {
-    if (this.currentJobId) {
-      const url = this.api.getMockScreenPdfUrl(this.currentJobId);
-      window.open(url, '_blank');
-    }
+    if (!this.currentJobId) return;
+
+    this.downloadingPdf = true;
+    this.cdr.markForCheck();
+
+    const baseName = this.currentJob?.documentName
+      ? this.currentJob.documentName.replace(/\.[^/.]+$/, '')
+      : 'mock-screens';
+    const fileName = `${baseName}_mock_screens.pdf`;
+
+    this.api.downloadMockScreenPdf(this.currentJobId).subscribe({
+      next: (blob) => {
+        this.downloadingPdf = false;
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.downloadingPdf = false;
+        // Fallback: direct download anchor
+        const url = this.api.getMockScreenPdfUrl(this.currentJobId!);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   // Helpers
   private requestError(error: any, fallback: string): string {
     return error?.error?.message || error?.message || fallback;
-  }
-
-  getScreenImageUrl(screen: any): string {
-    if (screen.imageUrl) {
-      return this.api.baseUrl.replace(/\/api$/, '') + screen.imageUrl;
-    }
-    return '';
-  }
-
-  getParsedSpec(screen: any): any {
-    if (!screen || !screen.specificationJson) return null;
-    try {
-      return JSON.parse(screen.specificationJson);
-    } catch {
-      return null;
-    }
   }
 
   showToast(message: string, type: 'info' | 'success' | 'error') {
