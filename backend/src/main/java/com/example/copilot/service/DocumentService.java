@@ -10,9 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.core.io.Resource;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 @Slf4j
@@ -39,171 +36,31 @@ public class DocumentService {
                         org.springframework.http.HttpStatus.NOT_FOUND, "Document not found with id " + id));
     }
 
-    /**
-     * Stores the exact original PDF/file binary directly into the MySQL document table (file_data LONGBLOB column)
-     * AND writes a copy to the persistent uploads/ disk directory.
-     */
+    /** Stores the exact original file bytes in the document table's file_data LONGBLOB column. */
     public void saveOriginalFile(Long documentId, byte[] bytes) {
-        saveOriginalFile(documentId, bytes, null);
-    }
-
-    public void saveOriginalFile(Long documentId, Path sourcePath) throws IOException {
-        byte[] bytes = null;
-        if (sourcePath != null && Files.exists(sourcePath)) {
-            try {
-                bytes = Files.readAllBytes(sourcePath);
-            } catch (Exception ignored) {
-            }
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("Original file content cannot be empty.");
         }
-        saveOriginalFile(documentId, bytes, sourcePath);
-    }
-
-    public void saveOriginalFile(Long documentId, byte[] bytes, Path sourcePath) {
         Document doc = getDocumentById(documentId);
-        String savedFilePath = null;
-
-        try {
-            Path uploadDirectory = getPrimaryUploadDirectory();
-            Files.createDirectories(uploadDirectory);
-
-            String fileName = doc.getFileName() != null ? doc.getFileName() : "document.bin";
-            String suffix = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.')) : ".bin";
-            Path destination = uploadDirectory.resolve("document-" + documentId + suffix).normalize();
-
-            if (sourcePath != null && Files.exists(sourcePath)) {
-                Files.copy(sourcePath, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                savedFilePath = destination.toString();
-            } else if (bytes != null && bytes.length > 0) {
-                Files.write(destination, bytes);
-                savedFilePath = destination.toString();
-            }
-        } catch (Exception e) {
-            log.warn("Could not save original file to disk for document ID {}: {}", documentId, e.getMessage());
-        }
-
-        if (bytes != null && bytes.length > 0) {
-            doc.setFileData(bytes);
-        }
-        if (savedFilePath != null) {
-            doc.setOriginalFilePath(savedFilePath);
-        }
+        doc.setFileData(bytes);
+        doc.setOriginalFilePath(null);
         documentRepository.save(doc);
-        log.info("Saved original file ({} bytes) in MySQL and on disk at '{}' for document ID {}",
-                bytes != null ? bytes.length : 0, savedFilePath, documentId);
+        log.info("Saved original file ({} bytes) in MySQL for document ID {}", bytes.length, documentId);
     }
 
     /**
-     * Compatibility overload for callers passing filename.
-     */
-    public void saveOriginalFile(Long documentId, String originalFilename, byte[] bytes) {
-        saveOriginalFile(documentId, bytes, null);
-    }
-
-    /**
-     * Retrieves the exact original uploaded PDF/file bytes directly from MySQL or disk.
+     * Retrieves the exact original uploaded file bytes from MySQL.
      */
     public byte[] getOriginalFileBytes(Long id) {
-        Document doc = getDocumentById(id);
+        getDocumentById(id);
         byte[] bytes = documentRepository.findFileDataById(id);
         if (bytes == null || bytes.length == 0) {
-            bytes = doc.getFileData();
-        }
-
-        if (bytes == null || bytes.length == 0) {
-            bytes = readStoredOriginalFile(id, doc);
-        }
-
-        if (bytes == null || bytes.length == 0) {
-            bytes = migrateLegacyFileToDatabase(id, doc);
-        }
-
-        if (bytes == null || bytes.length == 0) {
-            log.warn("Original file binary not found in MySQL for document ID {}: {}", id, doc.getFileName());
+            log.warn("Original file binary not found in MySQL for document ID {}", id);
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.NOT_FOUND,
-                    "Original file binary not found in database for document: " + doc.getFileName());
+                    "Original file binary not found in database for document ID " + id);
         }
-
         return bytes;
-    }
-
-    private byte[] migrateLegacyFileToDatabase(Long id, Document doc) {
-        for (Path directory : uploadDirectories()) {
-            if (!Files.isDirectory(directory)) {
-                continue;
-            }
-            try (java.util.stream.Stream<Path> files = Files.list(directory)) {
-                Path legacyFile = files
-                        .filter(path -> isOriginalFileName(path, id))
-                        .filter(path -> Files.isRegularFile(path) && Files.isReadable(path))
-                        .findFirst()
-                        .orElse(null);
-                if (legacyFile != null) {
-                    byte[] bytes = Files.readAllBytes(legacyFile);
-                    doc.setFileData(bytes);
-                    doc.setOriginalFilePath(null);
-                    documentRepository.save(doc);
-                    log.info("Migrated legacy original file to MySQL for document ID {} ({} bytes)", id, bytes.length);
-                    return bytes;
-                }
-            } catch (IOException e) {
-                log.warn("Could not migrate legacy original file for document {} from {}: {}", id, directory, e.getMessage());
-            }
-        }
-        return null;
-    }
-
-    private byte[] readStoredOriginalFile(Long id, Document doc) {
-        String storedPath = doc.getOriginalFilePath();
-        if (storedPath == null || storedPath.isBlank()) {
-            return null;
-        }
-
-        try {
-            Path storedFile = Path.of(storedPath).toAbsolutePath().normalize();
-            if (Files.isRegularFile(storedFile) && Files.isReadable(storedFile)) {
-                return Files.readAllBytes(storedFile);
-            }
-
-            Path fileName = storedFile.getFileName();
-            if (fileName != null) {
-                for (Path directory : uploadDirectories()) {
-                    Path candidate = directory.resolve(fileName).normalize();
-                    if (candidate.startsWith(directory) && Files.isRegularFile(candidate)) {
-                        return Files.readAllBytes(candidate);
-                    }
-                }
-            }
-        } catch (IOException | RuntimeException e) {
-            log.warn("Could not read original file for document {}: {}", id, e.getMessage());
-        }
-        return null;
-    }
-
-    private Path getPrimaryUploadDirectory() {
-        Path backendUploads = Path.of("backend", "uploads").toAbsolutePath().normalize();
-        if (Files.isDirectory(backendUploads)) {
-            return backendUploads;
-        }
-        Path rootUploads = Path.of("uploads").toAbsolutePath().normalize();
-        if (Files.isDirectory(rootUploads)) {
-            return rootUploads;
-        }
-        return backendUploads;
-    }
-
-    private List<Path> uploadDirectories() {
-        return List.of(
-                Path.of("uploads").toAbsolutePath().normalize(),
-                Path.of("backend", "uploads").toAbsolutePath().normalize(),
-                Path.of("..", "uploads").toAbsolutePath().normalize(),
-                Path.of("..", "backend", "uploads").toAbsolutePath().normalize());
-    }
-
-    private boolean isOriginalFileName(Path path, Long documentId) {
-        String name = path.getFileName().toString();
-        return name.startsWith("document-" + documentId + "-")
-                || name.startsWith("document-" + documentId + ".");
     }
 
     public Resource getOriginalFileResource(Long id) {

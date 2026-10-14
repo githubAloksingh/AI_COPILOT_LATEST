@@ -117,7 +117,7 @@ _Frontend will open at `http://localhost:4200`._
 
 1. **Document Ingestion (`/knowledge-base`)**:
    - Upload any `.pdf`, `.docx`, `.csv`, or `.txt` file.
-   - Spring Boot records metadata in SQL (`status=PROCESSING`), delegates parsing and embedding to Python `ai-service`, and updates status to `COMPLETED` when indexed in ChromaDB.
+   - Spring Boot stores the original file bytes and extracted chunks in SQL, delegates parsing and embedding to Python `ai-service`, and updates status to `COMPLETED` when indexed in ChromaDB. Original files and generated mock-screen images/PDFs are served from SQL BLOB columns rather than a backend `uploads` directory.
 2. **Requirement Assistant (`/requirements`)**:
    - Enter title & requirement details.
    - Python RAG retrieves relevant document chunks from Chroma, prompts Gemini with guardrails, returns structured user stories & acceptance criteria, and Spring Boot persists the result in SQL.

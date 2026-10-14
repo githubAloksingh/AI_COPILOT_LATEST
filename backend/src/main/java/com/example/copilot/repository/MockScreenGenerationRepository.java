@@ -23,4 +23,7 @@ public interface MockScreenGenerationRepository extends JpaRepository<MockScreen
 
     @Query("SELECT g.pdfData FROM MockScreenGeneration g WHERE g.jobId = :jobId")
     byte[] findPdfDataByJobId(@Param("jobId") String jobId);
+
+    @Query("SELECT CASE WHEN g.pdfData IS NOT NULL THEN true ELSE false END FROM MockScreenGeneration g WHERE g.jobId = :jobId")
+    boolean hasPdfDataByJobId(@Param("jobId") String jobId);
 }

@@ -8,8 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -30,7 +29,7 @@ public class DocumentController {
     }
 
     @PostMapping("/api/documents")
-    public ApiResponse<Document> uploadDocument(@RequestParam("file") MultipartFile file) {
+    public ApiResponse<Document> uploadDocument(@RequestParam("file") MultipartFile file) throws IOException {
         return uploadProjectDocument(null, file, null, null, "System", "v1");
     }
 
@@ -42,31 +41,17 @@ public class DocumentController {
             @RequestParam(value = "customType", required = false) String customType,
             @RequestParam(value = "uploadedBy", required = false, defaultValue = "System") String uploadedBy,
             @RequestParam(value = "version", required = false, defaultValue = "v1") String version
-    ) {
+    ) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new RuntimeException("Uploaded file cannot be empty");
         }
-        Document doc = ingestionService.uploadDocument(projectId, file, title, customType, uploadedBy, version);
-        Path temporaryFile = null;
-        try {
-            String originalFilename = file.getOriginalFilename();
-            String suffix = originalFilename != null && originalFilename.contains(".")
-                    ? originalFilename.substring(originalFilename.lastIndexOf('.'))
-                    : ".bin";
-            temporaryFile = Files.createTempFile("document-upload-", suffix);
-            file.transferTo(temporaryFile);
-            documentService.saveOriginalFile(doc.getId(), temporaryFile);
-            ingestionService.processDocumentAsync(doc.getId(), temporaryFile, originalFilename, file.getContentType());
-        } catch (Exception e) {
-            if (temporaryFile != null) {
-                try {
-                    Files.deleteIfExists(temporaryFile);
-                } catch (Exception cleanupError) {
-                    e.addSuppressed(cleanupError);
-                }
-            }
-            throw new RuntimeException("Failed to start document processing: " + e.getMessage(), e);
+        byte[] fileBytes = file.getBytes();
+        if (fileBytes.length == 0) {
+            throw new RuntimeException("Uploaded file cannot be empty");
         }
+        Document doc = ingestionService.uploadDocument(projectId, file, title, customType, uploadedBy, version);
+        documentService.saveOriginalFile(doc.getId(), fileBytes);
+        ingestionService.processDocumentAsync(doc.getId(), file.getOriginalFilename(), file.getContentType());
         return ApiResponse.success(doc, "Document uploaded successfully. Ingestion in progress.");
     }
 
