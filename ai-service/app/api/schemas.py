@@ -361,32 +361,6 @@ class ReleaseNoteGenerateResponse(BaseModel):
 
 
 # ----------------------------------------------------
-# Daily Status Models
-# ----------------------------------------------------
-class DailyStatusGenerateRequest(BaseModel):
-    sprintInformation: str
-    document_id: Optional[str] = None
-
-
-class DailyStatusResult(BaseModel):
-    completed: List[str] = Field(default_factory=list)
-    inProgress: List[str] = Field(default_factory=list)
-    blockers: List[str] = Field(default_factory=list)
-    risks: List[str] = Field(default_factory=list)
-    nextSteps: List[str] = Field(default_factory=list)
-    importantUpdates: Optional[str] = ""
-
-
-class DailyStatusGenerateResponse(BaseModel):
-    result: DailyStatusResult
-    sources: List[str] = Field(default_factory=list)
-    source_details: List[SourceDto] = Field(default_factory=list)
-    model: str
-    prompt_version: str
-    execution_time_ms: int
-
-
-# ----------------------------------------------------
 # Health Check Models
 # ----------------------------------------------------
 class HealthResponse(BaseModel):

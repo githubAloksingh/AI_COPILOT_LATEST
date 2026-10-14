@@ -16,8 +16,6 @@ from app.api.schemas import (
     DefectAnalyzeResponse,
     ReleaseNoteGenerateRequest,
     ReleaseNoteGenerateResponse,
-    DailyStatusGenerateRequest,
-    DailyStatusGenerateResponse,
     MockScreensPlanRequest,
     MockScreensPlanResponse,
     MockScreenPlanRequest,
@@ -250,19 +248,6 @@ def generate_release_notes(req: ReleaseNoteGenerateRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Release note generation failed: {str(e)}"
-        )
-
-
-@router.post("/daily-status/generate", response_model=DailyStatusGenerateResponse)
-def generate_daily_status(req: DailyStatusGenerateRequest):
-    """Generate structured scrum daily status update."""
-    try:
-        return rag_service.generate_daily_status(req)
-    except Exception as e:
-        logger.error("Daily status generation failed: %s", e, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Daily status generation failed: {str(e)}"
         )
 
 

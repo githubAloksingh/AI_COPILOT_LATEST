@@ -5,7 +5,6 @@ from app.prompts import (
     build_testcase_prompt,
     build_defect_prompt,
     build_release_notes_prompt,
-    build_daily_status_prompt,
     GUARDRAILS
 )
 from app.api.schemas import (

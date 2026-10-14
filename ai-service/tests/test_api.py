@@ -8,7 +8,6 @@ from app.api.schemas import (
     TestCaseItem,
     DefectResult,
     ReleaseNoteResult,
-    DailyStatusResult,
     MockScreenComponent,
     MockScreenGenerationResponse,
     MockScreenSpecification,
@@ -248,4 +247,3 @@ def test_cors_allows_local_frontend_and_rejects_unconfigured_origin():
 
     assert allowed.headers.get("access-control-allow-origin") == "http://localhost:4200"
     assert "access-control-allow-origin" not in rejected.headers
-

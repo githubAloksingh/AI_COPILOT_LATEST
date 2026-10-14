@@ -221,10 +221,6 @@ export class ApiService {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/release-notes/accept`, data);
   }
 
-  generateDailyStatus(data: any): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/copilot/status`, data);
-  }
-
   createMockScreensJob(request: MockScreensJobRequest): Observable<ApiResponse<MockScreensJobResponse>> {
     return this.http.post<ApiResponse<MockScreensJobResponse>>(
       `${this.baseUrl}/copilot/mock-screens/jobs`,
@@ -306,4 +302,3 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/mock-screens/history`);
   }
 }
-

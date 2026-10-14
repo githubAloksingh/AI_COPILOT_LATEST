@@ -23,9 +23,6 @@ from app.api.schemas import (
     ReleaseNoteGenerateRequest,
     ReleaseNoteGenerateResponse,
     ReleaseNoteResult,
-    DailyStatusGenerateRequest,
-    DailyStatusGenerateResponse,
-    DailyStatusResult,
     MockScreensPlanRequest,
     MockScreensPlanResponse,
     MockScreensContextSummary,
@@ -49,8 +46,6 @@ from app.prompts import (
     build_defect_prompt,
     RELEASE_NOTE_PROMPT_VERSION,
     build_release_notes_prompt,
-    DAILY_STATUS_PROMPT_VERSION,
-    build_daily_status_prompt,
     MOCK_SCREENS_PROMPT_VERSION,
     MOCK_SCREENS_SUMMARY_PROMPT_VERSION,
     MOCK_SCREEN_GENERATION_PROMPT_VERSION,
@@ -663,29 +658,5 @@ class RagService:
             prompt_version=RELEASE_NOTE_PROMPT_VERSION,
             execution_time_ms=exec_time_ms
         )
-
-    def generate_daily_status(self, req: DailyStatusGenerateRequest) -> DailyStatusGenerateResponse:
-        start_time = time.time()
-        chunks, sources = self._retrieve_generation_context(
-            query=req.sprintInformation or "daily scrum standup status updates",
-            document_id=req.document_id
-        )
-        combined_context = self._build_context(chunks)
-        
-        prompt = build_daily_status_prompt(req.sprintInformation, context=combined_context)
-        result = self.gemini.generate_structured(prompt, DailyStatusResult)
-        exec_time_ms = int((time.time() - start_time) * 1000)
-
-        source_strings = [s.snippet or s.file_name or "" for s in sources if s.snippet or s.file_name]
-
-        return DailyStatusGenerateResponse(
-            result=result,
-            sources=source_strings,
-            source_details=sources,
-            model=settings.gemini_model,
-            prompt_version=DAILY_STATUS_PROMPT_VERSION,
-            execution_time_ms=exec_time_ms
-        )
-
 
 rag_service = RagService()
