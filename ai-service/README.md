@@ -27,7 +27,6 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 | `POST` | `/api/ai/test-cases/generate` | Generate positive, negative, and edge test cases |
 | `POST` | `/api/ai/defects/analyze` | Triage defect logs, stack traces, and suggest root cause fixes |
 | `POST` | `/api/ai/release-notes/generate` | Generate clean release notes from sprint information |
-| `POST` | `/api/ai/daily-status/generate` | Generate structured scrum daily status updates |
 | `POST` | `/api/ai/mock-screens/plan` | Plan BRD-driven screens with Gemini text generation |
 | `POST` | `/api/ai/mock-screens/render-screen` | Render a static PNG locally with PyMuPDF |
 | `POST` | `/api/ai/mock-screens/compile-pdf` | Compile generated screen PNGs in sequence |

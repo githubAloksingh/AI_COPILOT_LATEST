@@ -96,7 +96,7 @@ cd backend
 # Or on Linux/macOS:
 ./start-backend.sh
 ```
-_Backend API health available at: `http://localhost:8080/api/health`._
+The backend APIs are available at `http://localhost:8080/api`.
 
 ---
 
@@ -125,8 +125,8 @@ _Frontend will open at `http://localhost:4200`._
    - Generates positive, negative, and edge test cases linked to requirement context.
 4. **Defect Triage (`/defect-triage`)**:
    - Analyzes logs, stack traces, and historical defect context to output probable root causes and fixes.
-5. **Release Notes & Daily Status (`/release-notes`)**:
-   - Generates sprint release notes and daily standup summaries.
+5. **Release Notes (`/release-notes`)**:
+   - Generates sprint release notes.
 6. **Audit & History (`/audit-history`)**:
    - Spring Boot logs request ID, feature, model, execution time, and retrieved sources for full auditability.
 

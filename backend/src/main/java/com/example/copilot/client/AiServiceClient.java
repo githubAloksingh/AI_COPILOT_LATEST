@@ -236,25 +236,6 @@ public class AiServiceClient {
         }
     }
 
-    public AiDailyStatusResponse generateDailyStatus(DailyStatusRequest request) {
-        String url = aiServiceUrl + "/api/ai/daily-status/generate";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<DailyStatusRequest> requestEntity = new HttpEntity<>(request, headers);
-        try {
-            ResponseEntity<AiDailyStatusResponse> response = restTemplate.postForEntity(url, requestEntity, AiDailyStatusResponse.class);
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody();
-            }
-            throw new RuntimeException("AI service returned status: " + response.getStatusCode());
-        } catch (Exception e) {
-            String detail = extractErrorDetail(e);
-            log.error("Failed to generate daily status via AI service: {}", detail);
-            throw new RuntimeException("AI Service Daily Status Generation Failed: " + detail, e);
-        }
-    }
-
     public AiMockScreensPlanResponse planMockScreens(Long documentId) {
         String url = aiServiceUrl + "/api/ai/mock-screens/plan";
         HttpHeaders headers = mockScreensHeaders();
