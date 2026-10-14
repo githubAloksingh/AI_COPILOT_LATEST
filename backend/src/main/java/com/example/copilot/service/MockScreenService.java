@@ -21,9 +21,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -202,8 +199,6 @@ public class MockScreenService {
 
             // STEP 3: RENDER SCREENS ONE BY ONE (Section 8)
             updateJobStatus(gen, "GENERATING", null, null);
-            Path jobDir = getStorageDirectory(jobId);
-            Files.createDirectories(jobDir);
 
             int completedCount = 0;
             for (MockScreen sc : screenEntities) {
@@ -227,10 +222,7 @@ public class MockScreenService {
                         byte[] imgBytes = Base64.getDecoder().decode(imgB64);
                         sc.setImageData(imgBytes);
                         sc.setImagePrompt((String) renderResp.get("image_prompt"));
-
-                        Path imgPath = jobDir.resolve("screen-" + sc.getSequence() + ".png");
-                        Files.write(imgPath, imgBytes);
-                        sc.setImagePath(imgPath.toString());
+                        sc.setImagePath(null);
                         sc.setStatus("COMPLETED");
                         sc.setErrorMessage(null);
                         completedCount++;
@@ -294,10 +286,8 @@ public class MockScreenService {
                                 "AI service returned an incomplete PDF for " + pdfScreens.size() + " screens."
                         );
                     }
-                    Path pdfPath = jobDir.resolve("mock-screens-" + jobId + ".pdf");
-                    Files.write(pdfPath, pdfBytes);
                     gen.setPdfData(pdfBytes);
-                    gen.setPdfPath(pdfPath.toString());
+                    gen.setPdfPath(null);
                 } catch (Exception pdfErr) {
                     pdfCompilationError = "PDF compilation failed: " + pdfErr.getMessage();
                     log.error("PDF combination failed for job {}: {}", jobId, pdfErr.getMessage(), pdfErr);
@@ -352,34 +342,22 @@ public class MockScreenService {
     }
 
     public byte[] getPdfBytes(String jobId) {
-        MockScreenGeneration gen = generationRepository.findByJobId(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+        if (generationRepository.findByJobId(jobId).isEmpty()) {
+            throw new IllegalArgumentException("Job not found: " + jobId);
+        }
 
         byte[] pdf = generationRepository.findPdfDataByJobId(jobId);
         if (pdf != null && pdf.length > 0) return pdf;
-
-        if (gen.getPdfPath() != null) {
-            try {
-                Path p = Path.of(gen.getPdfPath());
-                if (Files.exists(p)) return Files.readAllBytes(p);
-            } catch (IOException ignored) {}
-        }
         throw new IllegalStateException("PDF is not ready or failed to generate for job " + jobId);
     }
 
     public byte[] getScreenImageBytes(Long screenId) {
-        MockScreen sc = mockScreenRepository.findById(screenId)
-                .orElseThrow(() -> new IllegalArgumentException("Mock screen not found: " + screenId));
+        if (mockScreenRepository.findById(screenId).isEmpty()) {
+            throw new IllegalArgumentException("Mock screen not found: " + screenId);
+        }
 
         byte[] img = mockScreenRepository.findImageDataById(screenId);
         if (img != null && img.length > 0) return img;
-
-        if (sc.getImagePath() != null) {
-            try {
-                Path p = Path.of(sc.getImagePath());
-                if (Files.exists(p)) return Files.readAllBytes(p);
-            } catch (IOException ignored) {}
-        }
         throw new IllegalStateException("Screen image not available for screen ID " + screenId);
     }
 
@@ -415,11 +393,7 @@ public class MockScreenService {
             sc.setImageData(imgBytes);
             sc.setImagePrompt((String) renderResp.get("image_prompt"));
 
-            Path jobDir = getStorageDirectory(gen.getJobId());
-            Files.createDirectories(jobDir);
-            Path imgPath = jobDir.resolve("screen-" + sc.getSequence() + ".png");
-            Files.write(imgPath, imgBytes);
-            sc.setImagePath(imgPath.toString());
+            sc.setImagePath(null);
             sc.setStatus("COMPLETED");
             sc.setErrorMessage(null);
             mockScreenRepository.save(sc);
@@ -500,12 +474,8 @@ public class MockScreenService {
             if (pdfBytes.length == 0) {
                 throw new IllegalStateException("AI service returned an empty compiled PDF.");
             }
-            Path jobDir = getStorageDirectory(gen.getJobId());
-            Files.createDirectories(jobDir);
-            Path pdfPath = jobDir.resolve("mock-screens-" + gen.getJobId() + ".pdf");
-            Files.write(pdfPath, pdfBytes);
             gen.setPdfData(pdfBytes);
-            gen.setPdfPath(pdfPath.toString());
+            gen.setPdfPath(null);
             gen.setStatus(pdfScreens.size() == gen.getTotalScreens() ? "COMPLETED" : "PARTIAL_SUCCESS");
             gen.setCompletedAt(LocalDateTime.now());
             gen.setErrorMessage(null);
@@ -570,14 +540,6 @@ public class MockScreenService {
         generationRepository.save(gen);
     }
 
-    private Path getStorageDirectory(String jobId) {
-        Path root = Path.of("backend", "uploads", "mock-screens", jobId).toAbsolutePath().normalize();
-        if (!Files.exists(root.getParent())) {
-            root = Path.of("uploads", "mock-screens", jobId).toAbsolutePath().normalize();
-        }
-        return root;
-    }
-
     private MockScreenJobResponse buildJobResponse(MockScreenGeneration gen, List<MockScreen> screens, Document doc) {
         String projName = "General Enterprise";
         if (gen.getProjectId() != null) {
@@ -585,7 +547,7 @@ public class MockScreenService {
         }
 
         List<ScreenDto> screenDtos = screens.stream().map(this::mapToScreenDto).collect(Collectors.toList());
-        String pdfUrl = gen.getPdfPath() != null
+        String pdfUrl = generationRepository.hasPdfDataByJobId(gen.getJobId())
                 ? "/api/mock-screens/jobs/" + gen.getJobId() + "/pdf"
                 : null;
 

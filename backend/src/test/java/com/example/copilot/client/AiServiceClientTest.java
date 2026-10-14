@@ -15,6 +15,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
+import static org.hamcrest.Matchers.containsString;
 
 public class AiServiceClientTest {
 
@@ -44,6 +45,9 @@ public class AiServiceClientTest {
 
         mockServer.expect(requestTo(BASE_URL + "/api/ai/ingest"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(content().string(containsString("filename=\"sample.pdf\"")))
+                .andExpect(content().string(containsString("Hello World")))
                 .andRespond(withSuccess(objectMapper.writeValueAsString(mockResponse), MediaType.APPLICATION_JSON));
 
         AiIngestionResponse response = aiServiceClient.ingestDocument(101L, "sample.pdf", "application/pdf", "Hello World".getBytes());

@@ -30,9 +30,6 @@ import java.util.ArrayList;
 
 import java.util.List;
 
-import java.nio.file.Files;
-
-import java.nio.file.Path;
 
 @Slf4j
 
@@ -152,7 +149,7 @@ public class IngestionService {
 
     @Async("documentTaskExecutor")
 
-    public void processDocumentAsync(Long documentId, Path filePath, String originalFileName, String fileType) {
+    public void processDocumentAsync(Long documentId, String originalFileName, String fileType) {
 
         log.info("Starting async document ingestion for document ID: {} ({}) via AI Service", documentId,
                 originalFileName);
@@ -171,16 +168,12 @@ public class IngestionService {
 
         try {
 
-            // Persist original file bytes to MySQL LONGBLOB and uploads/ disk folder
-            // so the original file is always viewable and downloadable regardless of state.
-            byte[] fileBytes = Files.readAllBytes(filePath);
-            documentService.saveOriginalFile(documentId, fileBytes, filePath);
-
+            byte[] fileBytes = documentService.getOriginalFileBytes(documentId);
             AiIngestionResponse response = aiServiceClient.ingestDocument(
                     documentId,
                     originalFileName,
                     fileType,
-                    filePath
+                    fileBytes
             );
 
             documentRepository.updateStatusAndChunkCount(documentId, "COMPLETED", null, response.getChunk_count());
@@ -260,18 +253,6 @@ public class IngestionService {
 
                     "Uploaded document: " + document.getFileName(), null, "Parser", "v1.0", null, "FAILED", duration,
                     err, projectName, document.getFileName(), document.getVersion(), document.getFileType());
-
-        } finally {
-
-            try {
-
-                Files.deleteIfExists(filePath);
-
-            } catch (Exception cleanupError) {
-
-                log.warn("Could not delete temporary upload file {}: {}", filePath, cleanupError.getMessage());
-
-            }
 
         }
 
