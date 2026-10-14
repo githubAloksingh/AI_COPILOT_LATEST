@@ -14,7 +14,7 @@ from app.api.schemas import (
     ScreenSpecification,
     ScreenTable
 )
-from app.prompts.mock_screen_prompts import build_mock_screen_render_brief
+from app.prompts.mock_screens_prompts import build_mock_screen_render_brief
 
 logger = logging.getLogger(__name__)
 

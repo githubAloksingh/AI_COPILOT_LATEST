@@ -9,7 +9,7 @@ from app.api.schemas import (
     ScreenPlan,
     ScreenSpecification,
 )
-from app.prompts.mock_screen_prompts import build_mock_screen_plan_prompt
+from app.prompts.mock_screens_prompts import build_mock_screen_plan_prompt
 from app.services.gemini_service import gemini_service
 
 logger = logging.getLogger(__name__)

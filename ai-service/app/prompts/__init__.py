@@ -43,6 +43,8 @@ from .mock_screens_prompts import (
     MOCK_SCREENS_PROMPT_VERSION,
     MOCK_SCREENS_SUMMARY_PROMPT_VERSION,
     MOCK_SCREEN_GENERATION_PROMPT_VERSION,
+    build_mock_screen_plan_prompt,
+    build_mock_screen_render_brief,
     build_mock_screens_context_prompt,
     build_mock_screens_plan_prompt,
     build_mock_screen_generation_prompt
@@ -77,6 +79,8 @@ __all__ = [
     "MOCK_SCREENS_PROMPT_VERSION",
     "MOCK_SCREENS_SUMMARY_PROMPT_VERSION",
     "MOCK_SCREEN_GENERATION_PROMPT_VERSION",
+    "build_mock_screen_plan_prompt",
+    "build_mock_screen_render_brief",
     "build_mock_screens_context_prompt",
     "build_mock_screens_plan_prompt",
     "build_mock_screen_generation_prompt",
