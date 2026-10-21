@@ -1,5 +1,9 @@
+import base64
+import io
+
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.api.routes import get_document_content
 from app.main import app
@@ -270,6 +274,76 @@ def test_mock_screen_plan_endpoint_returns_422_for_invalid_plan(monkeypatch):
 
     assert response.status_code == 422
     assert "Screen Plan Validation Failed" in response.json()["detail"]
+
+
+def test_mock_screen_plan_endpoint_uses_pipeline_a_without_worker_authentication(monkeypatch):
+    plan = ScreenPlanService()._parse_and_validate_plan(_valid_plan_data())
+    monkeypatch.setattr(
+        "app.api.mock_screens.screen_plan_service.generate_plan",
+        lambda brd_text, project_name: plan,
+    )
+
+    response = client.post(
+        "/api/ai/mock-screens/plan",
+        json={"brd_text": "Complete BRD text", "project_name": "Claims"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_screens"] == 1
+    assert payload["plan"]["screens"][0]["name"] == "Claims Queue"
+
+
+def test_pipeline_a_render_endpoint_returns_png(monkeypatch):
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (32, 24), color="white").save(image_buffer, format="PNG")
+    png_bytes = image_buffer.getvalue()
+    monkeypatch.setattr(
+        "app.api.mock_screens.image_generation_service.generate_screen_image",
+        lambda specification, design_context: png_bytes,
+    )
+
+    response = client.post(
+        "/api/ai/mock-screens/render-screen",
+        json={
+            "specification": {
+                "name": "Claims Queue",
+                "purpose": "Review submitted claims",
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mime_type"] == "image/png"
+    assert payload["width"] == 32
+    assert payload["height"] == 24
+    assert base64.b64decode(payload["image_base64"]) == png_bytes
+
+
+def test_pipeline_a_compile_pdf_endpoint_returns_pdf():
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (32, 24), color="white").save(image_buffer, format="PNG")
+
+    response = client.post(
+        "/api/ai/mock-screens/compile-pdf",
+        json={
+            "application_name": "Claims Portal",
+            "project_name": "Claims",
+            "brd_name": "claims.pdf",
+            "screens": [{
+                "sequence": 1,
+                "name": "Claims Queue",
+                "image_base64": base64.b64encode(image_buffer.getvalue()).decode("ascii"),
+            }],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    pdf_bytes = base64.b64decode(payload["pdf_base64"])
+    assert pdf_bytes.startswith(b"%PDF")
+    assert payload["page_count"] >= 2
 
 
 def test_mock_screen_pdf_endpoint_returns_422_for_missing_images():

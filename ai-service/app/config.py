@@ -52,7 +52,6 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     frontend_origins: str = "http://localhost:4200,http://127.0.0.1:4200"
-    mock_screens_service_token: str = ""
 
 
 settings = Settings()

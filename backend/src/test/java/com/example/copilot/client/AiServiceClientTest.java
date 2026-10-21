@@ -30,7 +30,7 @@ public class AiServiceClientTest {
     void setUp() {
         restTemplate = new RestTemplate();
         mockServer = MockRestServiceServer.createServer(restTemplate);
-        aiServiceClient = new AiServiceClient(restTemplate, BASE_URL, "test-service-token");
+        aiServiceClient = new AiServiceClient(restTemplate, BASE_URL);
         objectMapper = new ObjectMapper();
     }
 
@@ -103,15 +103,4 @@ public class AiServiceClientTest {
         mockServer.verify();
     }
 
-    @Test
-    void mockScreensPlanningSendsServerToServerAuthentication() throws Exception {
-        mockServer.expect(requestTo(BASE_URL + "/api/ai/mock-screens/plan"))
-                .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Service-Token", "test-service-token"))
-                .andRespond(withSuccess("{\"screens\":[]}", MediaType.APPLICATION_JSON));
-
-        aiServiceClient.planMockScreens(42L);
-
-        mockServer.verify();
-    }
 }
