@@ -166,6 +166,8 @@ public class MockScreenService {
             @SuppressWarnings("unchecked")
             Map<String, Object> designContext = (Map<String, Object>) plan.get("design_context");
             @SuppressWarnings("unchecked")
+            Map<String, Object> globalNav = (Map<String, Object>) plan.get("global_navigation");
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> screensList = (List<Map<String, Object>>) plan.get("screens");
 
             if (screensList == null || screensList.isEmpty()) {
@@ -176,6 +178,9 @@ public class MockScreenService {
             gen.setApplicationSummary(appSummary);
             gen.setDesignSystemJson(objectMapper.writeValueAsString(designContext));
             gen.setScreenPlanJson(objectMapper.writeValueAsString(plan));
+            if (globalNav != null) {
+                gen.setInteractionModelJson(objectMapper.writeValueAsString(globalNav));
+            }
             gen.setTotalScreens(screensList.size());
             gen.setCompletedScreens(0);
             gen = generationRepository.save(gen);
@@ -197,17 +202,38 @@ public class MockScreenService {
                 screenEntities.add(mockScreenRepository.save(sc));
             }
 
-            // STEP 3: RENDER SCREENS ONE BY ONE (Section 8)
-            updateJobStatus(gen, "GENERATING", null, null);
-
-            int completedCount = 0;
+            // STEP 3: WIREFRAMING (Generate architectural greyscale wireframe PNGs)
+            updateJobStatus(gen, "WIREFRAMING", null, null);
             for (MockScreen sc : screenEntities) {
                 gen.setCurrentScreen(sc.getScreenName());
                 gen.setCurrentScreenSequence(sc.getSequence());
                 generationRepository.save(gen);
 
-                sc.setStatus("GENERATING");
+                try {
+                    Map<String, Object> specMap = objectMapper.readValue(sc.getSpecificationJson(), new TypeReference<>() {});
+                    Map<String, Object> wfReq = new HashMap<>();
+                    wfReq.put("specification", specMap);
+                    wfReq.put("design_context", designContext);
+
+                    Map<String, Object> wfResp = aiServiceClient.wireframeMockScreen(wfReq);
+                    String wfB64 = (String) wfResp.get("wireframe_base64");
+                    if (wfB64 != null && !wfB64.isBlank()) {
+                        byte[] wfBytes = Base64.getDecoder().decode(wfB64);
+                        sc.setWireframeData(wfBytes);
+                        sc.setStatus("MOCKUP_PENDING");
+                    }
+                } catch (Exception wfErr) {
+                    log.warn("Wireframe generation warning for screen {} ({}): {}", sc.getSequence(), sc.getScreenName(), wfErr.getMessage());
+                }
                 mockScreenRepository.save(sc);
+            }
+
+            // STEP 4: GENERATING (Render high-fidelity colour UI mockups)
+            updateJobStatus(gen, "GENERATING", null, null);
+            for (MockScreen sc : screenEntities) {
+                gen.setCurrentScreen(sc.getScreenName());
+                gen.setCurrentScreenSequence(sc.getSequence());
+                generationRepository.save(gen);
 
                 try {
                     Map<String, Object> specMap = objectMapper.readValue(sc.getSpecificationJson(), new TypeReference<>() {});
@@ -223,9 +249,8 @@ public class MockScreenService {
                         sc.setImageData(imgBytes);
                         sc.setImagePrompt((String) renderResp.get("image_prompt"));
                         sc.setImagePath(null);
-                        sc.setStatus("COMPLETED");
+                        sc.setStatus("EXPLAIN_PENDING");
                         sc.setErrorMessage(null);
-                        completedCount++;
                     } else {
                         throw new RuntimeException("AI service returned empty image data");
                     }
@@ -235,12 +260,46 @@ public class MockScreenService {
                     sc.setErrorMessage(screenErr.getMessage());
                 }
                 mockScreenRepository.save(sc);
+            }
 
+            // STEP 5: EXPLAINING (Generate BRD-grounded screen explanations & specifications)
+            updateJobStatus(gen, "EXPLAINING", null, null);
+            int completedCount = 0;
+            for (MockScreen sc : screenEntities) {
+                gen.setCurrentScreen(sc.getScreenName());
+                gen.setCurrentScreenSequence(sc.getSequence());
+                generationRepository.save(gen);
+
+                if ("EXPLAIN_PENDING".equalsIgnoreCase(sc.getStatus()) || sc.getImageData() != null) {
+                    try {
+                        Map<String, Object> specMap = objectMapper.readValue(sc.getSpecificationJson(), new TypeReference<>() {});
+                        Map<String, Object> explainReq = new HashMap<>();
+                        explainReq.put("specification", specMap);
+                        explainReq.put("brd_excerpt", fullBrdText.length() > 15000 ? fullBrdText.substring(0, 15000) : fullBrdText);
+                        explainReq.put("project_name", projName);
+
+                        Map<String, Object> explainResp = aiServiceClient.explainMockScreen(explainReq);
+                        Object expObj = explainResp.get("explanation");
+                        if (expObj != null) {
+                            sc.setExplanationJson(objectMapper.writeValueAsString(expObj));
+                        }
+                        sc.setStatus("COMPLETED");
+                        sc.setErrorMessage(null);
+                        completedCount++;
+                    } catch (Exception expErr) {
+                        log.warn("Failed to generate explanation for screen {} ({}): {}", sc.getSequence(), sc.getScreenName(), expErr.getMessage());
+                        if (sc.getImageData() != null) {
+                            sc.setStatus("COMPLETED");
+                            completedCount++;
+                        }
+                    }
+                    mockScreenRepository.save(sc);
+                }
                 gen.setCompletedScreens(completedCount);
                 generationRepository.save(gen);
             }
 
-            // STEP 4: COMBINE INTO CONSOLIDATED PDF (Section 17)
+            // STEP 6: COMBINE INTO CONSOLIDATED PDF (Section 17)
             updateJobStatus(gen, "COMBINING", null, null);
             String pdfCompilationError = null;
             List<MockScreen> finalScreens = mockScreenRepository.findByGenerationIdOrderBySequenceAsc(gen.getId());
@@ -255,6 +314,14 @@ public class MockScreenService {
                     ps.put("userRole", s.getUserRole());
                     ps.put("workflowState", s.getWorkflowState());
                     ps.put("image_base64", Base64.getEncoder().encodeToString(s.getImageData()));
+                    if (s.getWireframeData() != null) {
+                        ps.put("wireframe_base64", Base64.getEncoder().encodeToString(s.getWireframeData()));
+                    }
+                    if (s.getExplanationJson() != null && !s.getExplanationJson().isBlank()) {
+                        try {
+                            ps.put("explanation", objectMapper.readValue(s.getExplanationJson(), new TypeReference<Map<String, Object>>() {}));
+                        } catch (Exception ignored) {}
+                    }
                     pdfScreens.add(ps);
                 }
             }
@@ -379,6 +446,23 @@ public class MockScreenService {
                     ? objectMapper.readValue(gen.getDesignSystemJson(), new TypeReference<>() {})
                     : Collections.emptyMap();
 
+            // Wireframe retry if missing
+            if (sc.getWireframeData() == null || sc.getWireframeData().length == 0) {
+                try {
+                    Map<String, Object> wfReq = new HashMap<>();
+                    wfReq.put("specification", specMap);
+                    wfReq.put("design_context", designMap);
+                    Map<String, Object> wfResp = aiServiceClient.wireframeMockScreen(wfReq);
+                    String wfB64 = (String) wfResp.get("wireframe_base64");
+                    if (wfB64 != null && !wfB64.isBlank()) {
+                        sc.setWireframeData(Base64.getDecoder().decode(wfB64));
+                    }
+                } catch (Exception wfEx) {
+                    log.warn("Wireframe retry warning for screen {}: {}", sc.getScreenName(), wfEx.getMessage());
+                }
+            }
+
+            // Mockup render retry
             Map<String, Object> renderReq = new HashMap<>();
             renderReq.put("specification", specMap);
             renderReq.put("design_context", designMap);
@@ -392,8 +476,24 @@ public class MockScreenService {
             byte[] imgBytes = Base64.getDecoder().decode(imgB64);
             sc.setImageData(imgBytes);
             sc.setImagePrompt((String) renderResp.get("image_prompt"));
-
             sc.setImagePath(null);
+
+            // Explanation retry if missing
+            if (sc.getExplanationJson() == null || sc.getExplanationJson().isBlank()) {
+                try {
+                    Map<String, Object> explainReq = new HashMap<>();
+                    explainReq.put("specification", specMap);
+                    explainReq.put("project_name", gen.getApplicationName());
+                    Map<String, Object> explainResp = aiServiceClient.explainMockScreen(explainReq);
+                    Object expObj = explainResp.get("explanation");
+                    if (expObj != null) {
+                        sc.setExplanationJson(objectMapper.writeValueAsString(expObj));
+                    }
+                } catch (Exception expEx) {
+                    log.warn("Explanation retry warning for screen {}: {}", sc.getScreenName(), expEx.getMessage());
+                }
+            }
+
             sc.setStatus("COMPLETED");
             sc.setErrorMessage(null);
             mockScreenRepository.save(sc);
@@ -450,6 +550,14 @@ public class MockScreenService {
                     ps.put("userRole", s.getUserRole());
                     ps.put("workflowState", s.getWorkflowState());
                     ps.put("image_base64", Base64.getEncoder().encodeToString(s.getImageData()));
+                    if (s.getWireframeData() != null) {
+                        ps.put("wireframe_base64", Base64.getEncoder().encodeToString(s.getWireframeData()));
+                    }
+                    if (s.getExplanationJson() != null && !s.getExplanationJson().isBlank()) {
+                        try {
+                            ps.put("explanation", objectMapper.readValue(s.getExplanationJson(), new TypeReference<Map<String, Object>>() {}));
+                        } catch (Exception ignored) {}
+                    }
                     pdfScreens.add(ps);
                 }
             }
@@ -533,6 +641,16 @@ public class MockScreenService {
                 && !normalized.startsWith("failed to fetch document content:");
     }
 
+    public byte[] getScreenWireframeBytes(Long screenId) {
+        if (mockScreenRepository.findById(screenId).isEmpty()) {
+            throw new IllegalArgumentException("Mock screen not found: " + screenId);
+        }
+
+        byte[] wireframe = mockScreenRepository.findWireframeDataById(screenId);
+        if (wireframe != null && wireframe.length > 0) return wireframe;
+        throw new IllegalStateException("Screen wireframe not available for screen ID " + screenId);
+    }
+
     private void updateJobStatus(MockScreenGeneration gen, String status, String currentScreen, Integer currentSeq) {
         gen.setStatus(status);
         if (currentScreen != null) gen.setCurrentScreen(currentScreen);
@@ -557,12 +675,14 @@ public class MockScreenService {
                 .documentName(doc != null ? doc.getFileName() : "BRD #" + gen.getDocumentId())
                 .projectName(projName)
                 .status(gen.getStatus())
+                .currentStage(gen.getStatus())
                 .totalScreens(gen.getTotalScreens())
                 .completedScreens(gen.getCompletedScreens())
                 .currentScreen(gen.getCurrentScreen())
                 .currentScreenSequence(gen.getCurrentScreenSequence())
                 .applicationName(gen.getApplicationName())
                 .applicationSummary(gen.getApplicationSummary())
+                .interactionModelJson(gen.getInteractionModelJson())
                 .screens(screenDtos)
                 .pdfUrl(pdfUrl)
                 .error(gen.getErrorMessage())
@@ -572,8 +692,11 @@ public class MockScreenService {
     }
 
     private ScreenDto mapToScreenDto(MockScreen sc) {
-        String imgUrl = "COMPLETED".equalsIgnoreCase(sc.getStatus())
+        String imgUrl = sc.getImageData() != null
                 ? "/api/mock-screens/" + sc.getId() + "/image"
+                : null;
+        String wireframeUrl = sc.getWireframeData() != null
+                ? "/api/mock-screens/" + sc.getId() + "/wireframe"
                 : null;
 
         return ScreenDto.builder()
@@ -586,8 +709,10 @@ public class MockScreenService {
                 .workflowState(sc.getWorkflowState())
                 .status(sc.getStatus())
                 .imageUrl(imgUrl)
+                .wireframeUrl(wireframeUrl)
                 .errorMessage(sc.getErrorMessage())
                 .specificationJson(sc.getSpecificationJson())
+                .explanationJson(sc.getExplanationJson())
                 .build();
     }
 }

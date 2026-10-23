@@ -7,13 +7,61 @@
   <!-- Page Header -->
   <div class="page-header">
     <div class="header-left">
-      <h1>Mock Screens</h1>
+      <h1>Mock Screens & Architecture Blueprint</h1>
+      <p>Generate grounded IFML interaction models, structural wireframes, and enterprise UI mockups from BRD requirements.</p>
     </div>
   </div>
 
-  <!-- Main Card -->
+  <!-- Pipeline Live Progress Tracker (Active while generating) -->
+  <div *ngIf="startingGeneration && currentJob" class="live-pipeline-card card">
+    <div class="pipeline-header">
+      <div class="pipeline-title-group">
+        <div class="pulse-indicator-large"></div>
+        <div>
+          <h3>Generation in Progress: {{ currentJob.applicationName || currentJob.documentName }}</h3>
+          <p class="pipeline-meta">
+            <span>Job ID: <strong>{{ currentJob.jobId }}</strong></span>
+            <span *ngIf="currentJob.projectName"> · Project: <strong>{{ currentJob.projectName }}</strong></span>
+          </p>
+        </div>
+      </div>
+      <div class="stage-badge stage-active">
+        {{ currentJob.currentStage || currentJob.status }}
+      </div>
+    </div>
+
+    <!-- Pipeline Steps Indicator -->
+    <div class="pipeline-steps-bar">
+      <div
+        *ngFor="let stage of pipelineStages; let i = index"
+        class="pipeline-step-item"
+        [class.completed]="isStageCompleted(stage.key)"
+        [class.active]="isStageActive(stage.key)">
+        <div class="step-circle">
+          <span *ngIf="isStageCompleted(stage.key)">✓</span>
+          <span *ngIf="!isStageCompleted(stage.key)">{{ i + 1 }}</span>
+        </div>
+        <span class="step-label">{{ stage.label }}</span>
+      </div>
+    </div>
+
+    <!-- Progress status details -->
+    <div class="pipeline-status-details" *ngIf="currentJob.totalScreens > 0">
+      <div class="progress-bar-container">
+        <div
+          class="progress-bar-fill"
+          [style.width.%]="(currentJob.completedScreens / currentJob.totalScreens) * 100">
+        </div>
+      </div>
+      <div class="progress-text-row">
+        <span>Processing Screen <strong>{{ currentJob.currentScreenSequence || currentJob.completedScreens + 1 }}</strong> of <strong>{{ currentJob.totalScreens }}</strong>: <em>{{ currentJob.currentScreen || 'Preparing screen model...' }}</em></span>
+        <span>{{ currentJob.completedScreens }} / {{ currentJob.totalScreens }} Completed</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Selection Card -->
   <div class="card">
-    <!-- Tabs matching Functional Design UI -->
     <div class="simple-tabs-nav">
       <button type="button" class="simple-tab active">
         Import from Knowledge Base
@@ -100,7 +148,7 @@
           class="btn-generate"
           [disabled]="loadingProjects || loadingDocs || startingGeneration || !!documentsError || !selectedProjectId || !selectedDocumentId || !selectedDocument">
           <span *ngIf="startingGeneration" class="spinner"></span>
-          <span>{{ startingGeneration ? 'Generating Mock Screens...' : 'Generate Mock Screens' }}</span>
+          <span>{{ startingGeneration ? 'Architecting Blueprint & Mock Screens...' : 'Generate Mock Screens & Wireframes' }}</span>
         </button>
       </div>
 
@@ -112,13 +160,11 @@
   <!-- =========================================================================== -->
   <div class="modal-backdrop" *ngIf="showConfirmModal" (click)="cancelGenerate()">
     <div class="modal-dialog modal-confirm" (click)="$event.stopPropagation()">
-      <!-- Header -->
       <div class="confirm-modal-header">
-        <h3>Generate Mock Screens</h3>
+        <h3>Generate Mock Screens & Wireframes</h3>
         <button type="button" class="modal-close-btn" (click)="cancelGenerate()">×</button>
       </div>
 
-      <!-- Body -->
       <div class="confirm-modal-body">
         <div class="confirm-brd-info" *ngIf="selectedDocument">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F36F21" stroke-width="2">
@@ -136,15 +182,14 @@
             </svg>
           </div>
           <div class="confirm-time-text">
-            <span class="confirm-time-label">Estimated time:</span>
+            <span class="confirm-time-label">Estimated processing time:</span>
             <strong class="confirm-time-value">{{ getEstimatedTime() }}</strong>
           </div>
         </div>
 
-        <p class="confirm-note">This estimate is for the complete Mock Screens PDF.</p>
+        <p class="confirm-note">Generates an IFML interaction model, PyMuPDF vector wireframes, high-fidelity UI mockups, screen specifications, and consolidated multi-page PDF.</p>
       </div>
 
-      <!-- Footer Actions -->
       <div class="confirm-modal-footer">
         <button type="button" class="btn-confirm-cancel" (click)="cancelGenerate()">Cancel</button>
         <button type="button" class="btn-confirm-continue" (click)="confirmAndGenerate()">
@@ -158,47 +203,406 @@
   </div>
 
   <!-- =========================================================================== -->
-  <!-- SUCCESS POPUP MODAL with Download PDF                                        -->
+  <!-- SUCCESS / RESULT GALLERY MODAL                                              -->
   <!-- =========================================================================== -->
   <div class="modal-backdrop" *ngIf="showResultModal" (click)="closeResultModal()">
-    <div class="modal-dialog modal-result" (click)="$event.stopPropagation()">
+    <div class="modal-dialog modal-gallery-view" (click)="$event.stopPropagation()">
+      
       <!-- Modal Header -->
-      <div class="modal-header">
-        <div class="modal-header-content">
+      <div class="gallery-modal-header">
+        <div class="header-branding">
           <div class="modal-success-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
           </div>
           <div>
-            <h3>Mock Screens Generated!</h3>
-            <p *ngIf="currentJob">
-              <strong>{{ currentJob.documentName }}</strong>
-              <span *ngIf="currentJob.projectName"> · {{ currentJob.projectName }}</span>
+            <h2>{{ currentJob?.applicationName || 'UI/UX Mock Screen Architecture Blueprint' }}</h2>
+            <p class="modal-subtitle">
+              <span>Source: <strong>{{ currentJob?.documentName }}</strong></span>
+              <span *ngIf="currentJob?.projectName"> · Project: <strong>{{ currentJob?.projectName }}</strong></span>
+              <span class="badge-total-screens">{{ currentJob?.totalScreens || currentJob?.screens?.length || 0 }} Screens Generated</span>
             </p>
           </div>
         </div>
-        <button type="button" class="modal-close-btn" (click)="closeResultModal()">✕</button>
-      </div>
 
-      <!-- Modal Body -->
-      <div class="modal-body-result">
-        <div class="modal-download-section">
+        <div class="header-action-buttons">
           <button type="button" class="btn btn-download-pdf" (click)="downloadPdf()" [disabled]="downloadingPdf">
-            <svg *ngIf="!downloadingPdf" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg *ngIf="!downloadingPdf" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            <span *ngIf="downloadingPdf" class="spinner" style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;"></span>
-            <span>{{ downloadingPdf ? 'Downloading PDF...' : 'Download PDF' }}</span>
+            <span *ngIf="downloadingPdf" class="spinner" style="width: 14px; height: 14px;"></span>
+            <span>{{ downloadingPdf ? 'Preparing PDF...' : 'Download Blueprint PDF' }}</span>
           </button>
-          <button type="button" class="btn btn-outline-close" (click)="closeResultModal()">
-            Close
-          </button>
+          <button type="button" class="modal-close-btn" (click)="closeResultModal()">✕</button>
         </div>
       </div>
+
+      <!-- Gallery Main Tabs (Screens vs Global Navigation) -->
+      <div class="gallery-primary-nav">
+        <button
+          type="button"
+          class="gallery-nav-tab"
+          [class.active]="activeGalleryTab === 'gallery'"
+          (click)="activeGalleryTab = 'gallery'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="9" y1="21" x2="9" y2="9"/>
+          </svg>
+          <span>Screens & Wireframe Gallery</span>
+          <span class="tab-pill">{{ currentJob?.screens?.length || 0 }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="gallery-nav-tab"
+          [class.active]="activeGalleryTab === 'navigation'"
+          (click)="activeGalleryTab = 'navigation'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span>IFML Interaction & Navigation Model</span>
+        </button>
+      </div>
+
+      <!-- Tab Content 1: Screens Gallery -->
+      <div class="gallery-body" *ngIf="activeGalleryTab === 'gallery'">
+        
+        <!-- Screen Selector Sidebar/List -->
+        <div class="screen-selector-sidebar" *ngIf="currentJob?.screens && currentJob.screens.length > 0">
+          <div class="screen-list-header">SCREEN INVENTORY</div>
+          <div class="screen-list-scroll">
+            <div
+              *ngFor="let sc of currentJob.screens; let sIdx = index"
+              class="screen-thumb-item"
+              [class.active]="selectedScreenIndex === sIdx"
+              (click)="selectedScreenIndex = sIdx">
+              <div class="thumb-seq">[{{ sc.sequence | number:'2.0-0' }}]</div>
+              <div class="thumb-info">
+                <div class="thumb-title">{{ sc.name }}</div>
+                <div class="thumb-sub">{{ sc.screenType }} · {{ sc.userRole }}</div>
+              </div>
+              <div class="thumb-status" [ngClass]="'status-' + (sc.status | lowercase)">●</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Screen Presentation Canvas -->
+        <div class="active-screen-canvas" *ngIf="currentJob?.screens && currentJob.screens[selectedScreenIndex]">
+          <ng-container *ngIf="currentJob.screens[selectedScreenIndex] as currentScreen">
+            
+            <!-- Screen Header & View Mode Switcher -->
+            <div class="canvas-screen-header">
+              <div class="screen-title-area">
+                <span class="badge-screen-seq">SCREEN {{ currentScreen.sequence | number:'2.0-0' }}</span>
+                <h3>{{ currentScreen.name }}</h3>
+                <span class="badge-role">{{ currentScreen.userRole }}</span>
+                <span class="badge-type">{{ currentScreen.screenType }}</span>
+              </div>
+
+              <!-- 4 View Tabs -->
+              <div class="screen-view-mode-tabs">
+                <button
+                  type="button"
+                  class="mode-tab-btn"
+                  [class.active]="getScreenTab(currentScreen.id) === 'mockup'"
+                  (click)="setScreenTab(currentScreen.id, 'mockup')">
+                  <span>🎨 High-Fidelity Mockup</span>
+                </button>
+                <button
+                  type="button"
+                  class="mode-tab-btn"
+                  [class.active]="getScreenTab(currentScreen.id) === 'wireframe'"
+                  (click)="setScreenTab(currentScreen.id, 'wireframe')">
+                  <span>📐 Architectural Wireframe</span>
+                </button>
+                <button
+                  type="button"
+                  class="mode-tab-btn"
+                  [class.active]="getScreenTab(currentScreen.id) === 'explanation'"
+                  (click)="setScreenTab(currentScreen.id, 'explanation')">
+                  <span>📋 Screen Specs & Fields</span>
+                </button>
+                <button
+                  type="button"
+                  class="mode-tab-btn"
+                  [class.active]="getScreenTab(currentScreen.id) === 'interaction'"
+                  (click)="setScreenTab(currentScreen.id, 'interaction')">
+                  <span>⚡ Interaction Model</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- View 1: High Fidelity Mockup Image -->
+            <div class="screen-display-area" *ngIf="getScreenTab(currentScreen.id) === 'mockup'">
+              <div class="image-wrapper" *ngIf="currentScreen.imageUrl">
+                <img [src]="getImageUrl(currentScreen.id)" [alt]="currentScreen.name" class="img-mockup" />
+                <div class="image-overlay-actions">
+                  <a [href]="getImageUrl(currentScreen.id)" target="_blank" class="btn-overlay-zoom">
+                    Open Full Resolution ↗
+                  </a>
+                  <button *ngIf="currentScreen.status === 'FAILED'" (click)="retryScreen(currentScreen, $event)" class="btn-overlay-retry">
+                    Retry Screen
+                  </button>
+                </div>
+              </div>
+              <div *ngIf="!currentScreen.imageUrl" class="empty-screen-notice">
+                <p>Mockup image is generating or unavailable for this screen.</p>
+                <button type="button" class="btn-retry" (click)="retryScreen(currentScreen, $event)">Generate Image</button>
+              </div>
+            </div>
+
+            <!-- View 2: Architectural Wireframe Image -->
+            <div class="screen-display-area" *ngIf="getScreenTab(currentScreen.id) === 'wireframe'">
+              <div class="image-wrapper wireframe-wrapper" *ngIf="currentScreen.wireframeUrl">
+                <div class="wireframe-pill-badge">PRE-DESIGN WIREFRAME — STRUCTURAL ZONE PLACEMENT</div>
+                <img [src]="getWireframeUrl(currentScreen.id)" [alt]="currentScreen.name + ' Wireframe'" class="img-wireframe" />
+                <div class="image-overlay-actions">
+                  <a [href]="getWireframeUrl(currentScreen.id)" target="_blank" class="btn-overlay-zoom">
+                    Open Full Resolution ↗
+                  </a>
+                </div>
+              </div>
+              <div *ngIf="!currentScreen.wireframeUrl" class="empty-screen-notice">
+                <p>Wireframe vector layout is not available.</p>
+                <button type="button" class="btn-retry" (click)="retryScreen(currentScreen, $event)">Generate Wireframe</button>
+              </div>
+            </div>
+
+            <!-- View 3: Screen Specifications & Field Dictionary -->
+            <div class="screen-spec-area" *ngIf="getScreenTab(currentScreen.id) === 'explanation'">
+              <ng-container *ngIf="getParsedExplanation(currentScreen) as exp">
+                
+                <!-- Purpose Section -->
+                <div class="spec-card">
+                  <h4>Operational Purpose & Business Role</h4>
+                  <p class="spec-purpose">{{ exp?.purpose_summary || currentScreen.purpose }}</p>
+                </div>
+
+                <!-- Fields Dictionary Table -->
+                <div class="spec-card" *ngIf="exp?.sections || getParsedSpec(currentScreen)?.fields">
+                  <h4>Sections & Data Field Inventory</h4>
+                  <div class="table-responsive">
+                    <table class="dictionary-table">
+                      <thead>
+                        <tr>
+                          <th>Field Name</th>
+                          <th>Data Type</th>
+                          <th>Required</th>
+                          <th>Validation / Applied Business Rule</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <ng-container *ngFor="let sec of exp?.sections">
+                          <tr *ngFor="let fld of sec.fields">
+                            <td class="font-bold">{{ fld.name }}</td>
+                            <td><span class="badge-type-pill">{{ fld.type || 'text' }}</span></td>
+                            <td><span [class.req-yes]="fld.required" class="badge-req">{{ fld.required ? 'YES' : 'NO' }}</span></td>
+                            <td class="text-muted">{{ fld.rule || 'Valid format required' }}</td>
+                          </tr>
+                        </ng-container>
+                        <ng-container *ngIf="!exp?.sections && getParsedSpec(currentScreen)?.fields">
+                          <tr *ngFor="let fld of getParsedSpec(currentScreen).fields">
+                            <td class="font-bold">{{ fld.label }}</td>
+                            <td><span class="badge-type-pill">{{ fld.type }}</span></td>
+                            <td><span [class.req-yes]="fld.required" class="badge-req">{{ fld.required ? 'YES' : 'NO' }}</span></td>
+                            <td class="text-muted">{{ fld.placeholder || 'Standard validation' }}</td>
+                          </tr>
+                        </ng-container>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Actions and Outcomes -->
+                <div class="spec-grid-2col">
+                  <div class="spec-card">
+                    <h4>Actions & Event Outcomes</h4>
+                    <ul class="action-outcome-list">
+                      <li *ngFor="let act of exp?.actions || currentScreen.actions">
+                        <strong>[{{ act.label }}]</strong>: {{ act.outcome || 'Submits request for processing.' }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="spec-card">
+                    <h4>Business Rules & Traceability</h4>
+                    <ul class="rules-list">
+                      <li *ngFor="let rule of exp?.validation_rules || getParsedSpec(currentScreen)?.business_rules">
+                        {{ rule }}
+                      </li>
+                    </ul>
+                    <div class="traceability-tag" *ngIf="exp?.brd_references">
+                      <span>BRD Traceability:</span>
+                      <span *ngFor="let ref of exp.brd_references" class="badge-ref">{{ ref }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Navigation Flow -->
+                <div class="spec-card" *ngIf="exp?.navigation_flow">
+                  <h4>Navigation Journey & State Transitions</h4>
+                  <p class="nav-flow-text">{{ exp.navigation_flow }}</p>
+                </div>
+
+              </ng-container>
+            </div>
+
+            <!-- View 4: IFML Interaction Model -->
+            <div class="screen-interaction-area" *ngIf="getScreenTab(currentScreen.id) === 'interaction'">
+              <ng-container *ngIf="getParsedInteraction(currentScreen) as interaction">
+                <div *ngIf="!interaction" class="empty-screen-notice">
+                  <p>Explicit interaction model not defined for this screen. Navigation is governed by global application flow.</p>
+                </div>
+
+                <div *ngIf="interaction">
+                  <!-- Events Table -->
+                  <div class="spec-card" *ngIf="interaction.events && interaction.events.length > 0">
+                    <h4>Screen Events & Triggers</h4>
+                    <table class="dictionary-table">
+                      <thead>
+                        <tr>
+                          <th>Event ID</th>
+                          <th>Type</th>
+                          <th>Label</th>
+                          <th>Trigger Component</th>
+                          <th>Business Rules</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let evt of interaction.events">
+                          <td><code>{{ evt.id }}</code></td>
+                          <td><span class="badge-type-pill">{{ evt.type }}</span></td>
+                          <td><strong>{{ evt.label }}</strong></td>
+                          <td>{{ evt.trigger_component || 'Page Action' }}</td>
+                          <td>{{ evt.business_rule_refs?.join(', ') || '—' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Navigation Flows Table -->
+                  <div class="spec-card" *ngIf="interaction.navigation_flows && interaction.navigation_flows.length > 0">
+                    <h4>Navigation Flows & Transitions</h4>
+                    <table class="dictionary-table">
+                      <thead>
+                        <tr>
+                          <th>From Event</th>
+                          <th>Destination Screen</th>
+                          <th>Condition</th>
+                          <th>Transition Label</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let flow of interaction.navigation_flows">
+                          <td><code>{{ flow.from_event }}</code></td>
+                          <td><span class="badge-ref">{{ flow.to_screen_id }}</span></td>
+                          <td><code>{{ flow.condition || 'always' }}</code></td>
+                          <td>{{ flow.label || 'Direct Navigation' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Data Bindings -->
+                  <div class="spec-card" *ngIf="interaction.data_bindings && interaction.data_bindings.length > 0">
+                    <h4>Entity Data Bindings</h4>
+                    <table class="dictionary-table">
+                      <thead>
+                        <tr>
+                          <th>Form / UI Field</th>
+                          <th>Domain Entity</th>
+                          <th>Entity Attribute</th>
+                          <th>Access Mode</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let binding of interaction.data_bindings">
+                          <td><strong>{{ binding.field }}</strong></td>
+                          <td><code>{{ binding.entity }}</code></td>
+                          <td>{{ binding.attribute || binding.field }}</td>
+                          <td><span class="badge-type-pill">{{ binding.binding_type || 'read_write' }}</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+
+          </ng-container>
+        </div>
+
+      </div>
+
+      <!-- Tab Content 2: Global Navigation & Interaction Graph -->
+      <div class="gallery-body global-nav-body" *ngIf="activeGalleryTab === 'navigation'">
+        <ng-container *ngIf="getParsedGlobalNav() as globalNav; else noGlobalNav">
+          <div class="global-nav-container">
+            <!-- Entry Screen Banner -->
+            <div class="entry-screen-banner" *ngIf="globalNav.entry_screen">
+              <span class="banner-title">Application Entry Point:</span>
+              <span class="banner-val">{{ globalNav.entry_screen }}</span>
+            </div>
+
+            <!-- Navigation Graph Table -->
+            <div class="spec-card" *ngIf="globalNav.navigation_graph">
+              <h4>System-Wide Navigation Transitions Graph</h4>
+              <table class="dictionary-table">
+                <thead>
+                  <tr>
+                    <th>Origin Screen</th>
+                    <th>Destination Screen</th>
+                    <th>Triggering Event</th>
+                    <th>Guard Condition</th>
+                    <th>Transition Purpose</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let edge of globalNav.navigation_graph">
+                    <td><span class="badge-screen-seq">{{ edge.from_screen_id }}</span></td>
+                    <td><span class="badge-ref">{{ edge.to_screen_id }}</span></td>
+                    <td><code>{{ edge.event || 'NAV_EVENT' }}</code></td>
+                    <td><code>{{ edge.condition || 'always' }}</code></td>
+                    <td>{{ edge.label || 'Standard transition' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Shared Workflows and Entities Grid -->
+            <div class="spec-grid-2col">
+              <div class="spec-card" *ngIf="globalNav.shared_workflows">
+                <h4>Multi-Screen Workflows</h4>
+                <div class="workflow-card-item" *ngFor="let wf of globalNav.shared_workflows">
+                  <div class="wf-title">{{ wf.name }} ({{ wf.id }})</div>
+                  <div class="wf-desc">{{ wf.description }}</div>
+                  <div class="wf-screens">
+                    <span *ngFor="let sid of wf.screens" class="badge-ref">{{ sid }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="spec-card" *ngIf="globalNav.data_entities">
+                <h4>Bound Domain Entities</h4>
+                <div class="entity-badges-wrap">
+                  <span *ngFor="let ent of globalNav.data_entities" class="badge-entity">{{ ent }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #noGlobalNav>
+          <div class="empty-screen-notice">
+            <p>Global interaction graph is available in the compiled PDF.</p>
+          </div>
+        </ng-template>
+      </div>
+
     </div>
   </div>
 

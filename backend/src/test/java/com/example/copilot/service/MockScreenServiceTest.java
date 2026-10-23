@@ -95,8 +95,10 @@ class MockScreenServiceTest {
 
         byte[] pdfBytes = new byte[]{37, 80, 68, 70};
         byte[] imageBytes = new byte[]{1, 2, 3};
+        byte[] wireframeBytes = new byte[]{4, 5, 6};
         when(generationRepository.findPdfDataByJobId("job-42")).thenReturn(pdfBytes);
         when(screenRepository.findImageDataById(84L)).thenReturn(imageBytes);
+        when(screenRepository.findWireframeDataById(84L)).thenReturn(wireframeBytes);
 
         MockScreenService service = new MockScreenService(
                 null,
@@ -112,5 +114,6 @@ class MockScreenServiceTest {
 
         assertArrayEquals(pdfBytes, service.getPdfBytes("job-42"));
         assertArrayEquals(imageBytes, service.getScreenImageBytes(84L));
+        assertArrayEquals(wireframeBytes, service.getScreenWireframeBytes(84L));
     }
 }

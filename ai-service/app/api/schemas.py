@@ -382,6 +382,77 @@ class ScreenComponent(BaseModel):
         return coerced
 
 
+class ScreenEvent(BaseModel):
+    id: str = "EVT-001"
+    type: str = "submit"  # click, submit, select, cancel, filter, navigate
+    label: str
+    trigger_component: Optional[str] = None
+    business_rule_refs: List[str] = Field(default_factory=list)
+
+    @field_validator("business_rule_refs", mode="before")
+    @classmethod
+    def coerce_rules(cls, value):
+        return _coerce_to_str_list(value)
+
+
+class NavigationFlow(BaseModel):
+    from_event: str
+    to_screen_id: str
+    condition: Optional[str] = "always"
+    label: Optional[str] = None
+
+
+class DataBinding(BaseModel):
+    field: str
+    entity: str
+    attribute: Optional[str] = None
+    binding_type: Optional[str] = "read_write"  # read, write, read_write
+
+
+class ScreenInteraction(BaseModel):
+    events: List[ScreenEvent] = Field(default_factory=list)
+    navigation_flows: List[NavigationFlow] = Field(default_factory=list)
+    data_bindings: List[DataBinding] = Field(default_factory=list)
+    validation_rules: List[str] = Field(default_factory=list)
+
+    @field_validator("validation_rules", mode="before")
+    @classmethod
+    def coerce_val_rules(cls, value):
+        return _coerce_to_str_list(value)
+
+
+class GlobalNavigationGraphEdge(BaseModel):
+    from_screen_id: str
+    to_screen_id: str
+    event: Optional[str] = None
+    condition: Optional[str] = "always"
+    label: Optional[str] = None
+
+
+class SharedWorkflow(BaseModel):
+    id: str
+    name: str
+    screens: List[str] = Field(default_factory=list)
+    description: Optional[str] = ""
+
+    @field_validator("screens", mode="before")
+    @classmethod
+    def coerce_wf_screens(cls, value):
+        return _coerce_to_str_list(value)
+
+
+class GlobalNavigation(BaseModel):
+    entry_screen: Optional[str] = None
+    navigation_graph: List[GlobalNavigationGraphEdge] = Field(default_factory=list)
+    data_entities: List[str] = Field(default_factory=list)
+    shared_workflows: List[SharedWorkflow] = Field(default_factory=list)
+
+    @field_validator("data_entities", mode="before")
+    @classmethod
+    def coerce_entities(cls, value):
+        return _coerce_to_str_list(value)
+
+
 class ScreenSpecification(BaseModel):
     screen_id: str = "SCREEN-001"
     sequence: int = 1
@@ -400,6 +471,7 @@ class ScreenSpecification(BaseModel):
     notifications: List[str] = Field(default_factory=list)
     data_sources: List[str] = Field(default_factory=list)
     related_requirements: List[str] = Field(default_factory=list)
+    interaction: Optional[ScreenInteraction] = None
     image_prompt: Optional[str] = None
 
     @field_validator("business_rules", "notifications", "data_sources", "related_requirements", mode="before")
@@ -423,6 +495,7 @@ class ScreenPlan(BaseModel):
     user_roles: List[str] = Field(default_factory=list)
     design_context: DesignContext = Field(default_factory=DesignContext)
     screens: List[ScreenSpecification] = Field(default_factory=list)
+    global_navigation: Optional[GlobalNavigation] = None
     source_content_truncated: bool = False
     source_character_count: int = 0
     analyzed_character_count: int = 0
@@ -461,6 +534,74 @@ class MockScreenRenderResponse(BaseModel):
     width: int
     height: int
     image_prompt: Optional[str] = None
+
+
+class MockScreenWireframeRequest(BaseModel):
+    specification: ScreenSpecification
+    design_context: Optional[DesignContext] = None
+
+
+class MockScreenWireframeResponse(BaseModel):
+    screen_id: str
+    sequence: int
+    name: str
+    wireframe_base64: str
+    mime_type: str = "image/png"
+    width: int
+    height: int
+
+
+class ScreenExplanationField(BaseModel):
+    name: str
+    type: Optional[str] = "text"
+    required: Optional[bool] = False
+    rule: Optional[str] = ""
+
+
+class ScreenExplanationSection(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    fields: List[ScreenExplanationField] = Field(default_factory=list)
+    columns: List[str] = Field(default_factory=list)
+    notes: Optional[str] = ""
+
+    @field_validator("columns", mode="before")
+    @classmethod
+    def coerce_columns(cls, value):
+        return _coerce_to_str_list(value)
+
+
+class ScreenExplanationAction(BaseModel):
+    label: str
+    type: Optional[str] = "primary"
+    outcome: Optional[str] = ""
+
+
+class ScreenExplanation(BaseModel):
+    purpose_summary: str
+    sections: List[ScreenExplanationSection] = Field(default_factory=list)
+    actions: List[ScreenExplanationAction] = Field(default_factory=list)
+    validation_rules: List[str] = Field(default_factory=list)
+    navigation_flow: Optional[str] = ""
+    brd_references: List[str] = Field(default_factory=list)
+
+    @field_validator("validation_rules", "brd_references", mode="before")
+    @classmethod
+    def coerce_explanation_lists(cls, value):
+        return _coerce_to_str_list(value)
+
+
+class MockScreenExplainRequest(BaseModel):
+    specification: ScreenSpecification
+    brd_excerpt: Optional[str] = ""
+    project_name: Optional[str] = ""
+
+
+class MockScreenExplainResponse(BaseModel):
+    screen_id: str
+    sequence: int
+    name: str
+    explanation: ScreenExplanation
 
 
 class MockScreenCompilePdfRequest(BaseModel):

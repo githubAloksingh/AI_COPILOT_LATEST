@@ -50,6 +50,16 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
     "navigation_pattern": "sidebar_and_header",
     "brand_name": "Company/System Brand"
   }},
+  "global_navigation": {{
+    "entry_screen": "SCREEN-001",
+    "navigation_graph": [
+      {{ "from_screen_id": "SCREEN-001", "to_screen_id": "SCREEN-002", "event": "EVT-LOGIN", "condition": "authenticated", "label": "On Login Success" }}
+    ],
+    "data_entities": ["Entity1", "Entity2"],
+    "shared_workflows": [
+      {{ "id": "WF-01", "name": "Primary Approval Workflow", "screens": ["SCREEN-002", "SCREEN-003"], "description": "Core lifecycle workflow" }}
+    ]
+  }},
   "screens": [
     {{
       "screen_id": "SCREEN-001",
@@ -87,6 +97,18 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
       "actions": [
         {{ "label": "Primary Page Action", "type": "primary", "target": "Next Screen" }}
       ],
+      "interaction": {{
+        "events": [
+          {{ "id": "EVT-001", "type": "submit", "label": "Action Button Label", "trigger_component": "Component Title", "business_rule_refs": ["BR-01"] }}
+        ],
+        "navigation_flows": [
+          {{ "from_event": "EVT-001", "to_screen_id": "SCREEN-002", "condition": "validation_passed", "label": "Proceed to Review" }}
+        ],
+        "data_bindings": [
+          {{ "field": "field_name", "entity": "EntityName", "attribute": "propName", "binding_type": "read_write" }}
+        ],
+        "validation_rules": ["Specific field or business rule from BRD"]
+      }},
       "workflow_state": "e.g. Draft / Pending Approval / Active",
       "business_rules": ["Rule 1 explicitly from BRD", "Rule 2"],
       "notifications": ["Notification alert text if applicable"],
@@ -96,11 +118,59 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
   ]
 }}
 
-For each screen, choose components that support its own task and hierarchy. Use header_stats only when the screen is genuinely about monitoring or analysis; use steps for guided workflows; use fields for entry or record details; and use tables for actual searchable/triageable collections. Populate data only when grounded in the BRD, otherwise leave the corresponding arrays empty. Avoid copying the same component mix to adjacent screens.
+For each screen, choose components that support its own task and hierarchy. Include explicit IFML-inspired interaction models (events, navigation flows, data bindings, validation rules). Use header_stats only when the screen is genuinely about monitoring or analysis; use steps for guided workflows; use fields for entry or record details; and use tables for actual searchable/triageable collections. Populate data only when grounded in the BRD, otherwise leave the corresponding arrays empty. Avoid copying the same component mix to adjacent screens.
 
 Analyze the complete BRD above and derive the complete screen plan from all of its content.
 Count all discernible features, entities, workflows, approval stages, and reports that require UI interaction.
 Return every screen supported by the supplied source; do not omit later sections or requirements.
+"""
+
+
+def build_screen_explanation_prompt(spec_dict: dict, brd_excerpt: Optional[str] = "", project_name: Optional[str] = "") -> str:
+    import json
+    spec_json = json.dumps(spec_dict, indent=2)
+    return f"""You are a Principal Enterprise Systems Architect and UX Analyst.
+Your task is to produce a comprehensive, structured, BRD-grounded explanation for the following screen specification.
+
+PROJECT CONTEXT: {project_name or 'Enterprise Platform'}
+
+SCREEN SPECIFICATION:
+{spec_json}
+
+RELEVANT BRD CONTEXT:
+\"\"\"
+{brd_excerpt[:15000] if brd_excerpt else 'Use the details within the screen specification directly.'}
+\"\"\"
+
+Produce a strictly valid JSON explanation matching this schema exactly:
+{{
+  "purpose_summary": "In-depth summary explaining the screen's operational purpose, target user personas, and where it fits in the broader business process.",
+  "sections": [
+    {{
+      "title": "Section Name (e.g. Header, Primary Form, Item Grid, Decision Actions)",
+      "description": "Functional description of what this section accomplishes.",
+      "fields": [
+        {{ "name": "Field Label", "type": "text|number|date|select", "required": true, "rule": "Validation or business rule applied" }}
+      ],
+      "columns": ["Col 1", "Col 2"],
+      "notes": "Any special behaviors or UX considerations."
+    }}
+  ],
+  "actions": [
+    {{ "label": "Action Button Label", "type": "primary|secondary|danger", "outcome": "Detailed outcome of this action, including validations, persistence, and workflow state transitions." }}
+  ],
+  "validation_rules": [
+    "Rule 1 explicitly grounded in BRD",
+    "Rule 2"
+  ],
+  "navigation_flow": "Detailed explanation of navigation into this screen, transition conditions, and navigation destinations upon completion or cancellation.",
+  "brd_references": ["BR-01", "Section 3.2", "Requirement ID"]
+}}
+
+CRITICAL RULES:
+1. Ground all explanations in the specification and BRD. Do not invent unrelated business facts.
+2. Provide clear, professional explanations suitable for inclusion in an executive architectural specification document.
+3. Return valid JSON only with NO markdown wrapper, NO commentary outside the JSON object.
 """
 
 

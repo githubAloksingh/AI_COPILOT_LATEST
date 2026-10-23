@@ -113,6 +113,7 @@ describe('Mock Screens Pipeline A API', () => {
     const { component, api } = createComponent({
       getMockScreenJob: vi.fn(() => of({
         success: true,
+        message: 'Job status retrieved',
         data: { jobId: 'JOB-1', status: 'COMPLETED', screens: [] }
       }))
     });
@@ -129,11 +130,12 @@ describe('Mock Screens Pipeline A API', () => {
     const { component, api } = createComponent({
       retryMockScreen: vi.fn(() => of({
         success: true,
+        message: 'Screen retried',
         data: { status: 'COMPLETED', imageUrl: '/api/mock-screens/7/image' }
       }))
     });
     component.currentJobId = 'JOB-1';
-    const screen = { id: 7, sequence: 1, status: 'FAILED', errorMessage: 'Render failed' };
+    const screen: any = { id: 7, sequence: 1, status: 'FAILED', errorMessage: 'Render failed', imageUrl: '' };
 
     component.retryScreen(screen);
 
@@ -141,5 +143,23 @@ describe('Mock Screens Pipeline A API', () => {
     expect(screen.status).toBe('COMPLETED');
     expect(screen.imageUrl).toBe('/api/mock-screens/7/image');
     expect(api.getMockScreenJob).toHaveBeenCalledWith('JOB-1');
+  });
+
+  it('provides wireframe endpoints and active screen tab selection', () => {
+    const http = {
+      get: vi.fn((_url: string, _options?: unknown) => of(new Blob())),
+      post: vi.fn((_url: string, _body: unknown, _options?: unknown) => of({}))
+    };
+    const api = new ApiService(http as unknown as HttpClient);
+    api.baseUrl = 'http://localhost:8080/api';
+
+    expect(api.getMockScreenWireframeUrl(15)).toBe('http://localhost:8080/api/mock-screens/15/wireframe');
+
+    const { component } = createComponent();
+    expect(component.getScreenTab(1)).toBe('mockup');
+    component.setScreenTab(1, 'wireframe');
+    expect(component.getScreenTab(1)).toBe('wireframe');
+    component.setScreenTab(1, 'explanation');
+    expect(component.getScreenTab(1)).toBe('explanation');
   });
 });

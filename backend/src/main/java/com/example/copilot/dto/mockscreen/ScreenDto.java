@@ -19,6 +19,8 @@ public class ScreenDto {
     private String workflowState;
     private String status;
     private String imageUrl;
+    private String wireframeUrl;
     private String errorMessage;
     private String specificationJson;
+    private String explanationJson;
 }

@@ -15,4 +15,7 @@ public interface MockScreenRepository extends JpaRepository<MockScreen, Long> {
 
     @Query("SELECT s.imageData FROM MockScreen s WHERE s.id = :id")
     byte[] findImageDataById(@Param("id") Long id);
+
+    @Query("SELECT s.wireframeData FROM MockScreen s WHERE s.id = :id")
+    byte[] findWireframeDataById(@Param("id") Long id);
 }

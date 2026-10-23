@@ -19,6 +19,8 @@ __all__ = [
     "image_generation_service",
     "PdfCompilationService",
     "pdf_compilation_service",
+    "WireframeService",
+    "wireframe_service",
 ]
 
 
@@ -42,6 +44,8 @@ def __getattr__(name):
         "image_generation_service": (".image_generation_service", "image_generation_service"),
         "PdfCompilationService": (".pdf_compilation_service", "PdfCompilationService"),
         "pdf_compilation_service": (".pdf_compilation_service", "pdf_compilation_service"),
+        "WireframeService": (".wireframe_service", "WireframeService"),
+        "wireframe_service": (".wireframe_service", "wireframe_service"),
     }
     if name in module_map:
         module_name, attribute_name = module_map[name]

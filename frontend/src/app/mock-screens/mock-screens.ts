@@ -40,6 +40,21 @@ export class MockScreens implements OnInit, OnDestroy {
   toastMessage = '';
   toastType: 'info' | 'success' | 'error' = 'info';
 
+  // Per-Screen View Tabs: 'mockup' | 'wireframe' | 'explanation' | 'interaction'
+  activeScreenTabs: { [screenId: number]: 'mockup' | 'wireframe' | 'explanation' | 'interaction' } = {};
+  selectedScreenIndex = 0;
+  activeGalleryTab: 'gallery' | 'navigation' = 'gallery';
+
+  pipelineStages = [
+    { key: 'ANALYZING', label: '1. Analyzing BRD' },
+    { key: 'PLANNING', label: '2. Interaction Planning' },
+    { key: 'WIREFRAMING', label: '3. Wireframing' },
+    { key: 'GENERATING', label: '4. UI Mockups' },
+    { key: 'EXPLAINING', label: '5. Screen Specs' },
+    { key: 'COMBINING', label: '6. PDF Compilation' },
+    { key: 'COMPLETED', label: '7. Ready' }
+  ];
+
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
@@ -350,6 +365,102 @@ export class MockScreens implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. SCREEN GALLERY TABS & PARSED METADATA HELPERS
+  // ---------------------------------------------------------------------------
+  getScreenTab(screenId: number): 'mockup' | 'wireframe' | 'explanation' | 'interaction' {
+    return this.activeScreenTabs[screenId] || 'mockup';
+  }
+
+  setScreenTab(screenId: number, tab: 'mockup' | 'wireframe' | 'explanation' | 'interaction') {
+    this.activeScreenTabs[screenId] = tab;
+    this.cdr.markForCheck();
+  }
+
+  getWireframeUrl(screenId: number): string {
+    return this.api.getMockScreenWireframeUrl(screenId);
+  }
+
+  getImageUrl(screenId: number): string {
+    return this.api.getMockScreenImageUrl(screenId);
+  }
+
+  getParsedExplanation(screen: any): any {
+    if (!screen) return null;
+    if (screen._parsedExplanation !== undefined) return screen._parsedExplanation;
+    if (screen.explanation && typeof screen.explanation === 'object') {
+      screen._parsedExplanation = screen.explanation;
+      return screen._parsedExplanation;
+    }
+    if (screen.explanationJson) {
+      try {
+        screen._parsedExplanation = typeof screen.explanationJson === 'string'
+          ? JSON.parse(screen.explanationJson)
+          : screen.explanationJson;
+      } catch {
+        screen._parsedExplanation = null;
+      }
+      return screen._parsedExplanation;
+    }
+    screen._parsedExplanation = null;
+    return null;
+  }
+
+  getParsedSpec(screen: any): any {
+    if (!screen) return null;
+    if (screen._parsedSpec !== undefined) return screen._parsedSpec;
+    if (screen.specificationJson) {
+      try {
+        screen._parsedSpec = typeof screen.specificationJson === 'string'
+          ? JSON.parse(screen.specificationJson)
+          : screen.specificationJson;
+      } catch {
+        screen._parsedSpec = null;
+      }
+      return screen._parsedSpec;
+    }
+    screen._parsedSpec = null;
+    return null;
+  }
+
+  getParsedInteraction(screen: any): any {
+    if (!screen) return null;
+    if (screen._parsedInteraction !== undefined) return screen._parsedInteraction;
+    const spec = this.getParsedSpec(screen);
+    screen._parsedInteraction = spec?.interaction || null;
+    return screen._parsedInteraction;
+  }
+
+  getParsedGlobalNav(): any {
+    if (!this.currentJob) return null;
+    if (this.currentJob._parsedGlobalNav !== undefined) return this.currentJob._parsedGlobalNav;
+    if (!this.currentJob.interactionModelJson) {
+      this.currentJob._parsedGlobalNav = null;
+      return null;
+    }
+    try {
+      this.currentJob._parsedGlobalNav = typeof this.currentJob.interactionModelJson === 'string'
+        ? JSON.parse(this.currentJob.interactionModelJson)
+        : this.currentJob.interactionModelJson;
+    } catch {
+      this.currentJob._parsedGlobalNav = null;
+    }
+    return this.currentJob._parsedGlobalNav;
+  }
+
+  isStageCompleted(stageKey: string): boolean {
+    const current = (this.currentJob?.status || '').toUpperCase();
+    const order = ['QUEUED', 'ANALYZING', 'PLANNING', 'WIREFRAMING', 'GENERATING', 'EXPLAINING', 'COMBINING', 'COMPLETED'];
+    const currentIdx = order.indexOf(current);
+    const stageIdx = order.indexOf(stageKey);
+    return currentIdx > stageIdx || current === 'COMPLETED';
+  }
+
+  isStageActive(stageKey: string): boolean {
+    const current = (this.currentJob?.status || '').toUpperCase();
+    return current === stageKey;
   }
 
   // Helpers

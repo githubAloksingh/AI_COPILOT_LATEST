@@ -7,15 +7,20 @@ from PIL import Image
 from app.api.schemas import (
     MockScreenCompilePdfRequest,
     MockScreenCompilePdfResponse,
+    MockScreenExplainRequest,
+    MockScreenExplainResponse,
     MockScreenPlanRequest,
     MockScreenPlanResponse,
     MockScreenRenderRequest,
-    MockScreenRenderResponse
+    MockScreenRenderResponse,
+    MockScreenWireframeRequest,
+    MockScreenWireframeResponse,
 )
 from app.services import (
     screen_plan_service,
     image_generation_service,
-    pdf_compilation_service
+    pdf_compilation_service,
+    wireframe_service,
 )
 from app.services.screen_plan_service import ScreenPlanValidationError
 
@@ -62,6 +67,36 @@ def generate_mock_screen_plan(req: MockScreenPlanRequest):
         )
 
 
+@router.post("/wireframe-screen", response_model=MockScreenWireframeResponse)
+def wireframe_screen(req: MockScreenWireframeRequest):
+    """
+    Renders an architectural, greyscale wireframe PNG with zone annotations and watermark.
+    """
+    try:
+        spec = req.specification
+        design = req.design_context
+        img_bytes = wireframe_service.render_wireframe(spec, design)
+        with Image.open(BytesIO(img_bytes)) as image:
+            width, height = image.size
+        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+        return MockScreenWireframeResponse(
+            screen_id=spec.screen_id,
+            sequence=spec.sequence,
+            name=spec.name,
+            wireframe_base64=img_b64,
+            mime_type="image/png",
+            width=width,
+            height=height
+        )
+    except Exception as e:
+        logger.error("Failed to render wireframe for %s: %s", req.specification.name, e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Wireframe rendering failed for '{req.specification.name}': {str(e)}"
+        )
+
+
 @router.post("/render-screen", response_model=MockScreenRenderResponse)
 def render_screen(req: MockScreenRenderRequest):
     """
@@ -91,6 +126,32 @@ def render_screen(req: MockScreenRenderRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Screen rendering failed for '{req.specification.name}': {str(e)}"
+        )
+
+
+@router.post("/explain-screen", response_model=MockScreenExplainResponse)
+def explain_screen(req: MockScreenExplainRequest):
+    """
+    Generates a structured, BRD-grounded explanation for an individual screen specification.
+    """
+    try:
+        spec = req.specification
+        explanation = screen_plan_service.generate_screen_explanation(
+            spec=spec,
+            brd_excerpt=req.brd_excerpt,
+            project_name=req.project_name
+        )
+        return MockScreenExplainResponse(
+            screen_id=spec.screen_id,
+            sequence=spec.sequence,
+            name=spec.name,
+            explanation=explanation
+        )
+    except Exception as e:
+        logger.error("Failed to explain screen %s: %s", req.specification.name, e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Screen explanation failed for '{req.specification.name}': {str(e)}"
         )
 
 
