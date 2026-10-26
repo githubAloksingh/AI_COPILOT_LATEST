@@ -103,6 +103,20 @@ public class MockScreenController {
     }
 
     /**
+     * Stream individual screen wireframe image.
+     */
+    @GetMapping("/{screenId}/wireframe")
+    public ResponseEntity<byte[]> getScreenWireframe(@PathVariable Long screenId) {
+        byte[] wireframeBytes = mockScreenService.getScreenWireframeBytes(screenId);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"wireframe-" + screenId + ".png\"")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                .body(wireframeBytes);
+    }
+
+    /**
      * Section 16 & 26: Retry generation for a failed screen.
      */
     @PostMapping("/{screenId}/retry")

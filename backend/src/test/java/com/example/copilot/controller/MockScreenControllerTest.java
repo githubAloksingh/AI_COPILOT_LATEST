@@ -92,6 +92,12 @@ class MockScreenControllerTest {
                 .andExpect(content().contentType(MediaType.IMAGE_PNG))
                 .andExpect(content().bytes(image));
 
+        when(service.getScreenWireframeBytes(7L)).thenReturn(image);
+        mockMvc.perform(get("/api/mock-screens/7/wireframe"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(image));
+
         mockMvc.perform(get("/api/mock-screens/jobs/JOB-1/pdf"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_PDF))

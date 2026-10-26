@@ -274,6 +274,10 @@ export class ApiService {
     return `${this.baseUrl}/mock-screens/${screenId}/image`;
   }
 
+  getMockScreenWireframeUrl(screenId: number): string {
+    return `${this.baseUrl}/mock-screens/${screenId}/wireframe`;
+  }
+
   retryMockScreen(screenId: number): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/mock-screens/${screenId}/retry`, {}, { headers: this.getAuthHeaders() });
   }

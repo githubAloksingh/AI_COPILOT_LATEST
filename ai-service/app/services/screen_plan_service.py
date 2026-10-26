@@ -6,10 +6,14 @@ from typing import Any, Dict, List, Optional
 from pydantic import ValidationError
 from app.api.schemas import (
     DesignContext,
+    ScreenExplanation,
     ScreenPlan,
     ScreenSpecification,
 )
-from app.prompts.mock_screens_prompts import build_mock_screen_plan_prompt
+from app.prompts.mock_screens_prompts import (
+    build_mock_screen_plan_prompt,
+    build_screen_explanation_prompt,
+)
 from app.services.gemini_service import gemini_service
 
 logger = logging.getLogger(__name__)
@@ -214,5 +218,47 @@ class ScreenPlanService:
         if "list" in lower or "queue" in lower or "tracker" in lower or "search" in lower:
             return "work_queue"
         return "detail_view"
+
+    def generate_screen_explanation(
+        self,
+        spec: ScreenSpecification,
+        brd_excerpt: Optional[str] = "",
+        project_name: Optional[str] = "",
+    ) -> ScreenExplanation:
+        """
+        Generates a comprehensive, BRD-grounded architectural explanation for a single screen.
+        """
+        prompt = build_screen_explanation_prompt(spec.model_dump(), brd_excerpt, project_name)
+        try:
+            raw_dict = self.gemini.generate_dict(prompt)
+            return ScreenExplanation.model_validate(raw_dict)
+        except Exception as exc:
+            logger.warning("Gemini explanation generation failed or returned invalid schema for screen %s: %s", spec.name, exc)
+            # Safe grounded fallback from the screen specification itself
+            fields_summary = [
+                {"name": f.label, "type": f.type, "required": f.required, "rule": f.placeholder or ""}
+                for f in spec.fields[:10]
+            ]
+            actions_summary = [
+                {"label": a.label, "type": a.type, "outcome": f"Triggers {a.label} action on {spec.name}"}
+                for a in spec.actions
+            ]
+            sections = [
+                {
+                    "title": "Primary Screen Content",
+                    "description": f"Contains core user interface components for {spec.name}.",
+                    "fields": fields_summary,
+                    "columns": [c for t in spec.tables for c in t.columns[:5]],
+                    "notes": spec.purpose,
+                }
+            ]
+            return ScreenExplanation(
+                purpose_summary=spec.purpose,
+                sections=sections,
+                actions=actions_summary,
+                validation_rules=spec.business_rules if spec.business_rules else ["Input validation per system standards."],
+                navigation_flow=f"Accessible by {spec.user_role} within the {spec.screen_type} workflow.",
+                brd_references=spec.related_requirements if spec.related_requirements else ["BRD Requirement Baseline"],
+            )
 
 screen_plan_service = ScreenPlanService()

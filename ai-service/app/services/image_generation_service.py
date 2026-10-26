@@ -1034,3 +1034,11 @@ class ImageGenerationService:
 
 
 image_generation_service = ImageGenerationService()
+
+
+def generate_screen_image(spec: ScreenSpecification, design: Optional[DesignContext] = None) -> bytes:
+    return image_generation_service.generate_screen_image(spec, design)
+
+
+def build_screen_image_prompt(spec: ScreenSpecification, design: DesignContext) -> str:
+    return image_generation_service.build_screen_image_prompt(spec, design)

@@ -37,6 +37,9 @@ public class MockScreen extends BaseEntity {
     @Column(name = "specification_json", columnDefinition = "LONGTEXT")
     private String specificationJson;
 
+    @Column(name = "explanation_json", columnDefinition = "LONGTEXT")
+    private String explanationJson;
+
     @Column(name = "image_prompt", columnDefinition = "TEXT")
     private String imagePrompt;
 
@@ -48,6 +51,15 @@ public class MockScreen extends BaseEntity {
     @Column(name = "image_data", columnDefinition = "LONGBLOB")
     @JsonIgnore
     private byte[] imageData;
+
+    @Column(name = "wireframe_path", length = 1024)
+    private String wireframePath;
+
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "wireframe_data", columnDefinition = "LONGBLOB")
+    @JsonIgnore
+    private byte[] wireframeData;
 
     @Column(name = "image_mime_type", length = 50)
     private String imageMimeType = "image/png";

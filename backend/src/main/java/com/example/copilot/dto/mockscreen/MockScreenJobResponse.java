@@ -19,12 +19,14 @@ public class MockScreenJobResponse {
     private String documentName;
     private String projectName;
     private String status;
+    private String currentStage;
     private Integer totalScreens;
     private Integer completedScreens;
     private String currentScreen;
     private Integer currentScreenSequence;
     private String applicationName;
     private String applicationSummary;
+    private String interactionModelJson;
     @Builder.Default
     private List<ScreenDto> screens = new ArrayList<>();
     private String pdfUrl;

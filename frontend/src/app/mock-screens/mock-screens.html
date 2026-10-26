@@ -7,13 +7,13 @@
   <!-- Page Header -->
   <div class="page-header">
     <div class="header-left">
-      <h1>Mock Screens</h1>
+      <h1>Mock Screens &amp; Architecture Blueprint</h1>
+      <p>Generate grounded IFML interaction models, structural wireframes, and enterprise UI mockups from BRD requirements.</p>
     </div>
   </div>
 
-  <!-- Main Card -->
+  <!-- Main Selection Card -->
   <div class="card">
-    <!-- Tabs matching Functional Design UI -->
     <div class="simple-tabs-nav">
       <button type="button" class="simple-tab active">
         Import from Knowledge Base
@@ -98,6 +98,7 @@
         <button
           type="submit"
           class="btn-generate"
+          [class.is-generating]="startingGeneration"
           [disabled]="loadingProjects || loadingDocs || startingGeneration || !!documentsError || !selectedProjectId || !selectedDocumentId || !selectedDocument">
           <span *ngIf="startingGeneration" class="spinner"></span>
           <span>{{ startingGeneration ? 'Generating Mock Screens...' : 'Generate Mock Screens' }}</span>
@@ -108,82 +109,41 @@
   </div>
 
   <!-- =========================================================================== -->
-  <!-- CONFIRMATION POPUP — shown when user clicks Generate                        -->
-  <!-- =========================================================================== -->
-  <div class="modal-backdrop" *ngIf="showConfirmModal" (click)="cancelGenerate()">
-    <div class="modal-dialog modal-confirm" (click)="$event.stopPropagation()">
-      <!-- Header -->
-      <div class="confirm-modal-header">
-        <h3>Generate Mock Screens</h3>
-        <button type="button" class="modal-close-btn" (click)="cancelGenerate()">×</button>
-      </div>
-
-      <!-- Body -->
-      <div class="confirm-modal-body">
-        <div class="confirm-brd-info" *ngIf="selectedDocument">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F36F21" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-          <span>{{ selectedDocument.fileName }}</span>
-        </div>
-
-        <div class="confirm-time-block">
-          <div class="confirm-time-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F36F21" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
-          <div class="confirm-time-text">
-            <span class="confirm-time-label">Estimated time:</span>
-            <strong class="confirm-time-value">{{ getEstimatedTime() }}</strong>
-          </div>
-        </div>
-
-        <p class="confirm-note">This estimate is for the complete Mock Screens PDF.</p>
-      </div>
-
-      <!-- Footer Actions -->
-      <div class="confirm-modal-footer">
-        <button type="button" class="btn-confirm-cancel" (click)="cancelGenerate()">Cancel</button>
-        <button type="button" class="btn-confirm-continue" (click)="confirmAndGenerate()">
-          <span>Continue</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- =========================================================================== -->
-  <!-- SUCCESS POPUP MODAL with Download PDF                                        -->
+  <!-- SUCCESS / DOWNLOAD BLUEPRINT PDF POPUP                                      -->
   <!-- =========================================================================== -->
   <div class="modal-backdrop" *ngIf="showResultModal" (click)="closeResultModal()">
     <div class="modal-dialog modal-result" (click)="$event.stopPropagation()">
-      <!-- Modal Header -->
       <div class="modal-header">
         <div class="modal-header-content">
           <div class="modal-success-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
           </div>
           <div>
-            <h3>Mock Screens Generated!</h3>
-            <p *ngIf="currentJob">
-              <strong>{{ currentJob.documentName }}</strong>
-              <span *ngIf="currentJob.projectName"> · {{ currentJob.projectName }}</span>
+            <h3>{{ currentJob?.applicationName || 'UI/UX Mock Screen Architecture' }}</h3>
+            <p>
+              <span>Source: <strong>{{ currentJob?.documentName }}</strong></span>
+              <span *ngIf="currentJob?.projectName"> · Project: <strong>{{ currentJob?.projectName }}</strong></span>
             </p>
           </div>
         </div>
         <button type="button" class="modal-close-btn" (click)="closeResultModal()">✕</button>
       </div>
 
-      <!-- Modal Body -->
       <div class="modal-body-result">
+        <div class="result-stats" *ngIf="currentJob">
+          <div class="stat-pill">
+            <span class="stat-label">Screens Generated</span>
+            <span class="stat-value stat-success">{{ currentJob?.totalScreens || currentJob?.screens?.length || 0 }}</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-label">Status</span>
+            <span class="stat-value stat-success">Completed</span>
+          </div>
+        </div>
+
         <div class="modal-download-section">
           <button type="button" class="btn btn-download-pdf" (click)="downloadPdf()" [disabled]="downloadingPdf">
             <svg *ngIf="!downloadingPdf" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -191,10 +151,10 @@
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            <span *ngIf="downloadingPdf" class="spinner" style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;"></span>
-            <span>{{ downloadingPdf ? 'Downloading PDF...' : 'Download PDF' }}</span>
+            <span *ngIf="downloadingPdf" class="spinner" style="width: 14px; height: 14px;"></span>
+            <span>{{ downloadingPdf ? 'Preparing PDF...' : 'Download Blueprint PDF' }}</span>
           </button>
-          <button type="button" class="btn btn-outline-close" (click)="closeResultModal()">
+          <button type="button" class="btn-outline-close" (click)="closeResultModal()">
             Close
           </button>
         </div>

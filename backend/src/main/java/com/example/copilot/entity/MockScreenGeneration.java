@@ -52,6 +52,9 @@ public class MockScreenGeneration extends BaseEntity {
     @Column(name = "screen_plan_json", columnDefinition = "LONGTEXT")
     private String screenPlanJson;
 
+    @Column(name = "interaction_model_json", columnDefinition = "LONGTEXT")
+    private String interactionModelJson;
+
     @Column(name = "pdf_path", length = 1024)
     private String pdfPath;
 

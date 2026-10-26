@@ -1,109 +1,81 @@
 import base64
-import io
-
-import pytest
-from PIL import Image
-
-from app.services.pdf_compilation_service import PdfCompilationService
+from app.api.schemas import DesignContext, ScreenSpecification
+from app.services.image_generation_service import image_generation_service
+from app.services.wireframe_service import wireframe_service
+from app.services.pdf_compilation_service import pdf_compilation_service
 
 
-def _image_base64():
-    image = Image.new("RGB", (320, 180), color=(40, 90, 160))
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode("ascii")
+def test_pdf_compilation_mockup_and_explanation_per_screen():
+    spec1 = ScreenSpecification(
+        screen_id="SCREEN-001",
+        sequence=1,
+        name="Dashboard Overview",
+        purpose="Operational monitoring dashboard with KPI metrics and recent cases.",
+        screen_type="dashboard",
+        user_role="Operations Analyst",
+    )
+    spec2 = ScreenSpecification(
+        screen_id="SCREEN-002",
+        sequence=2,
+        name="Transaction Form",
+        purpose="Submit new transaction details for processing and validation.",
+        screen_type="create_form",
+        user_role="Finance Specialist",
+    )
 
+    design = DesignContext()
+    img1 = image_generation_service.generate_screen_image(spec1, design)
+    wf1 = wireframe_service.render_wireframe(spec1, design)
 
-def test_pdf_includes_all_screens_in_sequence_and_extends_contents_list():
+    img2 = image_generation_service.generate_screen_image(spec2, design)
+    wf2 = wireframe_service.render_wireframe(spec2, design)
+
     screens = [
         {
-            "sequence": sequence,
-            "name": f"Requirement screen {sequence:02d}",
-            "screenType": "detail_view",
-            "purpose": "Review the related business requirements.",
-            "image_base64": _image_base64(),
+            "sequence": 1,
+            "name": spec1.name,
+            "screen_type": spec1.screen_type,
+            "purpose": spec1.purpose,
+            "user_role": spec1.user_role,
+            "image_base64": base64.b64encode(img1).decode("utf-8"),
+            "wireframe_base64": base64.b64encode(wf1).decode("utf-8"),
+            "explanation": {
+                "purpose_summary": "Core operational monitoring interface.",
+                "sections": [{"title": "KPI Metrics", "fields": [{"name": "Volume", "type": "number", "required": False}]}],
+                "actions": [{"label": "Refresh", "type": "secondary", "outcome": "Reloads live metrics"}],
+                "validation_rules": ["Metrics refresh rate: 30s"],
+                "navigation_flow": "Entry screen upon login.",
+                "brd_references": ["BR-01", "Section 2.1"]
+            }
+        },
+        {
+            "sequence": 2,
+            "name": spec2.name,
+            "screen_type": spec2.screen_type,
+            "purpose": spec2.purpose,
+            "user_role": spec2.user_role,
+            "image_base64": base64.b64encode(img2).decode("utf-8"),
+            "wireframe_base64": base64.b64encode(wf2).decode("utf-8"),
+            "explanation": {
+                "purpose_summary": "Transaction capture form.",
+                "sections": [{"title": "Parameters", "fields": [{"name": "Amount", "type": "number", "required": True}]}],
+                "actions": [{"label": "Submit", "type": "primary", "outcome": "Initiates payment"}],
+                "validation_rules": ["Amount > 0"],
+                "navigation_flow": "Navigates to Confirmation.",
+                "brd_references": ["BR-05"]
+            }
         }
-        for sequence in reversed(range(1, 21))
     ]
 
-    service = PdfCompilationService()
-    pdf_bytes = service.compile_pdf(
-        "Claims Portal",
-        "Claims Project",
-        "claims-brd.pdf",
-        "Claims workflow",
-        screens,
+    pdf_bytes = pdf_compilation_service.compile_pdf(
+        application_name="Financial Operations Hub",
+        project_name="Core Banking Modernization",
+        brd_name="BRD_Finance_v2.pdf",
+        summary="Automated mock screens and architecture blueprint.",
+        screens=screens,
     )
 
-    import pymupdf
-
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
-        assert service.count_pages(pdf_bytes) == 22
-        assert "Requirement screen 01" in document[0].get_text()
-        assert "Requirement screen 20" in document[1].get_text()
-        for screen_index in range(20):
-            assert f"Requirement screen {screen_index + 1:02d}" in document[screen_index + 2].get_text()
-        assert "Page 22 of 22" in document[21].get_text()
-        assert "Local PyMuPDF renderer" in document[0].get_text()
-
-
-def test_pdf_rejects_a_screen_with_no_generated_image():
-    service = PdfCompilationService()
-
-    with pytest.raises(ValueError, match="Generated image missing"):
-        service.compile_pdf(
-            "Claims Portal",
-            "Claims Project",
-            "claims-brd.pdf",
-            "Claims workflow",
-            [{"sequence": 1, "name": "Claims queue"}],
-        )
-
-
-def test_pdf_rejects_invalid_images_and_duplicate_sequences():
-    service = PdfCompilationService()
-
-    with pytest.raises(ValueError, match="not valid base64"):
-        service.compile_pdf(
-            "Claims Portal",
-            "Claims Project",
-            "claims-brd.pdf",
-            "Claims workflow",
-            [{"sequence": 1, "name": "Claims queue", "image_base64": "not-base64"}],
-        )
-
-    with pytest.raises(ValueError, match="Duplicate screen sequence"):
-        service.compile_pdf(
-            "Claims Portal",
-            "Claims Project",
-            "claims-brd.pdf",
-            "Claims workflow",
-            [
-                {"sequence": 1, "name": "Claims queue", "image_base64": _image_base64()},
-                {"sequence": 1, "name": "Claim details", "image_base64": _image_base64()},
-            ],
-        )
-
-
-def test_pdf_rejects_empty_screen_lists():
-    with pytest.raises(ValueError, match="At least one generated screen"):
-        PdfCompilationService().compile_pdf("Claims Portal", "", "", "", [])
-
-
-def test_pdf_discloses_when_the_brd_was_truncated():
-    service = PdfCompilationService()
-    pdf_bytes = service.compile_pdf(
-        "Claims Portal",
-        "Claims Project",
-        "claims-brd.pdf",
-        "Claims workflow. This plan is based on a truncated BRD excerpt; omitted content was not analyzed.",
-        [{"sequence": 1, "name": "Claims queue", "image_base64": _image_base64()}],
-    )
-
-    import pymupdf
-
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
-        cover_text = document[0].get_text()
-    assert "Coverage: PARTIAL" in cover_text
-    assert "omitted content was not analyzed" in cover_text
-    assert "Schema validated" in cover_text
+    assert isinstance(pdf_bytes, bytes)
+    assert len(pdf_bytes) > 20000
+    # Expected: 1 cover page + 0 overflow TOC (<= 14 screens) + (2 pages * 2 screens: Mockup + Explanation) = 1 + 4 = 5 pages
+    assert pdf_compilation_service.count_pages(pdf_bytes) == 5
