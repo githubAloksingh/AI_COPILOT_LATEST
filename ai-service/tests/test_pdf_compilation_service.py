@@ -5,7 +5,7 @@ from app.services.wireframe_service import wireframe_service
 from app.services.pdf_compilation_service import pdf_compilation_service
 
 
-def test_pdf_compilation_three_pages_per_screen():
+def test_pdf_compilation_mockup_and_explanation_per_screen():
     spec1 = ScreenSpecification(
         screen_id="SCREEN-001",
         sequence=1,
@@ -77,5 +77,5 @@ def test_pdf_compilation_three_pages_per_screen():
 
     assert isinstance(pdf_bytes, bytes)
     assert len(pdf_bytes) > 20000
-    # Expected: 1 cover page + 0 overflow TOC (<= 14 screens) + (3 pages * 2 screens) = 1 + 6 = 7 pages
-    assert pdf_compilation_service.count_pages(pdf_bytes) == 7
+    # Expected: 1 cover page + 0 overflow TOC (<= 14 screens) + (2 pages * 2 screens: Mockup + Explanation) = 1 + 4 = 5 pages
+    assert pdf_compilation_service.count_pages(pdf_bytes) == 5

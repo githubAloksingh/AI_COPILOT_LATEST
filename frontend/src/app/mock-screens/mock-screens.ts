@@ -159,45 +159,17 @@ export class MockScreens implements OnInit, OnDestroy {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. GENERATION CONFIRM & JOB TRIGGER
+  // 2. GENERATION TRIGGER
   // ---------------------------------------------------------------------------
 
-  /** Show the confirmation popup when user clicks Generate */
+  /** Directly trigger generation when user clicks Generate */
   onGenerateClick() {
     if (this.selectedProjectId === null || this.selectedDocumentId === null || !this.selectedDocument) {
       this.selectionError = 'Select a project and an eligible BRD before generating mock screens.';
       this.cdr.markForCheck();
       return;
     }
-    this.showConfirmModal = true;
-    this.cdr.markForCheck();
-  }
-
-  /** Dismiss the confirmation popup without generating */
-  cancelGenerate() {
-    this.showConfirmModal = false;
-    this.cdr.markForCheck();
-  }
-
-  /** User confirmed — close popup and start generation */
-  confirmAndGenerate() {
-    this.showConfirmModal = false;
-    this.cdr.markForCheck();
     this.startGeneration();
-  }
-
-  /**
-   * Estimate generation time based on BRD complexity.
-   * Scaled to realistic processing duration: ~2 to 5 minutes.
-   */
-  getEstimatedTime(): string {
-    if (!this.selectedDocument) return '3 – 4 minutes';
-    const name = (this.selectedDocument.fileName || '').toLowerCase();
-    const len = name.length;
-    if (len > 60) return '4 – 5 minutes';
-    if (len > 30) return '3 – 4 minutes';
-    if (len > 15) return '2 – 3 minutes';
-    return '1 – 2 minutes';
   }
 
   startGeneration() {

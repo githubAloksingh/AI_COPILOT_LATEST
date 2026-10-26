@@ -330,16 +330,30 @@
     box-shadow: 0 4px 14px rgba(243, 111, 33, 0.35);
   }
 
-  &:disabled {
+  &:disabled:not(.is-generating) {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  &.is-generating {
+    background: #fff7ed;
+    color: #F36F21;
+    border: 1.5px solid #F36F21;
+    box-shadow: 0 2px 10px rgba(243, 111, 33, 0.2);
+    cursor: wait;
+    opacity: 1;
+
+    .spinner {
+      border: 2.5px solid rgba(243, 111, 33, 0.25);
+      border-top-color: #F36F21;
+    }
   }
 
   .spinner {
     width: 16px;
     height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: #ffffff;
+    border: 2.5px solid rgba(243, 111, 33, 0.25);
+    border-top-color: #F36F21;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
@@ -1228,22 +1242,22 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--newgen-orange, #e05f1e);
+  background: #F36F21;
   color: #fff;
   border: none;
   border-radius: 8px;
   padding: 11px 22px;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   flex: 1;
   justify-content: center;
 
   &:hover {
-    background: #c4511a;
+    background: #E05600;
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(224, 95, 30, 0.35);
+    box-shadow: 0 4px 14px rgba(243, 111, 33, 0.35);
   }
 
   &:active {

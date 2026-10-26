@@ -16,7 +16,7 @@ class PdfCompilationService:
     Combines all generated screens in sequential order with:
     - Executive cover page
     - Table of contents
-    - Per screen: Wireframe page + Mockup page + Specification/Explanation page
+    - Per screen: Mockup page + Specification/Explanation page
     """
 
     def compile_pdf(
@@ -68,20 +68,7 @@ class PdfCompilationService:
                 raise ValueError(f"Generated image for screen {sequence} is not a PNG.")
             screen_data["_validated_image_bytes"] = image_bytes
 
-            # 2. Wireframe Image (optional, but validated if present)
-            wireframe_bytes = self._extract_image_bytes(
-                screen_data,
-                ("wireframeData", "wireframe_data", "wireframe_base64", "wireframePath", "wireframe_path"),
-            )
-            if wireframe_bytes:
-                try:
-                    with Image.open(io.BytesIO(wireframe_bytes)) as wf_img:
-                        if wf_img.format == "PNG":
-                            screen_data["_validated_wireframe_bytes"] = wireframe_bytes
-                except Exception:
-                    pass
-
-            # 3. Explanation payload
+            # 2. Explanation payload
             explanation = screen_data.get("explanation") or screen_data.get("explanation_json") or screen_data.get("explanationJson")
             if isinstance(explanation, str):
                 try:
@@ -108,13 +95,8 @@ class PdfCompilationService:
         ]
         toc_page_count = 1 + len(overflow_toc_pages)
 
-        # Count total pages exactly
-        total_content_pages = 0
-        for sc in sorted_screens:
-            if sc.get("_validated_wireframe_bytes"):
-                total_content_pages += 1  # Wireframe page
-            total_content_pages += 1      # Mockup page
-            total_content_pages += 1      # Explanation page
+        # Count total pages: 2 pages per screen (Mockup page + Explanation page)
+        total_content_pages = len(sorted_screens) * 2
 
         total_pages = 1 + len(overflow_toc_pages) + total_content_pages
 
@@ -139,11 +121,11 @@ class PdfCompilationService:
         cover.insert_text((70, y_meta + 52), f"Source BRD Document:  {brd_name or 'Uploaded BRD'}", fontsize=11, color=(0.1, 0.15, 0.25), fontname="hebo")
         cover.insert_text((70, y_meta + 74), f"Project Association:   {project_name or 'General Enterprise'}", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
         cover.insert_text((70, y_meta + 96), f"Generated Date:       {now_str}", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
-        cover.insert_text((70, y_meta + 118), f"Document Scope:       Complete Architecture (Wireframes, High-Fidelity Mockups & Explanations)", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
+        cover.insert_text((70, y_meta + 118), f"Document Scope:       Complete Architecture (High-Fidelity Mockups & Explanations)", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
 
         cover.insert_text((520, y_meta + 52), f"Total Screens:      {len(screens)} screens", fontsize=11, color=(0.1, 0.15, 0.25), fontname="hebo")
         cover.insert_text((520, y_meta + 74), "Interaction Model:  IFML-aligned state & events", fontsize=10, color=(0.15, 0.65, 0.35), fontname="hebo")
-        cover.insert_text((520, y_meta + 96), "Blueprint Stages:   Wireframe · Mockup · Specs", fontsize=10, color=(0.15, 0.65, 0.35), fontname="hebo")
+        cover.insert_text((520, y_meta + 96), "Blueprint Stages:   Mockup · Specifications", fontsize=10, color=(0.15, 0.65, 0.35), fontname="hebo")
         cover.insert_text((520, y_meta + 118), "Vector Engine:      PyMuPDF Native Engine", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
 
         # Table of Contents Preview on Cover
@@ -184,7 +166,7 @@ class PdfCompilationService:
             toc_page.insert_text((page_width - 120, page_height - 25), f"Page {toc_page_index} of {total_pages}", fontsize=9, color=(0.5, 0.55, 0.65), fontname="helv")
 
         # -------------------------------------------------------------
-        # PER-SCREEN PAGES: [WIREFRAME] -> [MOCKUP] -> [EXPLANATION]
+        # PER-SCREEN PAGES: [MOCKUP] -> [EXPLANATION]
         # -------------------------------------------------------------
         current_page_num = toc_page_count + 1
 
@@ -196,30 +178,7 @@ class PdfCompilationService:
             role = sc.get("userRole") or sc.get("user_role") or "Enterprise User"
 
             # ---------------------------------------------------------
-            # 1. WIREFRAME PAGE (if wireframe bytes available)
-            # ---------------------------------------------------------
-            if sc.get("_validated_wireframe_bytes"):
-                wp = doc.new_page(width=page_width, height=page_height)
-                # Header
-                wp.draw_rect(pymupdf.Rect(0, 0, page_width, 50), fill=(0.95, 0.96, 0.97), color=(0.80, 0.82, 0.85), width=0.8)
-                # Badge
-                wp.draw_rect(pymupdf.Rect(40, 14, 180, 36), fill=(0.35, 0.40, 0.45), radius=0.1, color=None)
-                wp.insert_text((50, 29), f"SCREEN {seq:02d} — WIREFRAME", fontsize=9, color=(1.0, 1.0, 1.0), fontname="hebo")
-                wp.insert_text((190, 30), name[:36], fontsize=13, color=(0.15, 0.20, 0.25), fontname="hebo")
-                wp.insert_text((page_width - 340, 29), f"Role: {role[:18]}  |  Type: {stype}", fontsize=9, color=(0.4, 0.45, 0.55), fontname="helv")
-
-                # Wireframe image center
-                wf_rect = pymupdf.Rect(40, 60, page_width - 40, page_height - 50)
-                wp.insert_image(wf_rect, stream=sc["_validated_wireframe_bytes"], keep_proportion=True)
-
-                # Footer
-                wp.draw_line(pymupdf.Point(40, page_height - 35), pymupdf.Point(page_width - 40, page_height - 35), color=(0.88, 0.90, 0.93), width=0.6)
-                wp.insert_text((40, page_height - 20), "Stage: Low-Fidelity Architectural Wireframe (Layout & Zone Verification)", fontsize=8, color=(0.45, 0.50, 0.55), fontname="helv")
-                wp.insert_text((page_width - 120, page_height - 20), f"Page {current_page_num} of {total_pages}", fontsize=9, color=(0.45, 0.50, 0.55), fontname="helv")
-                current_page_num += 1
-
-            # ---------------------------------------------------------
-            # 2. MOCKUP PAGE
+            # 1. MOCKUP PAGE
             # ---------------------------------------------------------
             mp = doc.new_page(width=page_width, height=page_height)
             mp.draw_rect(pymupdf.Rect(0, 0, page_width, 50), fill=(0.97, 0.98, 0.99), color=(0.88, 0.90, 0.93), width=0.8)
@@ -238,7 +197,7 @@ class PdfCompilationService:
             current_page_num += 1
 
             # ---------------------------------------------------------
-            # 3. EXPLANATION & ARCHITECTURAL SPECIFICATION PAGE
+            # 2. EXPLANATION & ARCHITECTURAL SPECIFICATION PAGE
             # ---------------------------------------------------------
             ep = doc.new_page(width=page_width, height=page_height)
             self._render_explanation_page(ep, sc, page_width, page_height, total_pages, current_page_num)
