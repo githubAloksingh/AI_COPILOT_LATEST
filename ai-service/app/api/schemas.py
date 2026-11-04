@@ -1,5 +1,5 @@
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ----------------------------------------------------
@@ -258,7 +258,7 @@ class HealthResponse(BaseModel):
 class DesignContext(BaseModel):
     application_type: str = "Enterprise Web Application"
     design_style: str = "enterprise"
-    primary_color: str = "#1E40AF"
+    primary_color: str = "#EF7625"
     secondary_color: str = "#0D9488"
     accent_color: str = "#F59E0B"
     neutral_dark: str = "#0F172A"
@@ -349,6 +349,11 @@ class HeaderStat(BaseModel):
     status: Optional[str] = "normal"
 
 
+class ChartDataPoint(BaseModel):
+    label: str = Field(description="BRD-grounded category, period, or series label.")
+    value: float = Field(allow_inf_nan=False, description="Finite numeric chart value supported by the source data.")
+
+
 class ScreenComponent(BaseModel):
     type: str
     title: Optional[str] = ""
@@ -360,6 +365,21 @@ class ScreenComponent(BaseModel):
     actions: List[ScreenAction] = Field(default_factory=list)
     steps: List[str] = Field(default_factory=list)
     badges: List[Dict[str, str]] = Field(default_factory=list)
+    chart_type: Optional[Literal["pie", "bar", "line"]] = Field(
+        default=None,
+        description="Use pie for proportions, bar for category comparisons, or line for ordered time trends.",
+    )
+    chart_data: List[ChartDataPoint] = Field(
+        default_factory=list,
+        description="Only BRD-stated or explicitly available values; illustrative samples require explicit labeling.",
+    )
+    chart_note: Optional[str] = Field(default="", description="Clearly identify illustrative chart data when used.")
+    chart_data_source: Optional[Literal["brd", "screen_data", "illustrative"]] = Field(
+        default=None,
+        description="Whether values come from the BRD, another explicit screen dataset, or labeled illustrative samples.",
+    )
+    chart_value_prefix: Optional[str] = Field(default="", description="Explicit source unit prefix such as a currency symbol.")
+    chart_value_suffix: Optional[str] = Field(default="", description="Explicit source unit suffix such as a percent sign or unit.")
 
     @field_validator("steps", mode="before")
     @classmethod
@@ -381,8 +401,29 @@ class ScreenComponent(BaseModel):
                 coerced.append({"label": str(item)})
         return coerced
 
+    @model_validator(mode="after")
+    def validate_chart(self):
+        if self.chart_type is None and self.chart_data:
+            raise ValueError("chart_data requires chart_type.")
+        if self.chart_type is not None and not self.chart_data:
+            raise ValueError(f"{self.chart_type} chart requires chart_data.")
+        if self.chart_type == "line" and len(self.chart_data) < 2:
+            raise ValueError("Line charts require at least two data points.")
+        if self.chart_type == "pie":
+            if len(self.chart_data) < 2:
+                raise ValueError("Pie charts require at least two categories.")
+            if any(point.value < 0 for point in self.chart_data) or sum(point.value for point in self.chart_data) <= 0:
+                raise ValueError("Pie charts require non-negative values with a positive total.")
+        if self.chart_data_source == "illustrative" and (
+            not self.chart_note or "illustrative" not in self.chart_note.casefold()
+        ):
+            raise ValueError("Illustrative chart data must be labeled in chart_note.")
+        return self
+
 
 class ScreenEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str = "EVT-001"
     type: str = "submit"  # click, submit, select, cancel, filter, navigate
     label: str
@@ -396,6 +437,8 @@ class ScreenEvent(BaseModel):
 
 
 class NavigationFlow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     from_event: str
     to_screen_id: str
     condition: Optional[str] = "always"
@@ -403,6 +446,8 @@ class NavigationFlow(BaseModel):
 
 
 class DataBinding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     field: str
     entity: str
     attribute: Optional[str] = None
@@ -410,6 +455,8 @@ class DataBinding(BaseModel):
 
 
 class ScreenInteraction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     events: List[ScreenEvent] = Field(default_factory=list)
     navigation_flows: List[NavigationFlow] = Field(default_factory=list)
     data_bindings: List[DataBinding] = Field(default_factory=list)

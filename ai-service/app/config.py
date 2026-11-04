@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     gemini_timeout_seconds: float = 300.0
     gemini_screen_explain_max_tokens: int = 8192
     gemini_retry_max_attempts: int = 3
+    image_generator_provider: str = "stability"
+    stability_api_key: str = ""
+    stability_timeout_seconds: float = 180.0
+    stability_asset_dir: str = "./data/stability-assets"
     transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
         "gemini-3.5-flash-lite",

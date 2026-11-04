@@ -23,6 +23,7 @@ from app.services import (
     wireframe_service,
 )
 from app.services.screen_plan_service import ScreenPlanValidationError
+from app.services.image_generation_service import ImageGenerationError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai/mock-screens", tags=["Mock Screens AI Engine"])
@@ -121,6 +122,12 @@ def render_screen(req: MockScreenRenderRequest):
             height=height,
             image_prompt=spec.image_prompt
         )
+    except ImageGenerationError as e:
+        logger.warning("Screen rendering failed for %s: %s", req.specification.name, e)
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=f"Screen rendering failed for '{req.specification.name}': {str(e)}"
+        ) from e
     except Exception as e:
         logger.error("Failed to render screen %s: %s", req.specification.name, e, exc_info=True)
         raise HTTPException(

@@ -3,21 +3,31 @@ from datetime import datetime
 import io
 import json
 import logging
-from typing import Any, Dict, List, Optional
-import pymupdf  # PyMuPDF
+import os
+import re
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+import pymupdf
 from PIL import Image
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class PdfCompilationService:
-    """
-    Section 17: Consolidated Mock Screens PDF Generator.
-    Combines all generated screens in sequential order with:
-    - Executive cover page
-    - Table of contents
-    - Per screen: Mockup page + Specification/Explanation page
-    """
+    PAGE_WIDTH = 842.0
+    PAGE_HEIGHT = 595.0
+    MARGIN = 40.0
+    CONTENT_TOP = 68.0
+    CONTENT_BOTTOM = PAGE_HEIGHT - 43.0
+    ORANGE = (0.92, 0.36, 0.10)
+    DARK = (0.12, 0.16, 0.23)
+    MUTED = (0.39, 0.44, 0.52)
+    BORDER = (0.87, 0.89, 0.92)
+    PANEL = (0.98, 0.985, 0.99)
+    WHITE = (1.0, 1.0, 1.0)
 
     def compile_pdf(
         self,
@@ -30,7 +40,53 @@ class PdfCompilationService:
         if not isinstance(screens, list) or not screens:
             raise ValueError("At least one generated screen is required to compile the PDF.")
 
-        ordered_screens = []
+        prepared = self._prepare_screens(screens)
+        ordered = sorted(prepared, key=lambda screen: screen["sequence"])
+        doc = pymupdf.open()
+        renderer_name, visual_asset_name = self._provider_metadata()
+        doc.set_metadata({
+            "title": f"{application_name} Mock Screens",
+            "author": "AI Work Copilot",
+            "subject": f"BRD-derived UI screens rendered with {renderer_name}; visual assets: {visual_asset_name}",
+            "creator": renderer_name,
+            "producer": "PyMuPDF PDF composition",
+        })
+
+        self._render_cover(
+            doc,
+            application_name,
+            project_name,
+            brd_name,
+            summary,
+            ordered,
+            renderer_name,
+            visual_asset_name,
+        )
+        self._render_toc_continuations(doc, ordered[12:])
+
+        for screen in ordered:
+            self._render_mockup_page(doc, screen)
+            self._render_specification_pages(doc, screen)
+
+        self._stamp_footers(doc)
+        pdf_bytes = doc.tobytes(deflate=True, garbage=4)
+        page_count = doc.page_count
+        doc.close()
+
+        actual_page_count = self.count_pages(pdf_bytes)
+        if actual_page_count != page_count:
+            raise RuntimeError(
+                f"Compiled PDF has {actual_page_count} pages; expected {page_count}."
+            )
+        logger.info(
+            "Compiled %d-page consolidated mock screen PDF (%d bytes)",
+            page_count,
+            len(pdf_bytes),
+        )
+        return pdf_bytes
+
+    def _prepare_screens(self, screens: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        prepared = []
         seen_sequences = set()
         for index, screen in enumerate(screens, start=1):
             if not isinstance(screen, dict):
@@ -52,9 +108,10 @@ class PdfCompilationService:
 
             screen_data = dict(screen)
             screen_data["sequence"] = sequence
-
-            # 1. Mockup Image (mandatory)
-            image_bytes = self._extract_image_bytes(screen_data, ("imageData", "image_base64", "imagePath", "image_path"))
+            image_bytes = self._extract_image_bytes(
+                screen_data,
+                ("imageData", "image_base64", "imagePath", "image_path"),
+            )
             if not image_bytes:
                 name = screen_data.get("name") or screen_data.get("screenName") or f"Screen {sequence}"
                 raise ValueError(f"Generated image missing for screen {sequence} ({name}).")
@@ -68,301 +125,905 @@ class PdfCompilationService:
                 raise ValueError(f"Generated image for screen {sequence} is not a PNG.")
             screen_data["_validated_image_bytes"] = image_bytes
 
-            # 2. Explanation payload
-            explanation = screen_data.get("explanation") or screen_data.get("explanation_json") or screen_data.get("explanationJson")
+            explanation = (
+                screen_data.get("explanation")
+                or screen_data.get("explanation_json")
+                or screen_data.get("explanationJson")
+            )
             if isinstance(explanation, str):
                 try:
-                    screen_data["_parsed_explanation"] = json.loads(explanation)
-                except Exception:
-                    screen_data["_parsed_explanation"] = None
-            elif isinstance(explanation, dict):
-                screen_data["_parsed_explanation"] = explanation
-            else:
-                screen_data["_parsed_explanation"] = None
+                    explanation = json.loads(explanation)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"Explanation JSON is invalid for screen {sequence}."
+                    ) from exc
+            if explanation is not None and not isinstance(explanation, dict):
+                raise ValueError(f"Explanation must be an object for screen {sequence}.")
+            screen_data["_parsed_explanation"] = explanation or {}
+            prepared.append(screen_data)
+        return prepared
 
-            ordered_screens.append(screen_data)
+    @staticmethod
+    def _provider_metadata() -> Tuple[str, str]:
+        provider = settings.image_generator_provider.strip().lower()
+        if provider == "stability":
+            return "Chromium HTML/CSS renderer", "Stability AI decorative assets"
+        if provider == "pymupdf":
+            return "PyMuPDF Native Engine", "Not used"
+        return f"Unconfigured renderer ({provider})", "Not used"
 
-        sorted_screens = sorted(ordered_screens, key=lambda screen: screen["sequence"])
+    def _render_cover(
+        self,
+        doc: pymupdf.Document,
+        application_name: str,
+        project_name: Optional[str],
+        brd_name: Optional[str],
+        summary: Optional[str],
+        screens: Sequence[Dict[str, Any]],
+        renderer_name: str,
+        visual_asset_name: str,
+    ) -> None:
+        page = doc.new_page(width=self.PAGE_WIDTH, height=self.PAGE_HEIGHT)
+        self._register_fonts(page)
+        page.draw_rect(
+            pymupdf.Rect(0, 0, self.PAGE_WIDTH, 190),
+            color=None,
+            fill=(0.10, 0.15, 0.24),
+        )
+        page.draw_rect(
+            pymupdf.Rect(0, 186, self.PAGE_WIDTH, 191),
+            color=None,
+            fill=self.ORANGE,
+        )
+        page.insert_text(
+            (self.MARGIN, 55),
+            "AI WORK COPILOT  /  MOCK SCREEN BLUEPRINT",
+            fontsize=10,
+            color=(1.0, 0.69, 0.47),
+            fontname=self._font_name(True),
+        )
+        title_rect = pymupdf.Rect(self.MARGIN, 73, self.PAGE_WIDTH - self.MARGIN, 123)
+        page.insert_textbox(
+            title_rect,
+            application_name,
+            fontsize=27,
+            fontname=self._font_name(True),
+            color=self.WHITE,
+            lineheight=1.1,
+        )
+        page.insert_textbox(
+            pymupdf.Rect(self.MARGIN, 128, self.PAGE_WIDTH - self.MARGIN, 170),
+            "BRD-derived interface designs and screen specifications",
+            fontsize=14,
+            fontname=self._font_name(),
+            color=(0.85, 0.89, 0.94),
+        )
 
-        # Page counting
-        page_width = 842.0   # A4 Landscape width in points
-        page_height = 595.0  # A4 Landscape height in points
-
-        overflow_toc_page_size = 38
-        overflow_toc_pages = [
-            sorted_screens[start:start + overflow_toc_page_size]
-            for start in range(14, len(sorted_screens), overflow_toc_page_size)
+        card = pymupdf.Rect(self.MARGIN, 216, self.PAGE_WIDTH - self.MARGIN, 333)
+        page.draw_rect(card, color=self.BORDER, fill=self.PANEL, radius=0.12, width=0.8)
+        left_values = [
+            ("SOURCE DOCUMENT", brd_name or "Not specified"),
+            ("PROJECT", project_name or "Not specified"),
+            ("GENERATED", datetime.now().astimezone().strftime("%d %b %Y, %H:%M %Z")),
         ]
-        toc_page_count = 1 + len(overflow_toc_pages)
+        for index, (label, value) in enumerate(left_values):
+            y = 243 + index * 27
+            page.insert_text((self.MARGIN + 18, y), label, fontsize=8, fontname=self._font_name(True), color=self.MUTED)
+            page.insert_textbox(
+                pymupdf.Rect(self.MARGIN + 120, y - 11, 445, y + 7),
+                str(value),
+                fontsize=10,
+                fontname=self._font_name(),
+                color=self.DARK,
+            )
 
-        # Count total pages: 2 pages per screen (Mockup page + Explanation page)
-        total_content_pages = len(sorted_screens) * 2
+        right_x = 470
+        page.insert_text((right_x, 243), "SCREENS", fontsize=8, fontname=self._font_name(True), color=self.MUTED)
+        page.insert_text(
+            (right_x, 273),
+            str(len(screens)),
+            fontsize=21,
+            fontname=self._font_name(True),
+            color=self.ORANGE,
+        )
+        page.insert_text((right_x + 84, 243), "RENDERER", fontsize=8, fontname=self._font_name(True), color=self.MUTED)
+        page.insert_textbox(
+            pymupdf.Rect(right_x + 84, 251, self.PAGE_WIDTH - self.MARGIN - 12, 274),
+            renderer_name,
+            fontsize=9,
+            fontname=self._font_name(),
+            color=self.DARK,
+        )
+        page.insert_text((right_x, 303), "VISUAL ASSETS", fontsize=8, fontname=self._font_name(True), color=self.MUTED)
+        page.insert_textbox(
+            pymupdf.Rect(right_x + 84, 291, self.PAGE_WIDTH - self.MARGIN - 12, 313),
+            visual_asset_name,
+            fontsize=9,
+            fontname=self._font_name(),
+            color=self.DARK,
+        )
 
-        total_pages = 1 + len(overflow_toc_pages) + total_content_pages
+        summary_lines: List[str] = []
+        if summary:
+            summary_lines = self._wrap_to_width(
+                str(summary),
+                self._font_object(),
+                10,
+                self.PAGE_WIDTH - 2 * self.MARGIN,
+            )
+        if summary and len(summary_lines) <= 3:
+            self._draw_section_title(page, self.MARGIN, 363, "DOCUMENT OVERVIEW")
+            self._draw_text_lines(
+                page,
+                self.MARGIN,
+                384,
+                self.PAGE_WIDTH - 2 * self.MARGIN,
+                str(summary),
+                10,
+                self.DARK,
+                max_bottom=435,
+            )
+        elif summary:
+            self._draw_section_title(page, self.MARGIN, 363, "DOCUMENT OVERVIEW")
+            page.insert_text(
+                (self.MARGIN, 384),
+                "Full business summary continues on the following page.",
+                fontsize=10,
+                fontname=self._font_name(),
+                color=self.MUTED,
+            )
 
-        doc = pymupdf.open()
+        toc_y = 463 if summary else 399
+        self._draw_section_title(page, self.MARGIN, toc_y, "SCREEN SEQUENCE")
+        toc_y += 21
+        for index, screen in enumerate(screens[:12]):
+            column = index // 6
+            row = index % 6
+            x = self.MARGIN + column * 390
+            y = toc_y + row * 17
+            page.insert_text(
+                (x, y),
+                f"{screen['sequence']:02d}",
+                fontsize=8.5,
+                fontname=self._font_name(True),
+                color=self.ORANGE,
+            )
+            page.insert_textbox(
+                pymupdf.Rect(x + 25, y - 10, x + 370, y + 4),
+                self._screen_name(screen),
+                fontsize=9,
+                fontname=self._font_name(),
+                color=self.DARK,
+            )
+        if len(screens) > 12:
+            page.insert_text(
+                (self.MARGIN, min(toc_y + 6 * 17 + 3, 574)),
+                f"+ {len(screens) - 12} screens listed on the contents page",
+                fontsize=8,
+                fontname=self._font_name(),
+                color=self.MUTED,
+            )
+        if summary and len(summary_lines) > 3:
+            self._render_summary_page(doc, str(summary))
 
-        # -------------------------------------------------------------
-        # PAGE 1: EXECUTIVE COVER PAGE
-        # -------------------------------------------------------------
-        cover = doc.new_page(width=page_width, height=page_height)
-        cover.draw_rect(pymupdf.Rect(0, 0, page_width, 180), fill=(0.06, 0.12, 0.28), color=None)
-        cover.draw_rect(pymupdf.Rect(0, 180, page_width, 186), fill=(0.95, 0.43, 0.13), color=None)
+    def _render_summary_page(self, doc: pymupdf.Document, summary: str) -> None:
+        page = doc.new_page(width=self.PAGE_WIDTH, height=self.PAGE_HEIGHT)
+        self._page_header(page, "APPLICATION OVERVIEW", "Business summary")
+        self._draw_list_section(
+            page,
+            self.CONTENT_TOP,
+            "APPLICATION SUMMARY",
+            [summary],
+            lambda continued=False: self._new_content_page(doc, continued),
+        )
 
-        cover.insert_text((50, 70), "NEWGEN AI WORK COPILOT", fontsize=14, color=(0.95, 0.43, 0.13), fontname="hebo")
-        cover.insert_text((50, 115), "UI/UX Architecture Specification & Blueprint", fontsize=26, color=(1.0, 1.0, 1.0), fontname="hebo")
-        cover.insert_text((50, 150), f"System: {application_name}", fontsize=16, color=(0.85, 0.90, 0.98), fontname="helv")
+    def _new_content_page(self, doc: pymupdf.Document, continued: bool = False) -> pymupdf.Page:
+        page = doc.new_page(width=self.PAGE_WIDTH, height=self.PAGE_HEIGHT)
+        self._page_header(
+            page,
+            "APPLICATION OVERVIEW",
+            "Business summary  /  continued" if continued else "Business summary",
+        )
+        return page
 
-        y_meta = 215.0
-        cover.draw_rect(pymupdf.Rect(50, y_meta, page_width - 50, y_meta + 150), fill=(0.97, 0.98, 0.99), color=(0.85, 0.88, 0.92), radius=0.08, width=0.8)
+    def _render_toc_continuations(
+        self,
+        doc: pymupdf.Document,
+        screens: Sequence[Dict[str, Any]],
+    ) -> None:
+        for offset in range(0, len(screens), 32):
+            page = doc.new_page(width=self.PAGE_WIDTH, height=self.PAGE_HEIGHT)
+            self._page_header(page, "CONTENTS", "Screen sequence")
+            for index, screen in enumerate(screens[offset:offset + 32]):
+                column = index // 16
+                row = index % 16
+                x = self.MARGIN + column * 390
+                y = self.CONTENT_TOP + 17 + row * 28
+                page.insert_text(
+                    (x, y),
+                    f"{screen['sequence']:02d}",
+                    fontsize=9,
+                    fontname=self._font_name(True),
+                    color=self.ORANGE,
+                )
+                page.insert_textbox(
+                    pymupdf.Rect(x + 28, y - 11, x + 360, y + 7),
+                    self._screen_name(screen),
+                    fontsize=10,
+                    fontname=self._font_name(),
+                    color=self.DARK,
+                )
 
-        now_str = datetime.now().strftime("%B %d, %Y - %H:%M:%S UTC")
-        cover.insert_text((70, y_meta + 28), "DOCUMENT METADATA & ARCHITECTURAL SUMMARY", fontsize=10, color=(0.20, 0.40, 0.70), fontname="hebo")
-        cover.insert_text((70, y_meta + 52), f"Source BRD Document:  {brd_name or 'Uploaded BRD'}", fontsize=11, color=(0.1, 0.15, 0.25), fontname="hebo")
-        cover.insert_text((70, y_meta + 74), f"Project Association:   {project_name or 'General Enterprise'}", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
-        cover.insert_text((70, y_meta + 96), f"Generated Date:       {now_str}", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
-        cover.insert_text((70, y_meta + 118), f"Document Scope:       Complete Architecture (High-Fidelity Mockups & Explanations)", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
+    def _render_mockup_page(self, doc: pymupdf.Document, screen: Dict[str, Any]) -> None:
+        page = doc.new_page(width=self.PAGE_WIDTH, height=self.PAGE_HEIGHT)
+        sequence = screen["sequence"]
+        name = self._screen_name(screen)
+        role = str(screen.get("userRole") or screen.get("user_role") or "")
+        screen_type = str(screen.get("screenType") or screen.get("screen_type") or "")
+        self._page_header(page, f"SCREEN {sequence:02d}  /  UI MOCKUP", name, role, screen_type)
+        page.draw_rect(
+            pymupdf.Rect(self.MARGIN, self.CONTENT_TOP - 5, self.PAGE_WIDTH - self.MARGIN, self.PAGE_HEIGHT - 39),
+            color=self.BORDER,
+            fill=(0.995, 0.996, 0.998),
+            radius=0.1,
+            width=0.7,
+        )
+        page.insert_image(
+            pymupdf.Rect(self.MARGIN + 8, self.CONTENT_TOP + 3, self.PAGE_WIDTH - self.MARGIN - 8, self.PAGE_HEIGHT - 47),
+            stream=screen["_validated_image_bytes"],
+            keep_proportion=True,
+            overlay=True,
+        )
+    def _render_specification_pages(
+        self,
+        doc: pymupdf.Document,
+        screen: Dict[str, Any],
+    ) -> None:
+        sections = self._specification_sections(screen)
+        page: Optional[pymupdf.Page] = None
+        cursor = self.CONTENT_TOP
 
-        cover.insert_text((520, y_meta + 52), f"Total Screens:      {len(screens)} screens", fontsize=11, color=(0.1, 0.15, 0.25), fontname="hebo")
-        cover.insert_text((520, y_meta + 74), "Interaction Model:  IFML-aligned state & events", fontsize=10, color=(0.15, 0.65, 0.35), fontname="hebo")
-        cover.insert_text((520, y_meta + 96), "Blueprint Stages:   Mockup · Specifications", fontsize=10, color=(0.15, 0.65, 0.35), fontname="hebo")
-        cover.insert_text((520, y_meta + 118), "Vector Engine:      PyMuPDF Native Engine", fontsize=10, color=(0.3, 0.35, 0.45), fontname="helv")
+        def new_page(continued: bool = False) -> pymupdf.Page:
+            nonlocal cursor
+            result = doc.new_page(width=self.PAGE_WIDTH, height=self.PAGE_HEIGHT)
+            title = self._screen_name(screen)
+            if continued:
+                title = f"{title}  /  continued"
+            self._page_header(
+                result,
+                f"SCREEN {screen['sequence']:02d}  /  SPECIFICATION",
+                title,
+                str(screen.get("userRole") or screen.get("user_role") or ""),
+                str(screen.get("screenType") or screen.get("screen_type") or ""),
+            )
+            cursor = self.CONTENT_TOP
+            return result
 
-        # Table of Contents Preview on Cover
-        y_toc = 385.0
-        cover.insert_text((50, y_toc), "TABLE OF CONTENTS / SCREEN SEQUENCE", fontsize=11, color=(0.1, 0.15, 0.25), fontname="hebo")
-        cover.draw_line(pymupdf.Point(50, y_toc + 8), pymupdf.Point(page_width - 50, y_toc + 8), color=(0.85, 0.88, 0.92), width=0.8)
+        page = new_page()
+        for title, kind, value in sections:
+            if kind == "table":
+                page, cursor = self._draw_table_section(
+                    doc,
+                    page,
+                    cursor,
+                    screen,
+                    title,
+                    value,
+                    new_page,
+                )
+            else:
+                page, cursor = self._draw_list_section(
+                    page,
+                    cursor,
+                    title,
+                    value,
+                    new_page,
+                )
 
-        col_w = (page_width - 100) / 2
-        for idx, sc in enumerate(sorted_screens[:14]):
-            col_idx = 0 if idx < 7 else 1
-            row_idx = idx if idx < 7 else (idx - 7)
-            tx = 50 + col_idx * col_w
-            ty = y_toc + 28 + row_idx * 21
-            seq = sc.get("sequence", idx + 1)
-            name = sc.get("name") or sc.get("screenName") or f"Screen {seq}"
-            stype = sc.get("screenType") or sc.get("screen_type") or "detail"
-            cover.insert_text((tx, ty), f"[{seq:02d}]  {name[:30]}", fontsize=9, color=(0.15, 0.20, 0.30), fontname="hebo")
-            cover.insert_text((tx + 240, ty), f"({stype})", fontsize=8, color=(0.45, 0.50, 0.60), fontname="helv")
+    def _specification_sections(self, screen: Dict[str, Any]) -> List[Tuple[str, str, Any]]:
+        explanation = screen.get("_parsed_explanation") or {}
+        purpose = explanation.get("purpose_summary") or screen.get("purpose") or ""
 
-        cover.insert_text((50, page_height - 25), "Confidential • Enterprise Architecture Blueprint • AI Work Copilot", fontsize=9, color=(0.5, 0.55, 0.65), fontname="helv")
-        cover.insert_text((page_width - 120, page_height - 25), f"Page 1 of {total_pages}", fontsize=9, color=(0.5, 0.55, 0.65), fontname="helv")
+        fields = self._collect_fields(screen, explanation)
+        actions = self._collect_actions(screen, explanation)
+        rules = self._unique_strings(
+            self._as_list(screen.get("business_rules"))
+            + self._as_list(
+                self._mapping(screen.get("interaction")).get("validation_rules")
+            )
+            + self._as_list(explanation.get("validation_rules"))
+        )
+        navigation = self._collect_navigation(screen, explanation)
+        references = self._unique_strings(
+            self._as_list(screen.get("related_requirements"))
+            + self._as_list(explanation.get("brd_references"))
+        )
 
-        # Additional TOC pages
-        for toc_page_index, toc_screens in enumerate(overflow_toc_pages, start=2):
-            toc_page = doc.new_page(width=page_width, height=page_height)
-            toc_page.draw_rect(pymupdf.Rect(0, 0, page_width, 50), fill=(0.97, 0.98, 0.99), color=(0.88, 0.90, 0.93), width=0.8)
-            toc_page.insert_text((40, 32), "TABLE OF CONTENTS / SCREEN SEQUENCE (CONTINUED)", fontsize=13, color=(0.1, 0.15, 0.25), fontname="hebo")
-            for idx, sc in enumerate(toc_screens):
-                col_idx = 0 if idx < 19 else 1
-                row_idx = idx if idx < 19 else idx - 19
-                tx = 40 + col_idx * ((page_width - 80) / 2)
-                ty = 78 + row_idx * 24
-                seq = sc.get("sequence", idx + 15)
-                name = sc.get("name") or sc.get("screenName") or f"Screen {seq}"
-                stype = sc.get("screenType") or sc.get("screen_type") or "detail"
-                toc_page.insert_text((tx, ty), f"[{seq:02d}]  {name[:38]}", fontsize=9, color=(0.15, 0.20, 0.30), fontname="hebo")
-                toc_page.insert_text((tx + 250, ty), f"({stype[:20]})", fontsize=8, color=(0.45, 0.50, 0.60), fontname="helv")
-            toc_page.insert_text((page_width - 120, page_height - 25), f"Page {toc_page_index} of {total_pages}", fontsize=9, color=(0.5, 0.55, 0.65), fontname="helv")
+        components = []
+        for component in self._as_list(screen.get("components")):
+            if not isinstance(component, dict):
+                continue
+            title = component.get("title") or component.get("type") or "Component"
+            details = [str(component.get("type") or "")]
+            if component.get("description"):
+                details.append(str(component["description"]))
+            if component.get("columns"):
+                details.append("Columns: " + ", ".join(map(str, component["columns"])))
+            if component.get("steps"):
+                details.append("Steps: " + " -> ".join(map(str, component["steps"])))
+            if component.get("stats"):
+                details.extend(
+                    f"{stat.get('label')}: {stat.get('value')}"
+                    for stat in component["stats"]
+                    if isinstance(stat, dict)
+                )
+            if component.get("badges"):
+                details.extend(
+                    ", ".join(f"{key}: {value}" for key, value in badge.items())
+                    for badge in component["badges"]
+                    if isinstance(badge, dict)
+                )
+            if component.get("chart_type"):
+                details.append(f"Chart: {component['chart_type']}")
+                if component.get("chart_data_source"):
+                    details.append(f"Data source: {component['chart_data_source']}")
+                chart_values = []
+                for point in self._as_list(component.get("chart_data")):
+                    if not isinstance(point, dict):
+                        continue
+                    value = point.get("value", "")
+                    prefix = component.get("chart_value_prefix") or ""
+                    suffix = component.get("chart_value_suffix") or ""
+                    if prefix and isinstance(value, (int, float)) and value < 0:
+                        formatted_value = f"-{prefix}{abs(value):g}{suffix}"
+                    else:
+                        formatted_value = f"{prefix}{value}{suffix}"
+                    chart_values.append(f"{point.get('label', '')}: {formatted_value}")
+                if chart_values:
+                    details.append("Chart values: " + ", ".join(chart_values))
+                if component.get("chart_note"):
+                    details.append(str(component["chart_note"]))
+            components.append(f"{title}: " + " | ".join(item for item in details if item))
+        for stat in self._as_list(screen.get("header_stats")):
+            if isinstance(stat, dict):
+                detail = f"{stat.get('label', '')}: {stat.get('value', '')}"
+                if stat.get("change"):
+                    detail += f" | {stat['change']}"
+                if stat.get("status"):
+                    detail += f" | {stat['status']}"
+                components.append(detail)
+        for table in self._as_list(screen.get("tables")):
+            if isinstance(table, dict):
+                title = table.get("title") or "Table"
+                columns = self._as_list(table.get("columns"))
+                details = [f"columns {', '.join(map(str, columns))}"] if columns else []
+                for row_index, row in enumerate(self._as_list(table.get("rows")), start=1):
+                    if isinstance(row, dict):
+                        details.append(f"row {row_index}: {json.dumps(row, ensure_ascii=False, default=str)}")
+                components.append(f"{title}: " + " | ".join(details) if details else str(title))
+        for section in self._as_list(explanation.get("sections")):
+            if not isinstance(section, dict):
+                continue
+            title = section.get("title") or "Section"
+            content = [str(section.get(key)) for key in ("description", "notes") if section.get(key)]
+            if section.get("columns"):
+                content.append("Columns: " + ", ".join(map(str, section["columns"])))
+            if content:
+                components.append(f"{title}: " + " | ".join(content))
 
-        # -------------------------------------------------------------
-        # PER-SCREEN PAGES: [MOCKUP] -> [EXPLANATION]
-        # -------------------------------------------------------------
-        current_page_num = toc_page_count + 1
+        interaction = self._mapping(screen.get("interaction"))
+        event_lines = []
+        for event in self._as_list(interaction.get("events")):
+            if isinstance(event, dict) and event.get("label"):
+                event_lines.append(
+                    "Event: " + str(event["label"])
+                    + (f" ({event['type']})" if event.get("type") else "")
+                    + (f" - {event['trigger_component']}" if event.get("trigger_component") else "")
+                )
+        actions.extend(event_lines)
 
-        for sc in sorted_screens:
-            seq = sc.get("sequence", 1)
-            name = sc.get("name") or sc.get("screenName") or f"Screen {seq}"
-            stype = sc.get("screenType") or sc.get("screen_type") or "detail"
-            purpose = sc.get("purpose") or "Operational interface"
-            role = sc.get("userRole") or sc.get("user_role") or "Enterprise User"
+        nav_context = self._mapping(screen.get("navigation_context") or screen.get("navigationContext"))
+        for key, label in (
+            ("breadcrumbs", "Breadcrumbs"),
+            ("navigation_items", "Navigation items"),
+            ("active_nav_item", "Active navigation item"),
+        ):
+            value = nav_context.get(key)
+            if value:
+                rendered = " > ".join(map(str, value)) if isinstance(value, list) else str(value)
+                navigation.append(f"{label}: {rendered}")
+        navigation = self._unique_strings(navigation)
 
-            # ---------------------------------------------------------
-            # 1. MOCKUP PAGE
-            # ---------------------------------------------------------
-            mp = doc.new_page(width=page_width, height=page_height)
-            mp.draw_rect(pymupdf.Rect(0, 0, page_width, 50), fill=(0.97, 0.98, 0.99), color=(0.88, 0.90, 0.93), width=0.8)
-            # Badge
-            mp.draw_rect(pymupdf.Rect(40, 14, 170, 36), fill=(0.12, 0.25, 0.69), radius=0.1, color=None)
-            mp.insert_text((50, 29), f"SCREEN {seq:02d} — UI MOCKUP", fontsize=9, color=(1.0, 1.0, 1.0), fontname="hebo")
-            mp.insert_text((180, 30), name[:38], fontsize=13, color=(0.10, 0.15, 0.25), fontname="hebo")
-            mp.insert_text((page_width - 340, 29), f"Role: {role[:18]}  |  Type: {stype}", fontsize=9, color=(0.4, 0.45, 0.55), fontname="helv")
+        data_bindings = []
+        for binding in self._as_list(interaction.get("data_bindings")):
+            if not isinstance(binding, dict):
+                continue
+            text = f"{binding.get('field', '')} -> {binding.get('entity', '')}"
+            if binding.get("attribute"):
+                text += f".{binding['attribute']}"
+            if binding.get("binding_type"):
+                text += f" | {binding['binding_type']}"
+            data_bindings.append(text)
 
-            img_rect = pymupdf.Rect(40, 60, page_width - 40, page_height - 50)
-            mp.insert_image(img_rect, stream=sc["_validated_image_bytes"], keep_proportion=True)
+        state = screen.get("workflow_state") or screen.get("workflowState")
+        notifications = self._unique_strings(
+            self._as_list(screen.get("notifications"))
+            + self._as_list(screen.get("data_sources"))
+        )
 
-            mp.draw_line(pymupdf.Point(40, page_height - 35), pymupdf.Point(page_width - 40, page_height - 35), color=(0.88, 0.90, 0.93), width=0.6)
-            mp.insert_text((40, page_height - 20), f"Purpose: {purpose[:120]}", fontsize=8, color=(0.4, 0.45, 0.55), fontname="helv")
-            mp.insert_text((page_width - 120, page_height - 20), f"Page {current_page_num} of {total_pages}", fontsize=9, color=(0.4, 0.45, 0.55), fontname="helv")
-            current_page_num += 1
+        sections = [
+            ("Business Purpose", "text", [purpose] if purpose else []),
+            ("Field Inventory", "table", fields),
+            ("Page Actions", "list", actions),
+            ("Business Rules", "list", rules),
+            ("Navigation Flow", "list", navigation),
+            ("BRD Traceability", "list", references),
+        ]
+        if components:
+            sections.insert(2, ("Screen Components", "list", components))
+        if data_bindings:
+            sections.insert(-1, ("Data Bindings", "list", self._unique_strings(data_bindings)))
+        if state:
+            sections.insert(-1, ("Workflow State", "list", [str(state)]))
+        if notifications:
+            sections.insert(-1, ("Notifications and Data Sources", "list", notifications))
+        return sections
 
-            # ---------------------------------------------------------
-            # 2. EXPLANATION & ARCHITECTURAL SPECIFICATION PAGE
-            # ---------------------------------------------------------
-            ep = doc.new_page(width=page_width, height=page_height)
-            self._render_explanation_page(ep, sc, page_width, page_height, total_pages, current_page_num)
-            current_page_num += 1
+    def _collect_fields(self, screen: Dict[str, Any], explanation: Dict[str, Any]) -> List[Dict[str, Any]]:
+        fields = []
 
-        pdf_bytes = doc.tobytes(deflate=True, garbage=4)
-        doc.close()
+        def add(field: Any) -> None:
+            if not isinstance(field, dict):
+                return
+            label = field.get("label") or field.get("name")
+            if not label:
+                return
+            key = re.sub(r"\s+", " ", str(label)).strip().casefold()
+            if any(existing["_key"] == key for existing in fields):
+                return
+            fields.append({
+                "_key": key,
+                "name": str(label),
+                "type": str(field.get("type") or "text"),
+                "required": "Yes" if field.get("required") else "No",
+                "details": " | ".join(
+                    item
+                    for item in (
+                        str(field.get("rule") or field.get("placeholder") or ""),
+                        f"Options: {', '.join(map(str, field['options']))}" if field.get("options") else "",
+                        f"Value: {field['value']}" if field.get("value") not in (None, "") else "",
+                    )
+                    if item
+                ),
+            })
 
-        actual_page_count = self.count_pages(pdf_bytes)
-        if actual_page_count != total_pages:
-            raise RuntimeError(f"Compiled PDF has {actual_page_count} pages; expected {total_pages}.")
+        for field in self._as_list(screen.get("fields")):
+            add(field)
+        for component in self._as_list(screen.get("components")):
+            if isinstance(component, dict):
+                for field in self._as_list(component.get("fields")):
+                    add(field)
+        for section in self._as_list(explanation.get("sections")):
+            if isinstance(section, dict):
+                for field in self._as_list(section.get("fields")):
+                    add(field)
+        return fields
 
-        logger.info("Compiled %d-page consolidated mock screen PDF (%d bytes)", total_pages, len(pdf_bytes))
-        return pdf_bytes
+    def _collect_actions(self, screen: Dict[str, Any], explanation: Dict[str, Any]) -> List[str]:
+        actions = []
+        for action in self._as_list(screen.get("actions")):
+            if isinstance(action, dict) and action.get("label"):
+                details = [str(action.get("label"))]
+                if action.get("type"):
+                    details.append(str(action["type"]))
+                if action.get("target"):
+                    details.append(f"Target: {action['target']}")
+                actions.append(" | ".join(details))
+        for component in self._as_list(screen.get("components")):
+            if isinstance(component, dict):
+                for action in self._as_list(component.get("actions")):
+                    if isinstance(action, dict) and action.get("label"):
+                        actions.append(
+                            str(action["label"])
+                            + (f" | {action['type']}" if action.get("type") else "")
+                        )
+        for action in self._as_list(explanation.get("actions")):
+            if isinstance(action, dict) and action.get("label"):
+                outcome = action.get("outcome")
+                actions.append(
+                    str(action["label"])
+                    + (f" | {action['type']}" if action.get("type") else "")
+                    + (f" - {outcome}" if outcome else "")
+                )
+        return self._unique_strings(actions)
 
-    def _render_explanation_page(
+    def _collect_navigation(self, screen: Dict[str, Any], explanation: Dict[str, Any]) -> List[str]:
+        interaction = self._mapping(screen.get("interaction"))
+        flows = []
+        for flow in self._as_list(interaction.get("navigation_flows")):
+            if not isinstance(flow, dict):
+                continue
+            text = str(flow.get("label") or flow.get("from_event") or "")
+            if flow.get("to_screen_id"):
+                text += f" -> {flow['to_screen_id']}"
+            if flow.get("condition"):
+                text += f" when {flow['condition']}"
+            if text:
+                flows.append(text)
+        if explanation.get("navigation_flow"):
+            flows.append(str(explanation["navigation_flow"]))
+        return self._unique_strings(flows)
+
+    def _draw_table_section(
+        self,
+        doc: pymupdf.Document,
+        page: pymupdf.Page,
+        cursor: float,
+        screen: Dict[str, Any],
+        title: str,
+        rows: Sequence[Dict[str, Any]],
+        new_page,
+    ) -> Tuple[pymupdf.Page, float]:
+        x = self.MARGIN
+        width = self.PAGE_WIDTH - 2 * self.MARGIN
+        columns = [250.0, 105.0, 68.0, width - 423.0]
+        header_height = 22.0
+        body_size = 9.0
+        line_height = 12.0
+
+        def heading(target: pymupdf.Page, y: float) -> float:
+            target.insert_text((x + 2, y + 13), title.upper(), fontsize=9, fontname=self._font_name(True), color=self.ORANGE)
+            table_top = y + 20
+            target.draw_rect(
+                pymupdf.Rect(x, table_top, x + width, table_top + header_height),
+                color=self.BORDER,
+                fill=(0.92, 0.94, 0.96),
+                width=0.5,
+            )
+            labels = ("FIELD", "TYPE", "REQUIRED", "RULE / GUIDANCE")
+            left = x
+            for label, column_width in zip(labels, columns):
+                target.insert_text(
+                    (left + 7, table_top + 15),
+                    label,
+                    fontsize=8.5,
+                    fontname=self._font_name(True),
+                    color=self.DARK,
+                )
+                left += column_width
+            return table_top + header_height
+
+        if not rows:
+            page, cursor = self._draw_list_section(page, cursor, title, [], new_page)
+            return page, cursor
+
+        if cursor + header_height + 40 > self.CONTENT_BOTTOM:
+            page = new_page(True)
+            cursor = self.CONTENT_TOP
+        row_y = heading(page, cursor)
+
+        font = self._font_object()
+        for index, row in enumerate(rows):
+            values = (
+                str(row.get("name") or ""),
+                str(row.get("type") or ""),
+                str(row.get("required") or ""),
+                str(row.get("details") or ""),
+            )
+            wrapped = [
+                self._wrap_to_width(value, font, body_size, col_width - 14)
+                for value, col_width in zip(values, columns)
+            ]
+            line_count = max(1, *(len(lines) for lines in wrapped))
+            row_height = max(22.0, line_count * line_height + 10)
+            if row_y + row_height > self.CONTENT_BOTTOM:
+                page = new_page(True)
+                cursor = self.CONTENT_TOP
+                row_y = heading(page, cursor)
+
+            fill = self.WHITE if index % 2 == 0 else (0.975, 0.98, 0.985)
+            page.draw_rect(
+                pymupdf.Rect(x, row_y, x + width, row_y + row_height),
+                color=self.BORDER,
+                fill=fill,
+                width=0.35,
+            )
+            left = x
+            for column_index, (text_lines, col_width) in enumerate(zip(wrapped, columns)):
+                for line_index, line in enumerate(text_lines):
+                    page.insert_text(
+                        (left + 7, row_y + 14 + line_index * line_height),
+                        line,
+                        fontsize=body_size,
+                        fontname=self._font_name(),
+                        color=self.MUTED if column_index == 1 else self.DARK,
+                    )
+                left += col_width
+            row_y += row_height
+        return page, row_y + 12
+
+    def _draw_list_section(
         self,
         page: pymupdf.Page,
-        sc: Dict[str, Any],
+        cursor: float,
+        title: str,
+        items: Sequence[str],
+        new_page,
+    ) -> Tuple[pymupdf.Page, float]:
+        x = self.MARGIN
+        width = self.PAGE_WIDTH - 2 * self.MARGIN
+        title_height = 24.0
+        if cursor + title_height + 22 > self.CONTENT_BOTTOM:
+            page = new_page(True)
+            cursor = self.CONTENT_TOP
+        page.insert_text(
+            (x + 2, cursor + 14),
+            title.upper(),
+            fontsize=9,
+            fontname=self._font_name(True),
+            color=self.ORANGE,
+        )
+        cursor += title_height
+        if not items:
+            items = ["Not specified in the screen plan."]
+        font = self._font_object()
+        for item in items:
+            text = str(item)
+            lines = self._wrap_to_width(text, font, 9.2, width - 34)
+            line_height = 13.0
+            first_chunk = True
+            while lines:
+                if cursor + line_height + 6 > self.CONTENT_BOTTOM:
+                    page = new_page(True)
+                    cursor = self.CONTENT_TOP
+                    page.insert_text(
+                        (x + 2, cursor + 14),
+                        f"{title.upper()}  /  CONTINUED",
+                        fontsize=9,
+                        fontname=self._font_name(True),
+                        color=self.ORANGE,
+                    )
+                    cursor += title_height
+                available_lines = max(
+                    1,
+                    int((self.CONTENT_BOTTOM - cursor - 7) // line_height),
+                )
+                chunk, lines = lines[:available_lines], lines[available_lines:]
+                if first_chunk:
+                    page.draw_circle(
+                        pymupdf.Point(x + 8, cursor + 9),
+                        2.2,
+                        color=None,
+                        fill=self.ORANGE,
+                    )
+                    first_chunk = False
+                for line_index, line in enumerate(chunk):
+                    page.insert_text(
+                        (x + 18, cursor + 12 + line_index * line_height),
+                        line,
+                        fontsize=9.2,
+                        fontname=self._font_name(),
+                        color=self.DARK,
+                    )
+                cursor += len(chunk) * line_height + 6
+                if lines:
+                    page = new_page(True)
+                    cursor = self.CONTENT_TOP
+                    page.insert_text(
+                        (x + 2, cursor + 14),
+                        f"{title.upper()}  /  CONTINUED",
+                        fontsize=9,
+                        fontname=self._font_name(True),
+                        color=self.ORANGE,
+                    )
+                    cursor += title_height
+        return page, cursor + 8
+
+    def _page_header(
+        self,
+        page: pymupdf.Page,
+        section: str,
+        title: str,
+        role: str = "",
+        screen_type: str = "",
+    ) -> None:
+        self._register_fonts(page)
+        page.draw_rect(
+            pymupdf.Rect(0, 0, self.PAGE_WIDTH, 52),
+            color=None,
+            fill=(0.97, 0.98, 0.99),
+        )
+        page.draw_rect(pymupdf.Rect(0, 50, self.PAGE_WIDTH, 52), color=None, fill=self.ORANGE)
+        page.insert_text(
+            (self.MARGIN, 20),
+            section,
+            fontsize=8,
+            fontname=self._font_name(True),
+            color=self.ORANGE,
+        )
+        page.insert_textbox(
+            pymupdf.Rect(self.MARGIN, 24, 490, 47),
+            title,
+            fontsize=13,
+            fontname=self._font_name(True),
+            color=self.DARK,
+            lineheight=1.0,
+        )
+        details = "  |  ".join(value for value in (role, screen_type) if value)
+        if details:
+            page.insert_textbox(
+                pymupdf.Rect(500, 20, self.PAGE_WIDTH - self.MARGIN, 43),
+                details,
+                fontsize=8,
+                fontname=self._font_name(),
+                color=self.MUTED,
+                align=pymupdf.TEXT_ALIGN_RIGHT,
+            )
+
+    def _stamp_footers(self, doc: pymupdf.Document) -> None:
+        total = doc.page_count
+        for index, page in enumerate(doc, start=1):
+            y = self.PAGE_HEIGHT - 25
+            page.draw_line(
+                pymupdf.Point(self.MARGIN, y - 7),
+                pymupdf.Point(self.PAGE_WIDTH - self.MARGIN, y - 7),
+                color=self.BORDER,
+                width=0.6,
+            )
+            page.insert_text(
+                (self.MARGIN, y + 5),
+                "AI WORK COPILOT  -  SCREEN BLUEPRINT",
+                fontsize=8,
+                fontname=self._font_name(),
+                color=self.MUTED,
+            )
+            page.insert_text(
+                (self.PAGE_WIDTH - self.MARGIN - 95, y + 5),
+                f"PAGE {index} OF {total}",
+                fontsize=8,
+                fontname=self._font_name(True),
+                color=self.MUTED,
+            )
+
+    def _draw_section_title(self, page: pymupdf.Page, x: float, y: float, title: str) -> None:
+        page.insert_text((x, y), title, fontsize=9, fontname=self._font_name(True), color=self.ORANGE)
+
+    def _draw_text_lines(
+        self,
+        page: pymupdf.Page,
+        x: float,
+        top: float,
         width: float,
-        height: float,
-        total_pages: int,
-        page_num: int,
-    ):
-        seq = sc.get("sequence", 1)
-        name = sc.get("name") or sc.get("screenName") or f"Screen {seq}"
-        stype = sc.get("screenType") or sc.get("screen_type") or "detail"
-        purpose = sc.get("purpose") or "Operational interface"
-        role = sc.get("userRole") or sc.get("user_role") or "Enterprise User"
-        exp = sc.get("_parsed_explanation") or {}
+        text: str,
+        font_size: float,
+        color: Tuple[float, float, float],
+        max_bottom: float,
+    ) -> float:
+        font = self._font_object()
+        lines = self._wrap_to_width(str(text), font, font_size, width)
+        line_height = font_size * 1.45
+        for index, line in enumerate(lines):
+            baseline = top + font_size + index * line_height
+            if baseline > max_bottom:
+                break
+            page.insert_text((x, baseline), line, fontsize=font_size, fontname=self._font_name(), color=color)
+        return top + len(lines) * line_height
 
-        # Colors
-        c_primary = (0.12, 0.25, 0.69)
-        c_border = (0.85, 0.88, 0.92)
-        c_card = (0.98, 0.985, 0.99)
-        c_text_dark = (0.10, 0.14, 0.20)
-        c_text_muted = (0.40, 0.45, 0.52)
-
-        # Header bar
-        page.draw_rect(pymupdf.Rect(0, 0, width, 50), fill=(0.97, 0.98, 0.99), color=c_border, width=0.8)
-        page.draw_rect(pymupdf.Rect(40, 14, 220, 36), fill=(0.15, 0.55, 0.45), radius=0.1, color=None)
-        page.insert_text((50, 29), f"SCREEN {seq:02d} — SPECIFICATION & RULES", fontsize=9, color=(1.0, 1.0, 1.0), fontname="hebo")
-        page.insert_text((228, 30), name[:38], fontsize=13, color=c_text_dark, fontname="hebo")
-        page.insert_text((width - 340, 29), f"Role: {role[:18]}  |  Type: {stype}", fontsize=9, color=c_text_muted, fontname="helv")
-
-        # 2-column layout for explanation content
-        left_x = 40.0
-        left_w = 420.0
-        right_x = left_x + left_w + 20.0
-        right_w = width - right_x - 40.0
-
-        # LEFT COLUMN - BOX 1: PURPOSE SUMMARY
-        y_cursor_l = 65.0
-        purp_box_h = 95.0
-        page.draw_rect(pymupdf.Rect(left_x, y_cursor_l, left_x + left_w, y_cursor_l + purp_box_h), fill=c_card, color=c_border, radius=0.04, width=0.8)
-        page.insert_text((left_x + 14, y_cursor_l + 20), "1. BUSINESS PURPOSE & OPERATIONAL ROLE", fontsize=9, color=c_primary, fontname="hebo")
-        purp_text = exp.get("purpose_summary") or purpose
-        lines = self._wrap_text(purp_text, 68)[:4]
-        for l_idx, line in enumerate(lines):
-            page.insert_text((left_x + 14, y_cursor_l + 38 + l_idx * 14), line, fontsize=8.5, color=c_text_dark, fontname="helv")
-
-        # LEFT COLUMN - BOX 2: SECTIONS & DATA FIELDS INVENTORY
-        y_cursor_l += purp_box_h + 12.0
-        box2_h = height - y_cursor_l - 45.0
-        page.draw_rect(pymupdf.Rect(left_x, y_cursor_l, left_x + left_w, y_cursor_l + box2_h), fill=c_card, color=c_border, radius=0.04, width=0.8)
-        page.insert_text((left_x + 14, y_cursor_l + 20), "2. SECTIONS & DATA FIELD INVENTORY", fontsize=9, color=c_primary, fontname="hebo")
-
-        # Fields table
-        sec_y = y_cursor_l + 32.0
-        sections = exp.get("sections") or []
-        fields = [f for s in sections for f in s.get("fields", [])] if sections else []
-        if not fields:
-            # Fall back to spec fields
-            spec_fields = sc.get("fields") or []
-            fields = [{"name": f.get("label", "Field"), "type": f.get("type", "text"), "required": f.get("required", False), "rule": f.get("placeholder", "")} for f in spec_fields]
-
-        page.draw_rect(pymupdf.Rect(left_x + 14, sec_y, left_x + left_w - 14, sec_y + 18), fill=(0.91, 0.93, 0.96), color=c_border, width=0.5)
-        page.insert_text((left_x + 20, sec_y + 12), "FIELD NAME", fontsize=8, color=c_text_dark, fontname="hebo")
-        page.insert_text((left_x + 170, sec_y + 12), "TYPE", fontsize=8, color=c_text_dark, fontname="hebo")
-        page.insert_text((left_x + 225, sec_y + 12), "REQ", fontsize=8, color=c_text_dark, fontname="hebo")
-        page.insert_text((left_x + 260, sec_y + 12), "VALIDATION / APPLIED RULE", fontsize=8, color=c_text_dark, fontname="hebo")
-
-        row_y = sec_y + 18.0
-        for f_idx, field in enumerate(fields[:11]):
-            bg = (1.0, 1.0, 1.0) if f_idx % 2 == 0 else (0.96, 0.97, 0.98)
-            page.draw_rect(pymupdf.Rect(left_x + 14, row_y, left_x + left_w - 14, row_y + 18), fill=bg, color=c_border, width=0.3)
-            fname = str(field.get("name") or field.get("label") or "Field")[:24]
-            ftype = str(field.get("type", "text"))[:10]
-            freq = "YES" if field.get("required") else "NO"
-            frule = str(field.get("rule") or "Standard system constraint")[:32]
-            page.insert_text((left_x + 20, row_y + 12), fname, fontsize=8, color=c_text_dark, fontname="helv")
-            page.insert_text((left_x + 170, row_y + 12), ftype, fontsize=8, color=c_text_muted, fontname="helv")
-            page.insert_text((left_x + 225, row_y + 12), freq, fontsize=7.5, color=c_text_dark, fontname="hebo")
-            page.insert_text((left_x + 260, row_y + 12), frule, fontsize=8, color=c_text_dark, fontname="helv")
-            row_y += 18.0
-
-        # RIGHT COLUMN - BOX 3: ACTIONS & OUTCOMES
-        y_cursor_r = 65.0
-        box3_h = 120.0
-        page.draw_rect(pymupdf.Rect(right_x, y_cursor_r, right_x + right_w, y_cursor_r + box3_h), fill=c_card, color=c_border, radius=0.04, width=0.8)
-        page.insert_text((right_x + 14, y_cursor_r + 20), "3. PAGE ACTIONS & EVENT OUTCOMES", fontsize=9, color=c_primary, fontname="hebo")
-        actions = exp.get("actions") or []
-        if not actions and sc.get("actions"):
-            actions = [{"label": a.get("label", "Action"), "type": a.get("type", "primary"), "outcome": f"Triggers {a.get('label')} processing"} for a in sc.get("actions")]
-        act_y = y_cursor_r + 34.0
-        for act in actions[:3]:
-            albl = act.get("label", "Action")
-            aout = act.get("outcome") or f"Submits data for validation and state transition."
-            page.insert_text((right_x + 14, act_y), f"• [{albl.upper()}]: {aout[:60]}", fontsize=8, color=c_text_dark, fontname="helv")
-            act_y += 24.0
-
-        # RIGHT COLUMN - BOX 4: BUSINESS RULES & CONSTRAINTS
-        y_cursor_r += box3_h + 12.0
-        box4_h = 135.0
-        page.draw_rect(pymupdf.Rect(right_x, y_cursor_r, right_x + right_w, y_cursor_r + box4_h), fill=c_card, color=c_border, radius=0.04, width=0.8)
-        page.insert_text((right_x + 14, y_cursor_r + 20), "4. BUSINESS RULES & CONSTRAINTS", fontsize=9, color=c_primary, fontname="hebo")
-        rules = exp.get("validation_rules") or sc.get("business_rules") or ["Field validation mandatory prior to state update."]
-        rule_y = y_cursor_r + 34.0
-        for r_idx, rule in enumerate(rules[:4]):
-            page.insert_text((right_x + 14, rule_y), f"BR-{r_idx+1:02d}: {str(rule)[:65]}", fontsize=8, color=c_text_dark, fontname="helv")
-            rule_y += 22.0
-
-        # RIGHT COLUMN - BOX 5: NAVIGATION FLOW & TRACEABILITY
-        y_cursor_r += box4_h + 12.0
-        box5_h = height - y_cursor_r - 45.0
-        page.draw_rect(pymupdf.Rect(right_x, y_cursor_r, right_x + right_w, y_cursor_r + box5_h), fill=c_card, color=c_border, radius=0.04, width=0.8)
-        page.insert_text((right_x + 14, y_cursor_r + 20), "5. NAVIGATION & BRD TRACEABILITY", fontsize=9, color=c_primary, fontname="hebo")
-        nav_text = exp.get("navigation_flow") or f"Inbound from entry workflow, outbound transitions to adjacent operational screens upon event completion."
-        nav_lines = self._wrap_text(nav_text, 56)[:3]
-        for nl_idx, nline in enumerate(nav_lines):
-            page.insert_text((right_x + 14, y_cursor_r + 36 + nl_idx * 14), nline, fontsize=8, color=c_text_dark, fontname="helv")
-
-        refs = exp.get("brd_references") or sc.get("related_requirements") or ["BRD Requirement Baseline"]
-        refs_str = ", ".join(str(r) for r in refs[:5])
-        page.insert_text((right_x + 14, y_cursor_r + 85), f"BRD Traceability: {refs_str[:55]}", fontsize=8, color=c_primary, fontname="hebo")
-
-        # Page Footer
-        page.draw_line(pymupdf.Point(40, height - 35), pymupdf.Point(width - 40, height - 35), color=c_border, width=0.6)
-        page.insert_text((40, height - 20), "Detailed Screen Specification, Field Dictionary & Interaction Model", fontsize=8, color=c_text_muted, fontname="helv")
-        page.insert_text((width - 120, height - 20), f"Page {page_num} of {total_pages}", fontsize=9, color=c_text_muted, fontname="helv")
-
-    def _wrap_text(self, text: str, max_chars: int) -> List[str]:
-        words = text.split()
+    @staticmethod
+    def _wrap_to_width(text: str, font: pymupdf.Font, size: float, width: float) -> List[str]:
         lines = []
-        curr = []
-        curr_len = 0
-        for w in words:
-            if curr_len + len(w) + 1 <= max_chars:
-                curr.append(w)
-                curr_len += len(w) + 1
-            else:
-                lines.append(" ".join(curr))
-                curr = [w]
-                curr_len = len(w)
-        if curr:
-            lines.append(" ".join(curr))
+        for paragraph in str(text).splitlines() or [""]:
+            words = paragraph.split()
+            if not words:
+                lines.append("")
+                continue
+            current = ""
+            for word in words:
+                if font.text_length(word, fontsize=size) > width:
+                    if current:
+                        lines.append(current)
+                        current = ""
+                    piece = ""
+                    for character in word:
+                        if piece and font.text_length(piece + character, fontsize=size) > width:
+                            lines.append(piece)
+                            piece = character
+                        else:
+                            piece += character
+                    current = piece
+                    continue
+                candidate = f"{current} {word}".strip()
+                if current and font.text_length(candidate, fontsize=size) > width:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = candidate
+            if current:
+                lines.append(current)
         return lines
+
+    @classmethod
+    def _font_file(cls, bold: bool = False) -> Optional[Path]:
+        windows_name = "arialbd.ttf" if bold else "arial.ttf"
+        linux_names = (
+            ("DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf")
+            if bold
+            else ("DejaVuSans.ttf", "LiberationSans-Regular.ttf")
+        )
+        candidates = [Path("C:/Windows/Fonts") / windows_name]
+        candidates.extend(
+            Path("/usr/share/fonts/truetype/dejavu") / name
+            for name in linux_names
+            if name.startswith("DejaVu")
+        )
+        candidates.extend(
+            Path("/usr/share/fonts/truetype/liberation2") / name
+            for name in linux_names
+            if name.startswith("Liberation")
+        )
+        return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+    @classmethod
+    def _font_name(cls, bold: bool = False) -> str:
+        return "BlueprintBold" if bold and cls._font_file(True) else (
+            "BlueprintRegular" if not bold and cls._font_file(False) else (
+                "hebo" if bold else "helv"
+            )
+        )
+
+    @classmethod
+    def _font_object(cls) -> pymupdf.Font:
+        path = cls._font_file()
+        return pymupdf.Font(fontfile=str(path)) if path else pymupdf.Font("helv")
+
+    @classmethod
+    def _register_fonts(cls, page: pymupdf.Page) -> None:
+        for font_name, is_bold in (("BlueprintRegular", False), ("BlueprintBold", True)):
+            path = cls._font_file(is_bold)
+            if path:
+                page.insert_font(fontname=font_name, fontfile=str(path))
+
+    @staticmethod
+    def _as_list(value: Any) -> List[Any]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        return [value]
+
+    @staticmethod
+    def _mapping(value: Any) -> Dict[str, Any]:
+        return value if isinstance(value, dict) else {}
+
+    @staticmethod
+    def _unique_strings(values: Iterable[Any]) -> List[str]:
+        result = []
+        seen = set()
+        for value in values:
+            if value is None:
+                continue
+            text = str(value).strip()
+            key = re.sub(r"\s+", " ", text).casefold()
+            if text and key not in seen:
+                seen.add(key)
+                result.append(text)
+        return result
+
+    @staticmethod
+    def _screen_name(screen: Dict[str, Any]) -> str:
+        return str(screen.get("name") or screen.get("screenName") or f"Screen {screen['sequence']}")
 
     def count_pages(self, pdf_bytes: bytes) -> int:
         with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
             return doc.page_count
 
-    def _extract_image_bytes(self, sc: Dict[str, Any], candidate_keys: tuple) -> Optional[bytes]:
+    def _extract_image_bytes(
+        self,
+        screen: Dict[str, Any],
+        candidate_keys: Tuple[str, ...],
+    ) -> Optional[bytes]:
         for key in candidate_keys:
-            raw = sc.get(key)
+            raw = screen.get(key)
             if not raw:
                 continue
             if isinstance(raw, bytes):
@@ -371,14 +1032,12 @@ class PdfCompilationService:
                 try:
                     return base64.b64decode(raw, validate=True)
                 except (ValueError, TypeError):
-                    pass
-                import os
-                if os.path.isfile(raw):
-                    try:
-                        with open(raw, "rb") as f:
-                            return f.read()
-                    except OSError:
-                        pass
+                    if os.path.isfile(raw):
+                        try:
+                            with open(raw, "rb") as image_file:
+                                return image_file.read()
+                        except OSError as exc:
+                            raise ValueError(f"Could not read generated screen image at '{raw}'.") from exc
         return None
 
 
