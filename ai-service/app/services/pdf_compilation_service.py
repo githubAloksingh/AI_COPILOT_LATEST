@@ -463,8 +463,12 @@ class PdfCompilationService:
                     for badge in component["badges"]
                     if isinstance(badge, dict)
                 )
-            if component.get("chart_type"):
-                details.append(f"Chart: {component['chart_type']}")
+            chart_spec = component.get("chart_spec") if isinstance(component.get("chart_spec"), dict) else {}
+            effective_chart_type = component.get("chart_type") or chart_spec.get("chart_type")
+            if effective_chart_type:
+                details.append(f"Chart: {effective_chart_type}")
+                if chart_spec.get("placement"):
+                    details.append(f"Placement: {chart_spec['placement']}")
                 if component.get("chart_data_source"):
                     details.append(f"Data source: {component['chart_data_source']}")
                 chart_values = []
@@ -474,11 +478,32 @@ class PdfCompilationService:
                     value = point.get("value", "")
                     prefix = component.get("chart_value_prefix") or ""
                     suffix = component.get("chart_value_suffix") or ""
-                    if prefix and isinstance(value, (int, float)) and value < 0:
-                        formatted_value = f"-{prefix}{abs(value):g}{suffix}"
+                    if isinstance(value, (int, float)):
+                        if value < 0 and prefix:
+                            formatted_value = f"-{prefix}{abs(value):g}{suffix}"
+                        elif value < 0:
+                            formatted_value = f"-{abs(value):g}{suffix}"
+                        else:
+                            formatted_value = f"{prefix}{value:g}{suffix}"
                     else:
                         formatted_value = f"{prefix}{value}{suffix}"
                     chart_values.append(f"{point.get('label', '')}: {formatted_value}")
+                if not chart_values and chart_spec.get("labels") and chart_spec.get("values"):
+                    labels = chart_spec.get("labels", [])
+                    values = chart_spec.get("values", [])
+                    prefix = component.get("chart_value_prefix") or ""
+                    suffix = component.get("chart_value_suffix") or ""
+                    for lbl, val in zip(labels, values):
+                        if isinstance(val, (int, float)):
+                            if val < 0 and prefix:
+                                formatted_val = f"-{prefix}{abs(val):g}{suffix}"
+                            elif val < 0:
+                                formatted_val = f"-{abs(val):g}{suffix}"
+                            else:
+                                formatted_val = f"{prefix}{val:g}{suffix}"
+                        else:
+                            formatted_val = f"{prefix}{val}{suffix}"
+                        chart_values.append(f"{lbl}: {formatted_val}")
                 if chart_values:
                     details.append("Chart values: " + ", ".join(chart_values))
                 if component.get("chart_note"):
