@@ -62,6 +62,44 @@ def test_gemini_api_key_is_sent_in_header_not_url(monkeypatch):
     assert captured_request["headers"]["x-goog-api-key"] == "test-api-key"
 
 
+def test_gemini_request_uses_supplied_response_json_schema(monkeypatch):
+    from app.services import gemini_service as gemini_service_module
+
+    captured_request = {}
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": "{}"}]}}]}
+
+    class Client:
+        def __init__(self, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def post(self, url, json, headers):
+            captured_request["body"] = json
+            return Response()
+
+    monkeypatch.setattr(gemini_service_module.httpx, "Client", Client)
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_api_key", "test-api-key")
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_model", "test-model")
+    service = GeminiService()
+    service.candidate_models = []
+    schema = {"type": "object", "properties": {"label": {"type": "string"}}}
+
+    assert service.generate_content("prompt", response_schema=schema) == "{}"
+    generation_config = captured_request["body"]["generationConfig"]
+    assert generation_config["responseMimeType"] == "application/json"
+    assert generation_config["responseJsonSchema"] == schema
+
+
 def test_prompt_builders_include_guardrails():
     req_prompt = build_requirement_prompt("User login", "User context")
     assert GUARDRAILS in req_prompt

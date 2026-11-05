@@ -165,7 +165,8 @@ def test_missing_report_and_document_content_use_explicit_empty_states():
     assert "Document preview unavailable" in _render_body_text(document)
 
 
-def test_navigation_uses_only_destinations_supplied_by_the_screen_plan():
+def test_navigation_uses_only_destinations_supplied_by_the_screen_plan(monkeypatch):
+    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
     service = ImageGenerationService()
     spec = _screen(
         "detail_view",

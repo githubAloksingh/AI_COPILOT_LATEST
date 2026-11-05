@@ -12,7 +12,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 - **ChromaDB Vector Store**: Remote Chroma HTTP client and embedded persistent storage with document ID and chunk index tracking.
 - **RAG Generation**: Context retrieval + prompt guardrails + Google Gemini structured JSON generation.
 - **Auditable Source Tracking**: Returns retrieved source chunks and metadata alongside AI responses.
-- **BRD Mock Screens**: Gemini text planning analyzes the complete extracted BRD; PyMuPDF renders screen-specific, high-resolution PNG mockups locally and combines generated screens into an ordered PDF. Image rendering does not call a paid image-generation API.
+- **BRD Mock Screens**: Gemini returns a schema-constrained, validated screen plan; Chromium renders exact specification text and controls with HTML/CSS, including responsive pie, diverging bar, and line charts on relevant analytical screens. Chart values identify their BRD/screen-data/illustrative source; illustrative values are labeled and source-defined units are rendered. Stability AI produces optional, layout-aware decorative artwork only. PDFs use consistent landscape pages, readable wrapped specification sections, and automatic pagination for long requirements.
 
 ---
 
@@ -28,7 +28,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 | `POST` | `/api/ai/defects/analyze` | Triage defect logs, stack traces, and suggest root cause fixes |
 | `POST` | `/api/ai/release-notes/generate` | Generate clean release notes from sprint information |
 | `POST` | `/api/ai/mock-screens/plan` | Plan BRD-driven screens with Gemini text generation |
-| `POST` | `/api/ai/mock-screens/render-screen` | Render a static PNG locally with PyMuPDF |
+| `POST` | `/api/ai/mock-screens/render-screen` | Render a specification-faithful PNG with HTML/CSS and optional Stability artwork |
 | `POST` | `/api/ai/mock-screens/compile-pdf` | Compile generated screen PNGs in sequence |
 
 ---
@@ -38,7 +38,10 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.7-flash
-IMAGE_GENERATOR_PROVIDER=pymupdf
+IMAGE_GENERATOR_PROVIDER=stability
+STABILITY_API_KEY=your_stability_api_key_here
+STABILITY_TIMEOUT_SECONDS=180
+STABILITY_ASSET_DIR=./data/stability-assets
 TRANSFORMER_EMBEDDING_MODEL=sentence-transformers/paraphrase-MiniLM-L3-v2
 MAX_UPLOAD_SIZE_MB=1024
 CHROMA_URL=http://localhost:8000
@@ -51,7 +54,7 @@ PORT=8000
 FRONTEND_ORIGINS=http://localhost:4200,http://127.0.0.1:4200
 ```
 
-`GEMINI_API_KEY` is used only for text-based BRD analysis and screen planning. PNG rendering and PDF compilation run locally with the existing PyMuPDF dependency and do not require image-generation billing.
+`GEMINI_API_KEY` is used for BRD analysis and screen planning. Stability is selected by default and requires `STABILITY_API_KEY`; its Bearer credential is read only by the backend. Stability prompts describe generic layout artwork and do not contain BRD-derived text. Returned PNG assets are validated and cached under `STABILITY_ASSET_DIR`; Chromium overlays the actual BRD-derived text, fields, tables, and actions before returning the existing screen PNG. Stability failures are returned explicitly; there is no silent fallback. Set `IMAGE_GENERATOR_PROVIDER=pymupdf` to explicitly select the legacy native fallback. Run `python -m playwright install chromium` outside Docker before rendering.
 
 ---
 

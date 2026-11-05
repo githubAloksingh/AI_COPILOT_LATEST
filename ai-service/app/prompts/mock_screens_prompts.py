@@ -1,5 +1,7 @@
+import json
 from typing import Optional
 
+from app.api.schemas import ScreenInteraction
 from app.prompts.guardrails import GUARDRAILS
 
 MOCK_SCREEN_PLAN_SYSTEM_PROMPT = """You are a Senior Product Architect, UX Architect, and Principal Business Analyst specializing in enterprise application systems.
@@ -22,6 +24,7 @@ CRITICAL RULES:
 
 def build_mock_screen_plan_prompt(brd_text: str, project_name: Optional[str] = "") -> str:
     normalized_brd = brd_text.strip()
+    interaction_schema = json.dumps(ScreenInteraction.model_json_schema(), indent=2)
     return f"""{MOCK_SCREEN_PLAN_SYSTEM_PROMPT}
 
 Project Context: {project_name or 'Enterprise Initiative'}
@@ -86,6 +89,14 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
           "rows": [
             {{ "Col 1": "Val 1", "Col 2": "Val 2", "Status": "Active" }}
           ],
+          "chart_type": "pie | bar | line",
+          "chart_data": [
+            {{ "label": "Category or period", "value": 12 }}
+          ],
+          "chart_data_source": "brd | screen_data | illustrative",
+          "chart_note": "Required when chart_data_source is illustrative; clearly say 'Illustrative data'",
+          "chart_value_prefix": "Optional unit prefix, for example $",
+          "chart_value_suffix": "Optional unit suffix, for example % or cases",
           "actions": [
             {{ "label": "Button Label", "type": "primary|secondary|danger", "icon": "check" }}
           ],
@@ -98,16 +109,10 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
         {{ "label": "Primary Page Action", "type": "primary", "target": "Next Screen" }}
       ],
       "interaction": {{
-        "events": [
-          {{ "id": "EVT-001", "type": "submit", "label": "Action Button Label", "trigger_component": "Component Title", "business_rule_refs": ["BR-01"] }}
-        ],
-        "navigation_flows": [
-          {{ "from_event": "EVT-001", "to_screen_id": "SCREEN-002", "condition": "validation_passed", "label": "Proceed to Review" }}
-        ],
-        "data_bindings": [
-          {{ "field": "field_name", "entity": "EntityName", "attribute": "propName", "binding_type": "read_write" }}
-        ],
-        "validation_rules": ["Specific field or business rule from BRD"]
+        "events": [],
+        "navigation_flows": [],
+        "data_bindings": [],
+        "validation_rules": []
       }},
       "workflow_state": "e.g. Draft / Pending Approval / Active",
       "business_rules": ["Rule 1 explicitly from BRD", "Rule 2"],
@@ -118,7 +123,14 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
   ]
 }}
 
-For each screen, choose components that support its own task and hierarchy. Include explicit IFML-inspired interaction models (events, navigation flows, data bindings, validation rules). Use header_stats only when the screen is genuinely about monitoring or analysis; use steps for guided workflows; use fields for entry or record details; and use tables for actual searchable/triageable collections. Populate data only when grounded in the BRD, otherwise leave the corresponding arrays empty. Avoid copying the same component mix to adjacent screens.
+INTERACTION OBJECT JSON SCHEMA (authoritative; follow property names, required properties, and types exactly):
+{interaction_schema}
+
+For each screen, include an interaction object. Populate events, navigation_flows, data_bindings, and validation_rules only when supported by the BRD; use empty arrays when there are no applicable items. Every event item must be an object with a string "label"; use the exact property names in the schema (including snake_case). Every navigation_flows item must include string "from_event" and "to_screen_id". Every data_bindings item must include string "field" and "entity". Do not encode these objects as strings, rename properties, or omit required properties. Do not invent event, navigation, entity, field, or validation details merely to populate an array.
+
+For each screen, choose components that support its own task and hierarchy. Use header_stats only when the screen is genuinely about monitoring or analysis; use steps for guided workflows; use fields for entry or record details; and use tables for actual searchable/triageable collections. Populate data only when grounded in the BRD, otherwise leave the corresponding arrays empty. Avoid copying the same component mix to adjacent screens.
+
+For dashboard, analytics, or report screens, include a chart component only when the BRD supports the visualization. Set chart_type to pie for category proportions (at least two categories), bar for category comparisons (including positive/negative financial amounts), or line for values over time (at least two ordered points); provide chart_data as label/value objects. Values may come directly from the BRD or from explicit numeric values already included in the screen's BRD-derived stats, tables, or components; aggregate only when that aggregation directly represents a stated BRD metric. Set chart_data_source to "brd" when values are stated in the BRD and "screen_data" when values come from another explicit screen dataset. Use chart_value_prefix/suffix for units or currency specified by the BRD. Never present invented metrics as factual. Use "illustrative" only when the BRD requires or clearly supports the analysis but supplies no values and a sample visualization is necessary; in that case chart_note must clearly state "Illustrative data". Leave chart arrays empty when no relevant data or analytical requirement exists. Do not add charts to forms, login pages, or unrelated screens.
 
 Analyze the complete BRD above and derive the complete screen plan from all of its content.
 Count all discernible features, entities, workflows, approval stages, and reports that require UI interaction.

@@ -20,7 +20,11 @@ class GeminiService:
         self.candidate_models = settings.gemini_candidate_models
         self.timeout = httpx.Timeout(settings.gemini_timeout_seconds, connect=10.0)
 
-    def generate_content(self, prompt_text: str) -> str:
+    def generate_content(
+        self,
+        prompt_text: str,
+        response_schema: Optional[Dict[str, Any]] = None,
+    ) -> str:
         api_key = settings.gemini_api_key or self.api_key
         if not api_key or not api_key.strip():
             raise RuntimeError("GEMINI_API_KEY is missing. Cannot call Gemini API.")
@@ -32,16 +36,20 @@ class GeminiService:
             if m not in models_to_try:
                 models_to_try.append(m)
 
+        generation_config: Dict[str, Any] = {
+            "responseMimeType": "application/json",
+            "maxOutputTokens": 65536,
+        }
+        if response_schema is not None:
+            generation_config["responseJsonSchema"] = response_schema
+
         request_body = {
             "contents": [
                 {
                     "parts": [{"text": prompt_text}]
                 }
             ],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "maxOutputTokens": 65536
-            }
+            "generationConfig": generation_config,
         }
 
         last_error = None
@@ -141,17 +149,26 @@ class GeminiService:
             f"Cause: {last_error}"
         )
 
-    def generate_dict(self, prompt_text: str) -> Dict[str, Any]:
-        raw_output = self.generate_content(prompt_text)
+    def generate_dict(
+        self,
+        prompt_text: str,
+        response_schema: Optional[Dict[str, Any]] = None,
+        require_object: bool = False,
+    ) -> Dict[str, Any]:
+        raw_output = self.generate_content(prompt_text, response_schema=response_schema)
+        if not raw_output or not raw_output.strip():
+            raise RuntimeError("Invalid JSON from Gemini: empty response")
         cleaned_json = self.clean_json(raw_output)
         try:
             parsed = self.parse_json(cleaned_json)
             if isinstance(parsed, dict):
                 return parsed
-            elif isinstance(parsed, list):
+            if isinstance(parsed, list) and not require_object:
                 return {"items": parsed}
-            return {}
-        except Exception as e:
+            if isinstance(parsed, list):
+                raise ValueError("Expected a JSON object but received an array.")
+            raise ValueError(f"Expected a JSON object but received {type(parsed).__name__}.")
+        except (ValueError, TypeError) as e:
             logger.error("Failed to parse Gemini JSON: %s", e)
             raise RuntimeError(f"Invalid JSON from Gemini: {e}")
 

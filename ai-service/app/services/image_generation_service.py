@@ -2,9 +2,13 @@ import io
 import logging
 import os
 import re
+import threading
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+import httpx
 import pymupdf  # PyMuPDF for vector-quality UI layout & rendering
 from PIL import Image
+from app.config import settings
 from app.api.schemas import (
     DesignContext,
     HeaderStat,
@@ -14,20 +18,71 @@ from app.api.schemas import (
     ScreenSpecification,
     ScreenTable
 )
+from app.services.html_screen_renderer import HtmlScreenRenderer, html_screen_renderer
 from app.prompts.mock_screens_prompts import build_mock_screen_render_brief
 
 logger = logging.getLogger(__name__)
 
+STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image/generate/core"
+
+
+class ImageGenerationError(RuntimeError):
+    def __init__(self, message: str, status_code: int = 502):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 class ImageGenerationService:
     """
-    Renders screen mockups locally as high-resolution PNGs with PyMuPDF.
+    Renders precise screen UI with HTML/CSS and generates optional artwork with Stability AI.
     """
 
-    def __init__(self):
-        self.provider = os.getenv("IMAGE_GENERATOR_PROVIDER", "pymupdf").strip().lower()
+    def __init__(self, html_renderer: Optional[HtmlScreenRenderer] = None):
+        self.provider = os.getenv(
+            "IMAGE_GENERATOR_PROVIDER",
+            settings.image_generator_provider,
+        ).strip().lower()
+        self.api_key = settings.stability_api_key.strip()
+        self.api_url = STABILITY_API_URL
+        self.timeout_seconds = settings.stability_timeout_seconds
+        self.asset_dir = Path(settings.stability_asset_dir)
+        self.html_renderer = html_renderer or html_screen_renderer
+        self._assets: Dict[str, bytes] = {}
+        self._asset_lock = threading.Lock()
+
+    @property
+    def renderer_name(self) -> str:
+        return "Chromium HTML/CSS" if self.provider == "stability" else "PyMuPDF Native Engine"
+
+    @property
+    def visual_asset_provider(self) -> str:
+        return "Stability AI" if self.provider == "stability" else "Not used"
 
     def build_screen_image_prompt(self, spec: ScreenSpecification, design: DesignContext) -> str:
+        """Build a non-text decorative asset prompt without disclosing BRD content."""
+        if self.provider == "stability":
+            layout = self._classify_layout(spec)
+            directions = {
+                "login": "abstract layered shapes for a calm authentication welcome panel",
+                "dashboard": "soft abstract visual forms for an analytical overview workspace",
+                "collection": "ordered abstract visual layers for a records and queue workspace",
+                "form": "subtle geometric illustration for a focused data-entry workspace",
+                "approval": "balanced abstract visual for a review and decision workspace",
+                "confirmation": "restrained completion-themed geometric illustration",
+                "report": "elegant abstract forms suggesting insight without chart marks",
+                "workflow": "connected abstract shapes suggesting a guided process",
+                "document_review": "layered paper-like shapes without writing or marks",
+                "profile": "soft abstract shapes for a personal information workspace",
+                "detail": "subtle structured geometry for a record detail workspace",
+            }
+            return (
+                f"Create {directions.get(layout, 'subtle abstract geometry for an enterprise workspace')}. "
+                "Decorative artwork only, not a user interface or screenshot. Use a premium "
+                "light enterprise palette with warm white, soft neutral tones and restrained "
+                "orange accents. Do not include any text, letters, numbers, logos, charts, "
+                "icons, interface controls, forms, tables, or readable marks."
+            )
+
         """Describe the local render for API compatibility; no remote image prompt is submitted."""
         fields = self._resolve_form_fields(spec)
         columns = self._resolve_table_columns(spec)
@@ -57,31 +112,143 @@ class ImageGenerationService:
         )
 
     def generate_screen_image(self, spec: ScreenSpecification, design: Optional[DesignContext] = None) -> bytes:
-        """Render and validate a local PNG for one screen specification."""
-        if self.provider != "pymupdf":
-            raise RuntimeError(
-                f"Unsupported IMAGE_GENERATOR_PROVIDER '{self.provider}'. "
-                "Mock-screen images must use the local PyMuPDF renderer."
-            )
-
+        """Render a specification-faithful PNG; Stability contributes artwork only."""
         active_design = design or DesignContext()
         spec.image_prompt = self.build_screen_image_prompt(spec, active_design)
-        image_bytes = self._render_enterprise_mockup(spec, active_design)
+        if self.provider == "stability":
+            if not self.api_key:
+                raise ImageGenerationError(
+                    "STABILITY_API_KEY is required when IMAGE_GENERATOR_PROVIDER=stability.",
+                    status_code=503,
+                )
+            artwork = self._get_stability_asset(spec)
+            image_bytes = self.html_renderer.render(spec, active_design, artwork)
+        elif self.provider == "pymupdf":
+            image_bytes = self._render_enterprise_mockup(spec, active_design)
+        else:
+            raise ImageGenerationError(
+                f"Unsupported IMAGE_GENERATOR_PROVIDER '{self.provider}'. "
+                "Choose 'stability' or explicitly configure 'pymupdf'.",
+                status_code=500,
+            )
         try:
             with Image.open(io.BytesIO(image_bytes)) as image:
                 if image.format != "PNG" or image.width < 1024 or image.height < 576:
-                    raise RuntimeError("PyMuPDF renderer returned an invalid or low-resolution PNG.")
+                    raise ImageGenerationError(
+                        f"{self.renderer_name} renderer returned an invalid or low-resolution PNG.",
+                        status_code=500,
+                    )
                 image.verify()
         except (OSError, ValueError) as exc:
-            raise RuntimeError("PyMuPDF renderer returned an invalid or unreadable PNG image.") from exc
+            raise ImageGenerationError(
+                f"{self.renderer_name} renderer returned an invalid or unreadable PNG image.",
+                status_code=500,
+            ) from exc
 
         logger.info(
-            "Rendered local mockup for screen %s (sequence=%d, bytes=%d)",
+            "Rendered screen with %s and visual assets from %s (screen=%s, sequence=%d, bytes=%d)",
+            self.renderer_name,
+            self.visual_asset_provider,
             spec.screen_id,
             spec.sequence,
             len(image_bytes),
         )
         return image_bytes
+
+    def _get_stability_asset(self, spec: ScreenSpecification) -> bytes:
+        layout = self._classify_layout(spec)
+        cached = self._assets.get(layout)
+        if cached is not None:
+            return cached
+        path = self.asset_dir / f"{layout}.png"
+        with self._asset_lock:
+            cached = self._assets.get(layout)
+            if cached is not None:
+                return cached
+            if path.exists():
+                image_bytes = path.read_bytes()
+                self._validate_stability_png(image_bytes)
+                self._assets[layout] = image_bytes
+                return image_bytes
+
+            image_bytes = self._request_stability_png(self.build_screen_image_prompt(spec, DesignContext()))
+            self._validate_stability_png(image_bytes)
+            self.asset_dir.mkdir(parents=True, exist_ok=True)
+            temporary_path = path.with_suffix(".png.tmp")
+            temporary_path.write_bytes(image_bytes)
+            os.replace(temporary_path, path)
+            self._assets[layout] = image_bytes
+            logger.info("Stored Stability AI decorative asset for layout=%s path=%s", layout, path)
+            return image_bytes
+
+    def _request_stability_png(self, prompt: str) -> bytes:
+        try:
+            response = httpx.post(
+                self.api_url,
+                headers={
+                    "Authorization": "Bearer " + self.api_key,
+                    "Accept": "image/*",
+                },
+                files={
+                    "prompt": (None, prompt),
+                    "output_format": (None, "png"),
+                    "aspect_ratio": (None, "16:9"),
+                },
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            logger.warning("Stability AI decorative artwork request timed out.")
+            raise ImageGenerationError(
+                f"Stability AI request timed out after {self.timeout_seconds:g} seconds.",
+                status_code=504,
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code
+            logger.warning("Stability AI returned HTTP %d for decorative artwork.", status_code)
+            if status_code == 401 or status_code == 403:
+                message = "Stability AI rejected the configured API key."
+            elif status_code == 402:
+                message = "Stability AI account has insufficient credits."
+            elif status_code == 429:
+                message = "Stability AI rate limit exceeded."
+            else:
+                message = f"Stability AI decorative artwork failed (HTTP {status_code})."
+            raise ImageGenerationError(
+                message,
+                status_code=status_code if status_code in (401, 402, 403, 429) else 502,
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.error("Stability AI request failed (%s).", exc.__class__.__name__)
+            raise ImageGenerationError(
+                "Could not connect to Stability AI.",
+                status_code=502,
+            ) from exc
+
+        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        if content_type != "image/png":
+            logger.error("Stability AI returned unexpected content type %s.", content_type or "<missing>")
+            raise ImageGenerationError(
+                "Stability AI returned a non-PNG response.",
+                status_code=502,
+            )
+        return response.content
+
+    @staticmethod
+    def _validate_stability_png(image_bytes: bytes) -> None:
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                if image.format != "PNG" or image.width < 512 or image.height < 512:
+                    raise ImageGenerationError(
+                        "Stability AI returned an invalid or low-resolution PNG asset.",
+                        status_code=502,
+                    )
+                image.verify()
+        except (OSError, ValueError) as exc:
+            raise ImageGenerationError(
+                "Stability AI returned an invalid or unreadable PNG asset.",
+                status_code=502,
+            ) from exc
 
     # =========================================================================
     # HIGH-FIDELITY ENTERPRISE UI VECTOR MOCKUP RENDERER

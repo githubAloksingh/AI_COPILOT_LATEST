@@ -2,10 +2,12 @@ import base64
 import io
 
 import pytest
+from pydantic import ValidationError
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.api.routes import get_document_content
+from app.api.schemas import DataBinding, NavigationFlow, ScreenComponent, ScreenEvent, ScreenInteraction
 from app.main import app
 from app.services.gemini_service import GeminiService
 from app.services.retrieval_service import RetrievalService
@@ -109,7 +111,7 @@ def test_malformed_gemini_json_becomes_clear_screen_plan_validation_error(monkey
     monkeypatch.setattr(
         service.gemini,
         "generate_dict",
-        lambda prompt: (_ for _ in ()).throw(
+        lambda prompt, response_schema=None, require_object=False: (_ for _ in ()).throw(
             RuntimeError("Invalid JSON from Gemini: malformed response")
         ),
     )
@@ -125,6 +127,283 @@ def test_empty_screen_plan_is_rejected_without_dashboard_fallback():
 
     with pytest.raises(ScreenPlanValidationError, match="contains no screens"):
         service._parse_and_validate_plan(plan_data)
+
+
+def test_gemini_chart_provenance_and_units_are_normalized():
+    normalized = ScreenPlanService._normalize_screen_properties({
+        "name": "Cash flow",
+        "components": [{
+            "type": "chart",
+            "chartType": "bar",
+            "chartData": [{"label": "Operating cost", "value": 25}],
+            "chartDataSource": "brd",
+            "chartValuePrefix": "$",
+        }],
+    })
+
+    chart = ScreenComponent.model_validate(normalized["components"][0])
+    assert chart.chart_type == "bar"
+    assert chart.chart_data_source == "brd"
+    assert chart.chart_value_prefix == "$"
+
+
+def test_interaction_models_accept_exact_required_dictionary_shapes():
+    event = ScreenEvent.model_validate({
+        "id": "EVT-27",
+        "type": "submit",
+        "label": "Submit request",
+        "trigger_component": "Request form",
+        "business_rule_refs": ["BR-27"],
+    })
+    flow = NavigationFlow.model_validate({
+        "from_event": "EVT-27",
+        "to_screen_id": "SCREEN-028",
+        "condition": "request_valid",
+        "label": "Continue to review",
+    })
+    binding = DataBinding.model_validate({
+        "field": "request_title",
+        "entity": "ServiceRequest",
+        "attribute": "title",
+        "binding_type": "write",
+    })
+    interaction = ScreenInteraction.model_validate({
+        "events": [event.model_dump()],
+        "navigation_flows": [flow.model_dump()],
+        "data_bindings": [binding.model_dump()],
+        "validation_rules": [],
+    })
+
+    assert interaction.events[0].label == "Submit request"
+    assert interaction.navigation_flows[0].to_screen_id == "SCREEN-028"
+    assert interaction.data_bindings[0].entity == "ServiceRequest"
+
+
+@pytest.mark.parametrize(
+    ("model", "payload", "message"),
+    [
+        (ScreenEvent, {"type": "submit"}, "label"),
+        (
+            ScreenEvent,
+            {"label": "Submit", "event_type": "submit"},
+            "event_type",
+        ),
+        (NavigationFlow, {"from_event": "EVT-1"}, "to_screen_id"),
+        (
+            NavigationFlow,
+            {"from_event": "EVT-1", "to_screen": "SCREEN-2"},
+            "to_screen",
+        ),
+        (DataBinding, {"field": "claim_number"}, "entity"),
+        (
+            DataBinding,
+            {"field": "claim_number", "entity": "Claim", "attribute_name": "number"},
+            "attribute_name",
+        ),
+    ],
+)
+def test_interaction_models_reject_missing_required_or_misspelled_properties(model, payload, message):
+    with pytest.raises(ValidationError) as exc:
+        model.model_validate(payload)
+
+    assert message in str(exc.value)
+
+
+def test_interaction_collections_default_to_empty_and_accept_empty_arrays():
+    assert ScreenInteraction.model_validate({}).model_dump() == {
+        "events": [],
+        "navigation_flows": [],
+        "data_bindings": [],
+        "validation_rules": [],
+    }
+    assert ScreenInteraction.model_validate({
+        "events": [],
+        "navigation_flows": [],
+        "data_bindings": [],
+        "validation_rules": [],
+    }).events == []
+
+
+def test_interaction_model_optional_properties_receive_defaults():
+    event = ScreenEvent.model_validate({"label": "Open record"})
+    flow = NavigationFlow.model_validate({
+        "from_event": "EVT-27",
+        "to_screen_id": "SCREEN-028",
+    })
+    binding = DataBinding.model_validate({
+        "field": "record_id",
+        "entity": "Record",
+    })
+
+    assert event.id == "EVT-001"
+    assert event.business_rule_refs == []
+    assert flow.condition == "always"
+    assert flow.label is None
+    assert binding.binding_type == "read_write"
+    assert binding.attribute is None
+
+
+@pytest.mark.parametrize(
+    ("interaction", "path"),
+    [
+        ({"events": [{"type": "submit"}]}, "interaction.events.0.label"),
+        (
+            {"events": [{"label": 17}]},
+            "interaction.events.0.label",
+        ),
+        (
+            {"navigation_flows": [{"from_event": "EVT-1"}]},
+            "interaction.navigation_flows.0.to_screen_id",
+        ),
+        (
+            {"navigation_flows": [{"from_event": "EVT-1", "to_screen_id": ["SCREEN-2"]}]},
+            "interaction.navigation_flows.0.to_screen_id",
+        ),
+        (
+            {"data_bindings": [{"field": "claim_number"}]},
+            "interaction.data_bindings.0.entity",
+        ),
+        (
+            {"data_bindings": [{"field": "claim_number", "entity": 9}]},
+            "interaction.data_bindings.0.entity",
+        ),
+        ({"events": "submit"}, "interaction.events"),
+        ({"data_bindings": [None]}, "interaction.data_bindings.0"),
+    ],
+)
+def test_screen_plan_rejects_malformed_interaction_objects_with_path_diagnostics(
+    interaction,
+    path,
+    caplog,
+):
+    plan_data = _valid_plan_data()
+    plan_data["screens"][0]["interaction"] = interaction
+
+    with caplog.at_level("ERROR"):
+        with pytest.raises(ScreenPlanValidationError) as exc:
+            ScreenPlanService()._parse_and_validate_plan(plan_data)
+
+    assert path in str(exc.value)
+    assert path in caplog.text
+    assert "expected_type=" in caplog.text
+    assert "received=" in caplog.text
+
+
+def test_gemini_interaction_validation_failure_retries_with_path_correction():
+    service = ScreenPlanService()
+    invalid_plan = _valid_plan_data()
+    invalid_plan["screens"][0]["interaction"] = {
+        "events": [{"id": "EVT-1", "type": "submit"}],
+    }
+    corrected_plan = _valid_plan_data()
+    corrected_plan["screens"][0]["interaction"] = {
+        "events": [{"id": "EVT-1", "type": "submit", "label": "Submit claim"}],
+        "navigation_flows": [],
+        "data_bindings": [],
+        "validation_rules": [],
+    }
+
+    class FakeGemini:
+        def __init__(self):
+            self.prompts = []
+
+        def generate_dict(self, prompt, response_schema=None, require_object=False):
+            self.prompts.append(prompt)
+            assert response_schema["type"] == "object"
+            assert "$defs" not in response_schema
+            return invalid_plan if len(self.prompts) == 1 else corrected_plan
+
+    fake = FakeGemini()
+    service.gemini = fake
+
+    plan = service.generate_plan("Claims BRD: submit a claim.")
+
+    assert len(fake.prompts) == 2
+    assert "interaction.events.0.label" in fake.prompts[1]
+    assert "expected string" in fake.prompts[1]
+    assert plan.screens[0].interaction.events[0].label == "Submit claim"
+
+
+def test_gemini_malformed_json_retries_once_with_corrective_instruction():
+    service = ScreenPlanService()
+
+    class FakeGemini:
+        def __init__(self):
+            self.prompts = []
+
+        def generate_dict(self, prompt, response_schema=None, require_object=False):
+            self.prompts.append(prompt)
+            if len(self.prompts) == 1:
+                raise RuntimeError("Invalid JSON from Gemini: incomplete object")
+            return _valid_plan_data()
+
+    fake = FakeGemini()
+    service.gemini = fake
+
+    plan = service.generate_plan("Claims BRD: review submitted claims.")
+
+    assert len(fake.prompts) == 2
+    assert "CORRECTIVE RETRY" in fake.prompts[1]
+    assert plan.screens[0].name == "Claims Queue"
+
+
+def test_empty_gemini_screens_retry_with_corrective_instruction():
+    service = ScreenPlanService()
+
+    class FakeGemini:
+        def __init__(self):
+            self.prompts = []
+
+        def generate_dict(self, prompt, response_schema=None, require_object=False):
+            self.prompts.append(prompt)
+            return {**_valid_plan_data(), "screens": []} if len(self.prompts) == 1 else _valid_plan_data()
+
+    fake = FakeGemini()
+    service.gemini = fake
+
+    plan = service.generate_plan("Requirements: staff must review submitted claims.")
+
+    assert len(fake.prompts) == 2
+    assert "contains no screens" in fake.prompts[1]
+    assert plan.screens[0].name == "Claims Queue"
+
+
+def test_interaction_schema_is_included_in_gemini_prompt():
+    prompt = ScreenPlanService().build_planning_prompt("Healthcare BRD: record patient referrals.")
+
+    assert "INTERACTION OBJECT JSON SCHEMA (authoritative" in prompt
+    assert '"required": [' in prompt
+    assert '"from_event"' in prompt
+    assert '"to_screen_id"' in prompt
+    assert '"field"' in prompt
+    assert '"entity"' in prompt
+
+
+def test_gemini_response_schema_is_fully_expanded_and_requires_interaction_fields():
+    schema = ScreenPlanService._gemini_response_schema()
+    screen_schema = schema["properties"]["screens"]["items"]
+    interaction_schema = screen_schema["properties"]["interaction"]
+
+    assert "$defs" not in schema
+    assert "$ref" not in str(schema)
+    assert schema["properties"]["screens"]["minItems"] == 1
+    assert "screens" in schema["required"]
+    assert "interaction" in screen_schema["required"]
+    assert interaction_schema["required"] == [
+        "events",
+        "navigation_flows",
+        "data_bindings",
+        "validation_rules",
+    ]
+    assert interaction_schema["properties"]["events"]["items"]["required"] == ["label"]
+    assert interaction_schema["properties"]["navigation_flows"]["items"]["required"] == [
+        "from_event",
+        "to_screen_id",
+    ]
+    assert interaction_schema["properties"]["data_bindings"]["items"]["required"] == [
+        "field",
+        "entity",
+    ]
 
 
 def test_numeric_component_field_values_are_normalized_to_display_strings():
@@ -174,10 +453,11 @@ def test_complete_brd_is_sent_to_gemini_without_truncation(monkeypatch):
     source_text = "A" * 180025 + "\n" + ending_requirement
 
     class FakeGemini:
-        def generate_dict(self, prompt):
+        def generate_dict(self, prompt, response_schema=None, require_object=False):
             assert "FULL BUSINESS REQUIREMENTS DOCUMENT (BRD)" in prompt
             assert ending_requirement in prompt
             assert "AVAILABLE BRD EXCERPT (TRUNCATED)" not in prompt
+            assert response_schema["properties"]["screens"]["type"] == "array"
             return _valid_plan_data()
 
     service.gemini = FakeGemini()
@@ -193,7 +473,7 @@ def test_distinct_business_requirements_produce_dynamic_screen_plans():
     service = ScreenPlanService()
 
     class FakeGemini:
-        def generate_dict(self, prompt):
+        def generate_dict(self, prompt, response_schema=None, require_object=False):
             if "Claims BRD" in prompt:
                 return {
                     "application_name": "Claims Review",
@@ -240,6 +520,76 @@ def test_distinct_business_requirements_produce_dynamic_screen_plans():
     assert len(kitchen_plan.screens) == 1
     assert kitchen_plan.screens[0].tables[0].columns[-1] == "Allergy warning"
     assert kitchen_plan.screens[0].navigation_context["navigation_items"] == ["Kitchen ticket rail"]
+
+
+@pytest.mark.parametrize(
+    ("brd", "application_name", "screen_name", "interaction"),
+    [
+        (
+            "Healthcare BRD: route patient referrals to clinical reviewers.",
+            "Care Coordination",
+            "Referral triage",
+            {
+                "events": [{"id": "REF-TRIAGE", "type": "select", "label": "Assign reviewer"}],
+                "navigation_flows": [],
+                "data_bindings": [
+                    {"field": "patient_id", "entity": "Referral", "attribute": "patient_id", "binding_type": "read"}
+                ],
+                "validation_rules": [],
+            },
+        ),
+        (
+            "Inventory BRD: record stock adjustments and submit them for review.",
+            "Inventory Control",
+            "Stock adjustment",
+            {
+                "events": [{"id": "STOCK-SUBMIT", "type": "submit", "label": "Submit adjustment"}],
+                "navigation_flows": [
+                    {
+                        "from_event": "STOCK-SUBMIT",
+                        "to_screen_id": "SCREEN-002",
+                        "condition": "adjustment_valid",
+                    }
+                ],
+                "data_bindings": [
+                    {"field": "quantity", "entity": "InventoryAdjustment", "attribute": "quantity", "binding_type": "write"}
+                ],
+                "validation_rules": ["Quantity must be provided."],
+            },
+        ),
+    ],
+)
+def test_screen_interactions_validate_for_unrelated_brd_domains(
+    brd,
+    application_name,
+    screen_name,
+    interaction,
+):
+    service = ScreenPlanService()
+    plan_data = {
+        "application_name": application_name,
+        "application_summary": f"Manage {application_name.lower()} workflows.",
+        "screens": [{
+            "screen_id": "SCREEN-001",
+            "sequence": 1,
+            "name": screen_name,
+            "purpose": f"Complete the {screen_name.lower()} task.",
+            "interaction": interaction,
+        }],
+    }
+
+    class FakeGemini:
+        def generate_dict(self, prompt, response_schema=None, require_object=False):
+            assert brd in prompt
+            assert response_schema["type"] == "object"
+            assert require_object is True
+            return plan_data
+
+    service.gemini = FakeGemini()
+    plan = service.generate_plan(brd)
+
+    assert plan.screens[0].interaction is not None
+    assert plan.screens[0].interaction.events[0].label
 
 
 def test_screen_plan_rejects_duplicate_or_invalid_sequences():
@@ -361,7 +711,7 @@ def test_mock_screen_pdf_endpoint_returns_422_for_missing_images():
 
 def test_gemini_json_parser_reports_unrepairable_response(monkeypatch):
     service = GeminiService()
-    monkeypatch.setattr(service, "generate_content", lambda prompt: "not valid json")
+    monkeypatch.setattr(service, "generate_content", lambda prompt, **kwargs: "not valid json")
 
     with pytest.raises(RuntimeError, match="Invalid JSON from Gemini"):
         service.generate_dict("screen plan prompt")

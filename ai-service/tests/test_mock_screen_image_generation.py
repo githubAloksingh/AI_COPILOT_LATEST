@@ -46,8 +46,8 @@ def _screen(
     )
 
 
-def test_local_renderer_is_the_default_and_does_not_require_gemini_credentials(monkeypatch):
-    monkeypatch.delenv("IMAGE_GENERATOR_PROVIDER", raising=False)
+def test_pymupdf_renderer_is_available_when_explicitly_configured(monkeypatch):
+    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
     service = ImageGenerationService()
     spec = _screen("KITCHEN-01", 1, "Kitchen tickets", "Prioritize meal preparation.", "work_queue",
                    role="Kitchen lead")
@@ -63,7 +63,8 @@ def test_local_renderer_is_the_default_and_does_not_require_gemini_credentials(m
         image.verify()
 
 
-def test_screen_brief_contains_domain_fields_tables_actions_and_distinct_layouts():
+def test_screen_brief_contains_domain_fields_tables_actions_and_distinct_layouts(monkeypatch):
+    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
     service = ImageGenerationService()
     claims = _screen(
         "CLAIM-01",
@@ -153,11 +154,12 @@ def test_renderer_rejects_gemini_image_provider(monkeypatch):
     spec = _screen("SCREEN-001", 1, "Claims queue", "Triage claims.", "work_queue",
                    role="Claims examiner")
 
-    with pytest.raises(RuntimeError, match="must use the local PyMuPDF renderer"):
+    with pytest.raises(RuntimeError, match="Choose 'stability' or explicitly configure 'pymupdf'"):
         service.generate_screen_image(spec)
 
 
 def test_renderer_rejects_invalid_png_bytes(monkeypatch):
+    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
     service = ImageGenerationService()
     spec = _screen("SCREEN-001", 1, "Claims queue", "Triage claims.", "work_queue",
                    role="Claims examiner")
