@@ -447,6 +447,10 @@ class ScreenPlanService:
                 "chartDataSource": "chart_data_source",
                 "chartValuePrefix": "chart_value_prefix",
                 "chartValueSuffix": "chart_value_suffix",
+                "progressValue": "progress_value",
+                "progressLabel": "progress_label",
+                "progressDataSource": "progress_data_source",
+                "progressNote": "progress_note",
             }
             normalized["components"] = [
                 {

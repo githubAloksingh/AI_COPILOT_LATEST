@@ -12,7 +12,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 - **ChromaDB Vector Store**: Remote Chroma HTTP client and embedded persistent storage with document ID and chunk index tracking.
 - **RAG Generation**: Context retrieval + prompt guardrails + Google Gemini structured JSON generation.
 - **Auditable Source Tracking**: Returns retrieved source chunks and metadata alongside AI responses.
-- **BRD Mock Screens**: Gemini returns a schema-constrained, validated screen plan; Chromium renders exact specification text and controls with HTML/CSS, including responsive pie, diverging bar, and line charts on relevant analytical screens. Chart values identify their BRD/screen-data/illustrative source; illustrative values are labeled and source-defined units are rendered. Stability AI produces optional, layout-aware decorative artwork only. PDFs use consistent landscape pages, readable wrapped specification sections, and automatic pagination for long requirements.
+- **BRD Mock Screens**: Gemini returns a schema-constrained, validated screen plan; Chromium renders exact specification text and controls with HTML/CSS, including responsive pie/donut, diverging bar, line charts, and provenance-checked progress indicators where supported by the BRD. Chart and progress values identify their BRD/screen-data/illustrative source; illustrative values are labeled and source-defined units are rendered. Semantic inline icons enhance relevant controls and cards. Stability AI produces optional abstract artwork keyed to the application domain and screen purpose without receiving BRD field values. PDFs use consistent landscape pages, readable wrapped specification sections, and automatic pagination for long requirements.
 
 ---
 

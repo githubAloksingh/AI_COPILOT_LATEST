@@ -483,6 +483,17 @@ class PdfCompilationService:
                     details.append("Chart values: " + ", ".join(chart_values))
                 if component.get("chart_note"):
                     details.append(str(component["chart_note"]))
+            if component.get("progress_value") is not None:
+                raw_progress = component["progress_value"]
+                progress_value = f"{raw_progress:g}" if isinstance(raw_progress, (int, float)) else str(raw_progress)
+                progress = f"Progress: {progress_value}%"
+                if component.get("progress_label"):
+                    progress += f" ({component['progress_label']})"
+                if component.get("progress_data_source"):
+                    progress += f" | Data source: {component['progress_data_source']}"
+                if component.get("progress_note"):
+                    progress += f" | {component['progress_note']}"
+                details.append(progress)
             components.append(f"{title}: " + " | ".join(item for item in details if item))
         for stat in self._as_list(screen.get("header_stats")):
             if isinstance(stat, dict):

@@ -77,6 +77,116 @@ def _response(status_code=200, *, content=None, content_type="image/png"):
     )
 
 
+def test_html_renderer_adds_contextual_icons_to_fields_cards_stats_and_actions():
+    spec = ScreenSpecification(
+        screen_id="SCREEN-ICON-01",
+        sequence=1,
+        name="Service operations",
+        purpose="Review service performance and add a new case.",
+        screen_type="dashboard",
+        header_stats=[
+            {"label": "Open cases", "value": "24", "icon": "clipboard"},
+        ],
+        fields=[
+            ScreenField(label="Assigned user", icon="user"),
+        ],
+        components=[
+            ScreenComponent(
+                type="kpi_grid",
+                title="Performance",
+                icon="chart",
+                stats=[{"label": "Resolved", "value": "18", "icon": "check"}],
+                actions=[ScreenAction(label="Add case", icon="plus")],
+            )
+        ],
+        actions=[ScreenAction(label="View report", icon="trend-up")],
+    )
+
+    document = HtmlScreenRenderer().build_document(spec, DesignContext(), _png_bytes())
+
+    assert 'class="field-label"><svg' in document
+    assert 'class="panel-title"><svg' in document
+    assert 'class="panel-art"' in document
+    assert 'aria-hidden="true"' in document
+    assert "Add case</button>" in document
+    assert "View report</button>" in document
+    assert document.count("<svg") >= 6
+    with Image.open(io.BytesIO(HtmlScreenRenderer().render(spec, DesignContext()))) as image:
+        assert image.width == 1600
+        assert image.height >= 900
+
+
+def test_unrecognized_icon_name_is_ignored_without_rendering_untrusted_svg():
+    spec = ScreenSpecification(
+        screen_id="SCREEN-ICON-02",
+        sequence=1,
+        name="Profile",
+        purpose="Update profile.",
+        screen_type="profile",
+        actions=[ScreenAction(label="Save", icon='<svg onload="alert(1)">')],
+    )
+
+    document = HtmlScreenRenderer().build_document(spec, DesignContext())
+
+    assert "<svg onload=" not in document
+    assert 'class="primary"' in document
+
+
+def test_progress_indicator_requires_grounded_provenance_and_renders_accessible_value():
+    with pytest.raises(ValueError, match="progress_data_source"):
+        ScreenComponent(type="progress", progress_value=45)
+
+    with pytest.raises(ValueError, match="Illustrative progress"):
+        ScreenComponent(
+            type="progress",
+            progress_value=45,
+            progress_data_source="illustrative",
+        )
+
+    spec = ScreenSpecification(
+        screen_id="SCREEN-PROGRESS-01",
+        sequence=1,
+        name="Application review",
+        purpose="Track review completion.",
+        screen_type="workflow",
+        components=[
+            ScreenComponent(
+                type="workflow_stepper",
+                title="Review completion",
+                progress_value=60,
+                progress_label="Review complete",
+                progress_data_source="screen_data",
+            )
+        ],
+    )
+
+    document = HtmlScreenRenderer().build_document(spec, DesignContext())
+    assert 'role="progressbar"' in document
+    assert 'aria-valuenow="60"' in document
+    assert "Review complete" in document
+    assert "60%" in document
+    with Image.open(io.BytesIO(HtmlScreenRenderer().render(spec, DesignContext()))) as image:
+        assert image.size == (1600, 900)
+
+
+def test_login_uses_decorative_illustration_slot_and_professional_brand_icon():
+    spec = ScreenSpecification(
+        screen_id="SCREEN-LOGIN-01",
+        sequence=1,
+        name="Sign in",
+        purpose="Authenticate to the service portal.",
+        screen_type="login",
+    )
+    asset = _png_bytes()
+
+    document = HtmlScreenRenderer().build_document(spec, DesignContext(), asset)
+
+    assert 'class="login-art"' in document
+    assert 'class="asset"' in document
+    assert 'class="brand-icon"' in document
+    assert 'class="illustration-badge" aria-hidden="true"' in document
+
+
 def test_stability_asset_is_used_only_as_art_and_saved_for_reuse(monkeypatch, tmp_path):
     renderer = CapturingHtmlRenderer()
     service = _stability_service(monkeypatch, tmp_path, renderer)
@@ -99,7 +209,9 @@ def test_stability_asset_is_used_only_as_art_and_saved_for_reuse(monkeypatch, tm
     assert "private-value" not in captured["files"]["prompt"][1]
     assert "Patient identifier" not in captured["files"]["prompt"][1]
     assert "Do not include any text" in captured["files"]["prompt"][1]
-    stored = tmp_path / "form.png"
+    stored_assets = list(tmp_path.glob("form-*.png"))
+    assert len(stored_assets) == 1
+    stored = stored_assets[0]
     assert stored.read_bytes() == asset
 
     second_renderer = CapturingHtmlRenderer()
@@ -111,6 +223,27 @@ def test_stability_asset_is_used_only_as_art_and_saved_for_reuse(monkeypatch, tm
     )
     second_service.generate_screen_image(_spec(), DesignContext())
     assert second_renderer.asset == asset
+
+
+def test_stability_asset_prompt_and_cache_are_specific_to_domain_context(monkeypatch, tmp_path):
+    service = _stability_service(monkeypatch, tmp_path)
+    prompts = []
+
+    def fake_post(url, *, headers, files, timeout):
+        prompts.append(files["prompt"][1])
+        return _response()
+
+    monkeypatch.setattr(image_generation_module.httpx, "post", fake_post)
+    service.generate_screen_image(_spec(), DesignContext(application_type="Healthcare referral portal"))
+    service.generate_screen_image(_spec(), DesignContext(application_type="Inventory management system"))
+
+    assert len(prompts) == 2
+    assert "Healthcare referral portal" in prompts[0]
+    assert "Inventory management system" in prompts[1]
+    assert prompts[0] != prompts[1]
+    assert "Patient identifier" not in prompts[0]
+    assert "Do not include any text" in prompts[0]
+    assert len(list(tmp_path.glob("form-*.png"))) == 2
 
 
 def test_stability_provider_requires_key_and_does_not_fall_back(monkeypatch, tmp_path):
@@ -246,6 +379,7 @@ def test_html_renderer_preserves_exact_screen_text_and_contextual_structure():
     ("chart_type", "expected_svg"),
     [
         ("pie", 'aria-label="Pie chart"'),
+        ("donut", 'aria-label="Donut chart"'),
         ("bar", 'aria-label="Bar chart"'),
         ("line", 'aria-label="Line chart"'),
     ],
@@ -281,7 +415,7 @@ def test_html_renderer_renders_branded_charts_from_specified_data(chart_type, ex
     assert 'class="panel chart-panel single-chart"' in document
     if chart_type == "bar":
         assert 'role="img" aria-label="Bar chart"' in document
-    if chart_type == "pie":
+    if chart_type in {"pie", "donut"}:
         assert "70.6%" in document
 
 
@@ -460,4 +594,4 @@ def test_live_stability_api_generates_and_stores_a_decorative_asset(tmp_path, mo
     image = service.generate_screen_image(_spec(), DesignContext())
 
     assert Image.open(io.BytesIO(image)).format == "PNG"
-    assert (tmp_path / "form.png").is_file()
+    assert len(list(tmp_path.glob("form-*.png"))) == 1

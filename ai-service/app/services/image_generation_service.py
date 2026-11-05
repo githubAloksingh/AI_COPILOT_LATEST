@@ -1,4 +1,5 @@
 import io
+import hashlib
 import logging
 import os
 import re
@@ -75,8 +76,28 @@ class ImageGenerationService:
                 "profile": "soft abstract shapes for a personal information workspace",
                 "detail": "subtle structured geometry for a record detail workspace",
             }
+            domain = re.sub(r"[^A-Za-z0-9 &/-]", "", design.application_type or "")[:80].strip()
+            screen_type = re.sub(r"[^A-Za-z0-9 _/-]", "", spec.screen_type or "")[:48].strip()
+            style = re.sub(r"[^A-Za-z0-9 _/-]", "", design.design_style or "")[:40].strip()
+            palette = [
+                value for value in (design.primary_color, design.secondary_color, design.accent_color)
+                if isinstance(value, str) and re.fullmatch(r"#[0-9A-Fa-f]{6}", value)
+            ]
+            domain_direction = (
+                f"Use restrained visual metaphors appropriate to the '{domain}' industry context. "
+                if domain
+                else ""
+            )
+            task_direction = (
+                f"Let the composition subtly support a '{screen_type}' screen purpose. "
+                if screen_type
+                else ""
+            )
+            style_direction = f"Follow a '{style}' visual style. " if style else ""
+            palette_direction = f"Coordinate accents with {', '.join(palette)}. " if palette else ""
             return (
                 f"Create {directions.get(layout, 'subtle abstract geometry for an enterprise workspace')}. "
+                f"{domain_direction}{task_direction}{style_direction}{palette_direction}"
                 "Decorative artwork only, not a user interface or screenshot. Use a premium "
                 "light enterprise palette with warm white, soft neutral tones and restrained "
                 "orange accents. Do not include any text, letters, numbers, logos, charts, "
@@ -121,7 +142,7 @@ class ImageGenerationService:
                     "STABILITY_API_KEY is required when IMAGE_GENERATOR_PROVIDER=stability.",
                     status_code=503,
                 )
-            artwork = self._get_stability_asset(spec)
+            artwork = self._get_stability_asset(spec, active_design)
             image_bytes = self.html_renderer.render(spec, active_design, artwork)
         elif self.provider == "pymupdf":
             image_bytes = self._render_enterprise_mockup(spec, active_design)
@@ -155,30 +176,42 @@ class ImageGenerationService:
         )
         return image_bytes
 
-    def _get_stability_asset(self, spec: ScreenSpecification) -> bytes:
+    def _get_stability_asset(
+        self,
+        spec: ScreenSpecification,
+        design: Optional[DesignContext] = None,
+    ) -> bytes:
         layout = self._classify_layout(spec)
-        cached = self._assets.get(layout)
+        prompt = self.build_screen_image_prompt(spec, design or DesignContext())
+        cache_key = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
+        asset_key = f"{layout}-{cache_key}"
+        cached = self._assets.get(asset_key)
         if cached is not None:
             return cached
-        path = self.asset_dir / f"{layout}.png"
+        path = self.asset_dir / f"{asset_key}.png"
         with self._asset_lock:
-            cached = self._assets.get(layout)
+            cached = self._assets.get(asset_key)
             if cached is not None:
                 return cached
             if path.exists():
                 image_bytes = path.read_bytes()
                 self._validate_stability_png(image_bytes)
-                self._assets[layout] = image_bytes
+                self._assets[asset_key] = image_bytes
                 return image_bytes
 
-            image_bytes = self._request_stability_png(self.build_screen_image_prompt(spec, DesignContext()))
+            image_bytes = self._request_stability_png(prompt)
             self._validate_stability_png(image_bytes)
             self.asset_dir.mkdir(parents=True, exist_ok=True)
             temporary_path = path.with_suffix(".png.tmp")
             temporary_path.write_bytes(image_bytes)
             os.replace(temporary_path, path)
-            self._assets[layout] = image_bytes
-            logger.info("Stored Stability AI decorative asset for layout=%s path=%s", layout, path)
+            self._assets[asset_key] = image_bytes
+            logger.info(
+                "Stored Stability AI decorative asset for layout=%s context_hash=%s path=%s",
+                layout,
+                cache_key,
+                path,
+            )
             return image_bytes
 
     def _request_stability_png(self, prompt: str) -> bytes:
