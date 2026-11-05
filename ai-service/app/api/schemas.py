@@ -314,6 +314,7 @@ class ScreenField(BaseModel):
     placeholder: Optional[str] = ""
     required: bool = False
     options: List[str] = Field(default_factory=list)
+    icon: Optional[str] = Field(default="", description="Optional semantic icon name from the supported icon set.")
 
     @field_validator("value", mode="before")
     @classmethod
@@ -347,6 +348,7 @@ class HeaderStat(BaseModel):
     value: str
     change: Optional[str] = ""
     status: Optional[str] = "normal"
+    icon: Optional[str] = Field(default="", description="Optional semantic icon name from the supported icon set.")
 
 
 class ChartDataPoint(BaseModel):
@@ -358,6 +360,7 @@ class ScreenComponent(BaseModel):
     type: str
     title: Optional[str] = ""
     description: Optional[str] = ""
+    icon: Optional[str] = Field(default="", description="Optional semantic icon name from the supported icon set.")
     fields: List[ScreenField] = Field(default_factory=list)
     columns: List[str] = Field(default_factory=list)
     rows: List[Dict[str, Any]] = Field(default_factory=list)
@@ -365,7 +368,7 @@ class ScreenComponent(BaseModel):
     actions: List[ScreenAction] = Field(default_factory=list)
     steps: List[str] = Field(default_factory=list)
     badges: List[Dict[str, str]] = Field(default_factory=list)
-    chart_type: Optional[Literal["pie", "bar", "line"]] = Field(
+    chart_type: Optional[Literal["pie", "donut", "bar", "line"]] = Field(
         default=None,
         description="Use pie for proportions, bar for category comparisons, or line for ordered time trends.",
     )
@@ -380,6 +383,13 @@ class ScreenComponent(BaseModel):
     )
     chart_value_prefix: Optional[str] = Field(default="", description="Explicit source unit prefix such as a currency symbol.")
     chart_value_suffix: Optional[str] = Field(default="", description="Explicit source unit suffix such as a percent sign or unit.")
+    progress_value: Optional[float] = Field(default=None, ge=0, le=100, description="A source-supported completion percentage.")
+    progress_label: Optional[str] = Field(default="", description="BRD-grounded label for a progress indicator.")
+    progress_data_source: Optional[Literal["brd", "screen_data", "illustrative"]] = Field(
+        default=None,
+        description="Provenance for progress_value.",
+    )
+    progress_note: Optional[str] = Field(default="", description="Must clearly label illustrative progress values.")
 
     @field_validator("steps", mode="before")
     @classmethod
@@ -409,7 +419,7 @@ class ScreenComponent(BaseModel):
             raise ValueError(f"{self.chart_type} chart requires chart_data.")
         if self.chart_type == "line" and len(self.chart_data) < 2:
             raise ValueError("Line charts require at least two data points.")
-        if self.chart_type == "pie":
+        if self.chart_type in {"pie", "donut"}:
             if len(self.chart_data) < 2:
                 raise ValueError("Pie charts require at least two categories.")
             if any(point.value < 0 for point in self.chart_data) or sum(point.value for point in self.chart_data) <= 0:
@@ -418,6 +428,16 @@ class ScreenComponent(BaseModel):
             not self.chart_note or "illustrative" not in self.chart_note.casefold()
         ):
             raise ValueError("Illustrative chart data must be labeled in chart_note.")
+        if self.progress_value is None and (
+            self.progress_label or self.progress_data_source or self.progress_note
+        ):
+            raise ValueError("Progress labels and provenance require progress_value.")
+        if self.progress_value is not None and not self.progress_data_source:
+            raise ValueError("Progress indicators require progress_data_source.")
+        if self.progress_data_source == "illustrative" and (
+            not self.progress_note or "illustrative" not in self.progress_note.casefold()
+        ):
+            raise ValueError("Illustrative progress data must be labeled in progress_note.")
         return self
 
 

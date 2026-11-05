@@ -200,6 +200,9 @@ def test_pdf_specification_includes_chart_type_provenance_units_and_values():
                             {"label": "Income", "value": 1250},
                             {"label": "Expenses", "value": -400},
                         ],
+                        "progress_value": 70,
+                        "progress_label": "Forecast review",
+                        "progress_data_source": "brd",
                     }
                 ],
                 "image_base64": base64.b64encode(_png()).decode("ascii"),
@@ -215,6 +218,7 @@ def test_pdf_specification_includes_chart_type_provenance_units_and_values():
         assert "Data source: brd" in pdf_text
         assert "Income: $1250" in pdf_text
         assert "Expenses: -$400" in pdf_text
+        assert "Progress: 70% (Forecast review)" in pdf_text
 
 
 def test_html_and_pdf_generation_preserve_screens_from_unrelated_brd_domains():

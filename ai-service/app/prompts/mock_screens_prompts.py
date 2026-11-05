@@ -73,7 +73,7 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
       "screen_type": "dashboard | search | work_queue | detail_view | create_form | approval | report | audit | login | etc.",
       "navigation_context": {{
         "active_nav_item": "Sidebar navigation item name",
-        "navigation_items": ["Only navigation destinations supported by the BRD"],
+        "navigation_items": ["Only navigation destinations supported by the BRD; optional objects may carry label and semantic icon"],
         "breadcrumbs": ["Home", "Section", "Current Screen"]
       }},
       "header_stats": [],
@@ -83,13 +83,13 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
           "title": "Component Title",
           "description": "Optional description",
           "fields": [
-            {{ "label": "Field Name", "type": "text|select|date|number|textarea", "value": "Sample Value", "placeholder": "Placeholder text", "required": true }}
+            {{ "label": "Field Name", "type": "text|select|date|number|textarea", "value": "Sample Value", "placeholder": "Placeholder text", "required": true, "icon": "Optional semantic icon name" }}
           ],
           "columns": ["Col 1", "Col 2", "Status", "Actions"],
           "rows": [
             {{ "Col 1": "Val 1", "Col 2": "Val 2", "Status": "Active" }}
           ],
-          "chart_type": "pie | bar | line",
+          "chart_type": "pie | donut | bar | line",
           "chart_data": [
             {{ "label": "Category or period", "value": 12 }}
           ],
@@ -97,8 +97,13 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
           "chart_note": "Required when chart_data_source is illustrative; clearly say 'Illustrative data'",
           "chart_value_prefix": "Optional unit prefix, for example $",
           "chart_value_suffix": "Optional unit suffix, for example % or cases",
+          "progress_value": "Optional source-supported completion percentage from 0 to 100",
+          "progress_label": "Optional BRD-grounded progress label",
+          "progress_data_source": "brd | screen_data | illustrative",
+          "progress_note": "Required for illustrative progress; state 'Illustrative data'",
+          "icon": "Optional semantic icon name for this card or component",
           "actions": [
-            {{ "label": "Button Label", "type": "primary|secondary|danger", "icon": "check" }}
+            {{ "label": "Button Label", "type": "primary|secondary|danger", "icon": "Optional icon from supported semantic icon set" }}
           ],
           "steps": ["Step 1", "Step 2", "Step 3"]
         }}
@@ -106,7 +111,7 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
       "fields": [],
       "tables": [],
       "actions": [
-        {{ "label": "Primary Page Action", "type": "primary", "target": "Next Screen" }}
+        {{ "label": "Primary Page Action", "type": "primary", "target": "Next Screen", "icon": "Optional semantic icon name" }}
       ],
       "interaction": {{
         "events": [],
@@ -130,7 +135,9 @@ For each screen, include an interaction object. Populate events, navigation_flow
 
 For each screen, choose components that support its own task and hierarchy. Use header_stats only when the screen is genuinely about monitoring or analysis; use steps for guided workflows; use fields for entry or record details; and use tables for actual searchable/triageable collections. Populate data only when grounded in the BRD, otherwise leave the corresponding arrays empty. Avoid copying the same component mix to adjacent screens.
 
-For dashboard, analytics, or report screens, include a chart component only when the BRD supports the visualization. Set chart_type to pie for category proportions (at least two categories), bar for category comparisons (including positive/negative financial amounts), or line for values over time (at least two ordered points); provide chart_data as label/value objects. Values may come directly from the BRD or from explicit numeric values already included in the screen's BRD-derived stats, tables, or components; aggregate only when that aggregation directly represents a stated BRD metric. Set chart_data_source to "brd" when values are stated in the BRD and "screen_data" when values come from another explicit screen dataset. Use chart_value_prefix/suffix for units or currency specified by the BRD. Never present invented metrics as factual. Use "illustrative" only when the BRD requires or clearly supports the analysis but supplies no values and a sample visualization is necessary; in that case chart_note must clearly state "Illustrative data". Leave chart arrays empty when no relevant data or analytical requirement exists. Do not add charts to forms, login pages, or unrelated screens.
+For dashboard, analytics, or report screens, include a chart component only when the BRD supports the visualization. Set chart_type to pie or donut for category proportions (at least two categories), bar for category comparisons (including positive/negative financial amounts), or line for values over time (at least two ordered points); provide chart_data as label/value objects. Values may come directly from the BRD or from explicit numeric values already included in the screen's BRD-derived stats, tables, or components; aggregate only when that aggregation directly represents a stated BRD metric. Set chart_data_source to "brd" when values are stated in the BRD and "screen_data" when values come from another explicit screen dataset. Use chart_value_prefix/suffix for units or currency specified by the BRD. Never present invented metrics as factual. Use "illustrative" only when the BRD requires or clearly supports the analysis but supplies no values and a sample visualization is necessary; in that case chart_note must clearly state "Illustrative data". Leave chart arrays empty when no relevant data or analytical requirement exists. Do not add charts to forms, login pages, or unrelated screens.
+
+Use "icon" selectively to improve recognition, not as decoration on every item. Choose only from this semantic icon set: home, chart, users, search, calendar, file, check, arrow-right, plus, download, filter, settings, shield, clock, trend-up, wallet, bell, lock, user, globe, briefcase, heart, box, truck, clipboard, mail, refresh, alert. Choose based on the BRD's component/action meaning; do not make up unsupported features. Navigation may remain a string list or use {{ "label": "BRD-supported destination", "icon": "semantic icon name" }} objects when an icon adds clarity. Add progress_value only for a progress/completion measure explicitly stated or directly derivable from supplied data; include progress_data_source and label illustrative values in progress_note. Do not infer completion percentages from workflow steps or invent data. Apply progress indicators only where they clarify a real workflow or target.
 
 Analyze the complete BRD above and derive the complete screen plan from all of its content.
 Count all discernible features, entities, workflows, approval stages, and reports that require UI interaction.
