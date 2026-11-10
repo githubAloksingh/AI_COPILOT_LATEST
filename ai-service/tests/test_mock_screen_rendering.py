@@ -9,6 +9,7 @@ from app.api.schemas import (
     ScreenComponent,
     ScreenAction,
     ScreenField,
+    ScreenInteraction,
     ScreenSpecification,
 )
 from app.services.html_screen_renderer import HtmlScreenRenderer
@@ -103,6 +104,40 @@ def test_unrecognized_icon_name_is_ignored_without_rendering_untrusted_svg():
 
     assert "<svg onload=" not in document
     assert 'class="primary"' in document
+
+
+def test_html_renderer_omits_requirements_navigation_and_interactions_sections():
+    spec = ScreenSpecification(
+        screen_id="SCREEN-DETAIL-01",
+        sequence=1,
+        name="Overdraft tracker",
+        purpose="Review overdraft accounts.",
+        screen_type="dashboard",
+        business_rules=["Overdrafts over 7 days require review."],
+        notifications=["Email the compliance team."],
+        interaction=ScreenInteraction(
+            events=[
+                {
+                    "label": "Open Overdraft Tracker",
+                    "type": "click",
+                    "trigger_component": "table",
+                }
+            ],
+            navigation_flows=[
+                {"from_event": "Open Overdraft Tracker", "to_screen_id": "SCREEN-003"}
+            ],
+            validation_rules=["Account ID is required."],
+        ),
+    )
+
+    document = HtmlScreenRenderer().build_document(spec, DesignContext())
+
+    assert "Requirements and guidance" not in document
+    assert "Navigation flow" not in document
+    assert "Available interactions" not in document
+    assert "Overdrafts over 7 days require review." not in document
+    assert "SCREEN-003" not in document
+    assert "Open Overdraft Tracker" not in document
 
 
 def test_progress_indicator_requires_grounded_provenance_and_renders_accessible_value():

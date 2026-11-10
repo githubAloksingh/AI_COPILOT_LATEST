@@ -199,31 +199,6 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
                     f'{f"<h2>{self._text(table.title)}</h2>" if table.title else ""}'
                     f"{table_content}</section>"
                 )
-        if spec.business_rules or spec.notifications or spec.interaction and spec.interaction.validation_rules:
-            entries = spec.business_rules + spec.notifications
-            if spec.interaction:
-                entries += spec.interaction.validation_rules
-            parts.append(
-                '<section class="notice"><strong>Requirements and guidance</strong><ul class="rules">'
-                + "".join(f"<li>{self._text(item)}</li>" for item in entries)
-                + "</ul></section>"
-            )
-        if spec.interaction and spec.interaction.navigation_flows:
-            flows = "".join(
-                f"<li>{self._text(flow.label or flow.from_event)} → "
-                f"{self._text(flow.to_screen_id)}"
-                f"{' (' + self._text(flow.condition) + ')' if flow.condition else ''}</li>"
-                for flow in spec.interaction.navigation_flows
-            )
-            parts.append(f'<section class="panel"><h2>Navigation flow</h2><ol>{flows}</ol></section>')
-        if spec.interaction and spec.interaction.events:
-            events = "".join(
-                f"<li><strong>{self._text(event.label)}</strong>"
-                f"{' — ' + self._text(event.type) if event.type else ''}"
-                f"{' · ' + self._text(event.trigger_component) if event.trigger_component else ''}</li>"
-                for event in spec.interaction.events
-            )
-            parts.append(f'<section class="panel"><h2>Available interactions</h2><ul>{events}</ul></section>')
         actions = spec.actions + [
             action for component in spec.components for action in component.actions
         ]
