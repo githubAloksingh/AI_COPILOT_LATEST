@@ -193,7 +193,7 @@ CRITICAL RULES:
 """
 
 
-MOCK_SCREEN_RENDER_BRIEF_TEMPLATE = """PyMuPDF static UI mockup for {brand_name} ({application_type}).
+MOCK_SCREEN_RENDER_BRIEF_TEMPLATE = """Local UI mockup for {brand_name} ({application_type}).
 Screen {sequence}: {screen_name}. Purpose: {purpose}.
 Role: {user_role}. Layout: {layout}.
 Navigation: {navigation}. Fields: {fields}.

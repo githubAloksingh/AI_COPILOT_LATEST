@@ -47,15 +47,15 @@ def _screen(
 
 
 def test_pymupdf_renderer_is_available_when_explicitly_configured(monkeypatch):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
+    monkeypatch.setenv("MOCK_SCREEN_RENDERER", "pymupdf")
     service = ImageGenerationService()
     spec = _screen("KITCHEN-01", 1, "Kitchen tickets", "Prioritize meal preparation.", "work_queue",
                    role="Kitchen lead")
 
     image_bytes = service.generate_screen_image(spec)
 
-    assert service.provider == "pymupdf"
-    assert spec.image_prompt.startswith("PyMuPDF static UI mockup")
+    assert service.renderer == "pymupdf"
+    assert spec.image_prompt.startswith("Local UI mockup")
     with Image.open(io.BytesIO(image_bytes)) as image:
         assert image.format == "PNG"
         assert image.width >= 1024
@@ -64,7 +64,7 @@ def test_pymupdf_renderer_is_available_when_explicitly_configured(monkeypatch):
 
 
 def test_screen_brief_contains_domain_fields_tables_actions_and_distinct_layouts(monkeypatch):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
+    monkeypatch.setenv("MOCK_SCREEN_RENDERER", "pymupdf")
     service = ImageGenerationService()
     claims = _screen(
         "CLAIM-01",
@@ -108,7 +108,7 @@ def test_screen_brief_contains_domain_fields_tables_actions_and_distinct_layouts
 
 
 def test_different_business_screens_render_different_high_resolution_pngs(monkeypatch):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
+    monkeypatch.setenv("MOCK_SCREEN_RENDERER", "pymupdf")
     service = ImageGenerationService()
     claims = _screen(
         "CLAIM-01",
@@ -148,18 +148,18 @@ def test_different_business_screens_render_different_high_resolution_pngs(monkey
     assert hashlib.sha256(claims_png).digest() != hashlib.sha256(kitchen_png).digest()
 
 
-def test_renderer_rejects_gemini_image_provider(monkeypatch):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "gemini")
+def test_renderer_rejects_unknown_renderer(monkeypatch):
+    monkeypatch.setenv("MOCK_SCREEN_RENDERER", "remote")
     service = ImageGenerationService()
     spec = _screen("SCREEN-001", 1, "Claims queue", "Triage claims.", "work_queue",
                    role="Claims examiner")
 
-    with pytest.raises(RuntimeError, match="Choose 'stability' or explicitly configure 'pymupdf'"):
+    with pytest.raises(RuntimeError, match="Choose 'html' or 'pymupdf'"):
         service.generate_screen_image(spec)
 
 
 def test_renderer_rejects_invalid_png_bytes(monkeypatch):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
+    monkeypatch.setenv("MOCK_SCREEN_RENDERER", "pymupdf")
     service = ImageGenerationService()
     spec = _screen("SCREEN-001", 1, "Claims queue", "Triage claims.", "work_queue",
                    role="Claims examiner")

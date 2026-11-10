@@ -1,9 +1,5 @@
 import base64
 import io
-from importlib import import_module
-import os
-
-import httpx
 import pytest
 import pymupdf
 from PIL import Image
@@ -15,12 +11,9 @@ from app.api.schemas import (
     ScreenField,
     ScreenSpecification,
 )
-from app.config import settings
 from app.services.html_screen_renderer import HtmlScreenRenderer
-from app.services.image_generation_service import ImageGenerationError, ImageGenerationService
+from app.services.image_generation_service import ImageGenerationService
 from app.services.pdf_compilation_service import pdf_compilation_service
-
-image_generation_module = import_module("app.services.image_generation_service")
 
 
 def _png_bytes(width=1024, height=576):
@@ -48,33 +41,13 @@ def _spec():
 class CapturingHtmlRenderer:
     def __init__(self, screenshot=None):
         self.screenshot = screenshot or _png_bytes()
-        self.asset = None
         self.spec = None
+        self.design = None
 
-    def classify_layout(self, spec):
-        return "form"
-
-    def render(self, spec, design, visual_asset=None):
+    def render(self, spec, design):
         self.spec = spec
-        self.asset = visual_asset
+        self.design = design
         return self.screenshot
-
-
-def _stability_service(monkeypatch, tmp_path, renderer=None):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "stability")
-    service = ImageGenerationService(renderer or CapturingHtmlRenderer())
-    service.api_key = "unit-test-key"
-    service.asset_dir = tmp_path
-    return service
-
-
-def _response(status_code=200, *, content=None, content_type="image/png"):
-    return httpx.Response(
-        status_code,
-        headers={"content-type": content_type},
-        content=_png_bytes() if content is None else content,
-        request=httpx.Request("POST", "https://api.stability.ai/test"),
-    )
 
 
 def test_html_renderer_adds_contextual_icons_to_fields_cards_stats_and_actions():
@@ -102,11 +75,11 @@ def test_html_renderer_adds_contextual_icons_to_fields_cards_stats_and_actions()
         actions=[ScreenAction(label="View report", icon="trend-up")],
     )
 
-    document = HtmlScreenRenderer().build_document(spec, DesignContext(), _png_bytes())
+    document = HtmlScreenRenderer().build_document(spec, DesignContext())
 
     assert 'class="field-label"><svg' in document
     assert 'class="panel-title"><svg' in document
-    assert 'class="panel-art"' in document
+    assert 'class="panel-art"' not in document
     assert 'aria-hidden="true"' in document
     assert "Add case</button>" in document
     assert "View report</button>" in document
@@ -169,7 +142,7 @@ def test_progress_indicator_requires_grounded_provenance_and_renders_accessible_
         assert image.size == (1600, 900)
 
 
-def test_login_uses_decorative_illustration_slot_and_professional_brand_icon():
+def test_login_renders_with_local_decorative_styling_and_no_artwork():
     spec = ScreenSpecification(
         screen_id="SCREEN-LOGIN-01",
         sequence=1,
@@ -177,189 +150,96 @@ def test_login_uses_decorative_illustration_slot_and_professional_brand_icon():
         purpose="Authenticate to the service portal.",
         screen_type="login",
     )
-    asset = _png_bytes()
 
-    document = HtmlScreenRenderer().build_document(spec, DesignContext(), asset)
+    renderer = HtmlScreenRenderer()
+    document = renderer.build_document(spec, DesignContext())
+    screenshot = renderer.render(spec, DesignContext())
 
     assert 'class="login-art"' in document
-    assert 'class="asset"' in document
     assert 'class="brand-icon"' in document
     assert 'class="illustration-badge" aria-hidden="true"' in document
+    assert "linear-gradient" in document
+    assert "<img" not in document
+    with Image.open(io.BytesIO(screenshot)) as image:
+        assert image.size == (1600, 900)
 
 
-def test_stability_asset_is_used_only_as_art_and_saved_for_reuse(monkeypatch, tmp_path):
+def test_image_generation_uses_html_renderer_without_artwork(monkeypatch):
+    monkeypatch.setenv("MOCK_SCREEN_RENDERER", "html")
     renderer = CapturingHtmlRenderer()
-    service = _stability_service(monkeypatch, tmp_path, renderer)
-    captured = {}
-    asset = _png_bytes()
-
-    def fake_post(url, *, headers, files, timeout):
-        captured.update(url=url, headers=headers, files=files, timeout=timeout)
-        return _response(content=asset)
-
-    monkeypatch.setattr(image_generation_module.httpx, "post", fake_post)
+    service = ImageGenerationService(renderer)
     spec = _spec()
 
     output = service.generate_screen_image(spec, DesignContext())
 
     assert output == renderer.screenshot
-    assert renderer.asset == asset
-    assert captured["headers"]["Authorization"] == "Bearer unit-test-key"
-    assert captured["timeout"] == service.timeout_seconds
-    assert "private-value" not in captured["files"]["prompt"][1]
-    assert "Patient identifier" not in captured["files"]["prompt"][1]
-    assert "Do not include any text" in captured["files"]["prompt"][1]
-    stored_assets = list(tmp_path.glob("form-*.png"))
-    assert len(stored_assets) == 1
-    stored = stored_assets[0]
-    assert stored.read_bytes() == asset
-
-    second_renderer = CapturingHtmlRenderer()
-    second_service = _stability_service(monkeypatch, tmp_path, second_renderer)
-    monkeypatch.setattr(
-        image_generation_module.httpx,
-        "post",
-        lambda *args, **kwargs: pytest.fail("A stored asset should be reused."),
-    )
-    second_service.generate_screen_image(_spec(), DesignContext())
-    assert second_renderer.asset == asset
+    assert renderer.spec is spec
+    assert renderer.design is not None
+    assert "Referral intake" in spec.image_prompt
 
 
-def test_stability_asset_prompt_and_cache_are_specific_to_domain_context(monkeypatch, tmp_path):
-    service = _stability_service(monkeypatch, tmp_path)
-    prompts = []
-
-    def fake_post(url, *, headers, files, timeout):
-        prompts.append(files["prompt"][1])
-        return _response()
-
-    monkeypatch.setattr(image_generation_module.httpx, "post", fake_post)
-    service.generate_screen_image(_spec(), DesignContext(application_type="Healthcare referral portal"))
-    service.generate_screen_image(_spec(), DesignContext(application_type="Inventory management system"))
-
-    assert len(prompts) == 2
-    assert "Healthcare referral portal" in prompts[0]
-    assert "Inventory management system" in prompts[1]
-    assert prompts[0] != prompts[1]
-    assert "Patient identifier" not in prompts[0]
-    assert "Do not include any text" in prompts[0]
-    assert len(list(tmp_path.glob("form-*.png"))) == 2
-
-
-def test_stability_provider_requires_key_and_does_not_fall_back(monkeypatch, tmp_path):
-    renderer = CapturingHtmlRenderer()
-    service = _stability_service(monkeypatch, tmp_path, renderer)
-    service.api_key = ""
-    monkeypatch.setattr(
-        image_generation_module.httpx,
-        "post",
-        lambda *args, **kwargs: pytest.fail("No request should be sent without a key."),
-    )
-
-    with pytest.raises(ImageGenerationError, match="STABILITY_API_KEY is required") as exc:
-        service.generate_screen_image(_spec())
-
-    assert exc.value.status_code == 503
-    assert renderer.asset is None
-
-
-@pytest.mark.parametrize(
-    ("status_code", "message", "expected_status"),
-    [
-        (401, "rejected the configured API key", 401),
-        (402, "insufficient credits", 402),
-        (403, "rejected the configured API key", 403),
-        (429, "rate limit", 429),
-        (500, "HTTP 500", 502),
-    ],
-)
-def test_stability_upstream_statuses_are_reported_without_fallback(
-    monkeypatch,
-    tmp_path,
-    status_code,
-    message,
-    expected_status,
-):
-    renderer = CapturingHtmlRenderer()
-    service = _stability_service(monkeypatch, tmp_path, renderer)
-    monkeypatch.setattr(
-        image_generation_module.httpx,
-        "post",
-        lambda *args, **kwargs: _response(status_code),
-    )
-
-    with pytest.raises(ImageGenerationError, match=message) as exc:
-        service.generate_screen_image(_spec())
-
-    assert exc.value.status_code == expected_status
-    assert renderer.asset is None
-    assert not list(tmp_path.glob("*.png"))
-
-
-def test_stability_timeout_and_connection_errors_are_explicit(monkeypatch, tmp_path):
-    service = _stability_service(monkeypatch, tmp_path)
-    monkeypatch.setattr(
-        image_generation_module.httpx,
-        "post",
-        lambda *args, **kwargs: (_ for _ in ()).throw(httpx.TimeoutException("timeout")),
-    )
-
-    with pytest.raises(ImageGenerationError, match="timed out") as timeout_error:
-        service.generate_screen_image(_spec())
-    assert timeout_error.value.status_code == 504
-
-    request = httpx.Request("POST", service.api_url)
-    monkeypatch.setattr(
-        image_generation_module.httpx,
-        "post",
-        lambda *args, **kwargs: (_ for _ in ()).throw(httpx.ConnectError("unavailable", request=request)),
-    )
-    with pytest.raises(ImageGenerationError, match="Could not connect") as connection_error:
-        service.generate_screen_image(_spec())
-    assert connection_error.value.status_code == 502
-
-
-@pytest.mark.parametrize(
-    ("content_type", "content", "message"),
-    [
-        ("application/json", b'{"error":"not an image"}', "non-PNG response"),
-        ("image/png", b"invalid image bytes", "invalid or unreadable PNG"),
-        ("image/png", _png_bytes(320, 320), "low-resolution PNG"),
-    ],
-)
-def test_stability_rejects_non_png_invalid_and_low_resolution_assets(
-    monkeypatch,
-    tmp_path,
-    content_type,
-    content,
-    message,
-):
-    service = _stability_service(monkeypatch, tmp_path)
-    monkeypatch.setattr(
-        image_generation_module.httpx,
-        "post",
-        lambda *args, **kwargs: _response(content=content, content_type=content_type),
-    )
-
-    with pytest.raises(ImageGenerationError, match=message):
-        service.generate_screen_image(_spec())
-
-
-def test_explicit_pymupdf_fallback_runs_without_stability(monkeypatch):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "pymupdf")
+def test_multiple_html_screens_render_without_artwork_and_compile_pdf(monkeypatch):
+    monkeypatch.setenv("MOCK_SCREEN_RENDERER", "html")
     service = ImageGenerationService()
-    spec = _spec()
-    expected = _png_bytes()
-    monkeypatch.setattr(service, "_render_enterprise_mockup", lambda spec, design: expected)
-    monkeypatch.setattr(
-        image_generation_module.httpx,
-        "post",
-        lambda *args, **kwargs: pytest.fail("PyMuPDF selection must not call Stability."),
+    design = DesignContext()
+    screens = [
+        ScreenSpecification(
+            screen_id="SCREEN-FORM-01",
+            sequence=1,
+            name="Referral intake",
+            purpose="Capture a referral.",
+            screen_type="create_form",
+            fields=[ScreenField(label="Patient identifier", required=True)],
+            actions=[ScreenAction(label="Submit", type="primary")],
+        ),
+        ScreenSpecification(
+            screen_id="SCREEN-DASHBOARD-01",
+            sequence=2,
+            name="Service overview",
+            purpose="Review service outcomes.",
+            screen_type="dashboard",
+            components=[ScreenComponent(
+                type="chart",
+                title="Outcome distribution",
+                chart_type="donut",
+                chart_data=[{"label": "Completed", "value": 12}, {"label": "Pending", "value": 5}],
+            )],
+        ),
+        ScreenSpecification(
+            screen_id="SCREEN-TABLE-01",
+            sequence=3,
+            name="Referral queue",
+            purpose="Review queued referrals.",
+            screen_type="work_queue",
+            tables=[{"columns": ["Reference", "Status"], "rows": [{"Reference": "R-101", "Status": "Pending"}]}],
+        ),
+    ]
+
+    images = [service.generate_screen_image(spec, design) for spec in screens]
+    pdf_bytes = pdf_compilation_service.compile_pdf(
+        application_name="Referral Management",
+        project_name=None,
+        brd_name="Regression BRD",
+        summary="Local rendering regression.",
+        screens=[
+            {
+                "sequence": spec.sequence,
+                "name": spec.name,
+                "screen_type": spec.screen_type,
+                "purpose": spec.purpose,
+                "image_base64": base64.b64encode(image).decode("ascii"),
+            }
+            for spec, image in zip(screens, images)
+        ],
     )
 
-    assert service.generate_screen_image(spec) == expected
-    assert service.renderer_name == "PyMuPDF Native Engine"
-    assert service.visual_asset_provider == "Not used"
+    for image in images:
+        with Image.open(io.BytesIO(image)) as rendered:
+            assert rendered.size == (1600, 900)
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+        assert document.page_count >= len(screens) + 1
+        assert sum(bool(page.get_images()) for page in document) >= len(screens)
+
 
 
 def test_html_renderer_preserves_exact_screen_text_and_contextual_structure():
@@ -372,7 +252,6 @@ def test_html_renderer_preserves_exact_screen_text_and_contextual_structure():
     assert "&lt;private-value&gt;" in document
     assert "Submit referral" in document
     assert 'class="app form"' in document
-    assert "https://api.stability.ai" not in document
 
 
 @pytest.mark.parametrize(
@@ -559,8 +438,7 @@ def test_html_renderer_renders_each_chart_type_in_chromium(chart_type):
         assert any(page.get_images() for page in document)
 
 
-def test_pdf_metadata_reports_the_configured_html_and_visual_asset_providers(monkeypatch):
-    monkeypatch.setattr(settings, "image_generator_provider", "stability")
+def test_pdf_metadata_reports_local_html_renderer():
     pdf_bytes = pdf_compilation_service.compile_pdf(
         application_name="Referral Management",
         project_name=None,
@@ -574,24 +452,6 @@ def test_pdf_metadata_reports_the_configured_html_and_visual_asset_providers(mon
             }
         ],
     )
-    document = pymupdf.open(stream=pdf_bytes, filetype="pdf")
-
-    assert "Chromium HTML/CSS renderer" in document.metadata["creator"]
-    assert "Stability AI decorative assets" in document.metadata["subject"]
-    assert "STABILITY_API_KEY" not in str(document.metadata)
-    document.close()
-
-
-@pytest.mark.skipif(
-    os.getenv("RUN_STABILITY_INTEGRATION_TEST") != "1" or not settings.stability_api_key,
-    reason="Set RUN_STABILITY_INTEGRATION_TEST=1 and STABILITY_API_KEY for a live Stability API check.",
-)
-def test_live_stability_api_generates_and_stores_a_decorative_asset(tmp_path, monkeypatch):
-    monkeypatch.setenv("IMAGE_GENERATOR_PROVIDER", "stability")
-    service = ImageGenerationService(CapturingHtmlRenderer())
-    service.asset_dir = tmp_path
-
-    image = service.generate_screen_image(_spec(), DesignContext())
-
-    assert Image.open(io.BytesIO(image)).format == "PNG"
-    assert len(list(tmp_path.glob("form-*.png"))) == 1
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+        assert "Chromium HTML/CSS renderer" in document.metadata["creator"]
+        assert "CSS backgrounds and inline SVG" in document.metadata["subject"]

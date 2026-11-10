@@ -145,12 +145,12 @@ class PdfCompilationService:
 
     @staticmethod
     def _provider_metadata() -> Tuple[str, str]:
-        provider = settings.image_generator_provider.strip().lower()
-        if provider == "stability":
-            return "Chromium HTML/CSS renderer", "Stability AI decorative assets"
-        if provider == "pymupdf":
+        renderer = settings.mock_screen_renderer.strip().lower()
+        if renderer == "html":
+            return "Chromium HTML/CSS renderer", "CSS backgrounds and inline SVG"
+        if renderer == "pymupdf":
             return "PyMuPDF Native Engine", "Not used"
-        return f"Unconfigured renderer ({provider})", "Not used"
+        return f"Unconfigured renderer ({renderer})", "Not used"
 
     def _render_cover(
         self,

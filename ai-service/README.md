@@ -12,7 +12,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 - **ChromaDB Vector Store**: Remote Chroma HTTP client and embedded persistent storage with document ID and chunk index tracking.
 - **RAG Generation**: Context retrieval + prompt guardrails + Google Gemini structured JSON generation.
 - **Auditable Source Tracking**: Returns retrieved source chunks and metadata alongside AI responses.
-- **BRD Mock Screens**: Gemini returns a schema-constrained, validated screen plan; Chromium renders exact specification text and controls with HTML/CSS, including responsive pie/donut, diverging bar, line charts, and provenance-checked progress indicators where supported by the BRD. Chart and progress values identify their BRD/screen-data/illustrative source; illustrative values are labeled and source-defined units are rendered. Semantic inline icons enhance relevant controls and cards. Stability AI produces optional abstract artwork keyed to the application domain and screen purpose without receiving BRD field values. PDFs use consistent landscape pages, readable wrapped specification sections, and automatic pagination for long requirements.
+- **BRD Mock Screens**: Gemini returns a schema-constrained, validated screen plan; Chromium renders exact specification text and controls with HTML/CSS, including responsive pie/donut, diverging bar, line charts, and provenance-checked progress indicators where supported by the BRD. Chart and progress values identify their BRD/screen-data/illustrative source; illustrative values are labeled and source-defined units are rendered. Semantic inline SVG icons and CSS gradients provide local visual styling. An optional PyMuPDF renderer is also available; no external image-generation service is required. PDFs use consistent landscape pages, readable wrapped specification sections, and automatic pagination for long requirements.
 
 ---
 
@@ -28,7 +28,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 | `POST` | `/api/ai/defects/analyze` | Triage defect logs, stack traces, and suggest root cause fixes |
 | `POST` | `/api/ai/release-notes/generate` | Generate clean release notes from sprint information |
 | `POST` | `/api/ai/mock-screens/plan` | Plan BRD-driven screens with Gemini text generation |
-| `POST` | `/api/ai/mock-screens/render-screen` | Render a specification-faithful PNG with HTML/CSS and optional Stability artwork |
+| `POST` | `/api/ai/mock-screens/render-screen` | Render a specification-faithful PNG with a local renderer |
 | `POST` | `/api/ai/mock-screens/compile-pdf` | Compile generated screen PNGs in sequence |
 
 ---
@@ -38,10 +38,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.7-flash
-IMAGE_GENERATOR_PROVIDER=stability
-STABILITY_API_KEY=your_stability_api_key_here
-STABILITY_TIMEOUT_SECONDS=180
-STABILITY_ASSET_DIR=./data/stability-assets
+MOCK_SCREEN_RENDERER=html
 TRANSFORMER_EMBEDDING_MODEL=sentence-transformers/paraphrase-MiniLM-L3-v2
 MAX_UPLOAD_SIZE_MB=1024
 CHROMA_URL=http://localhost:8000
@@ -54,7 +51,7 @@ PORT=8000
 FRONTEND_ORIGINS=http://localhost:4200,http://127.0.0.1:4200
 ```
 
-`GEMINI_API_KEY` is used for BRD analysis and screen planning. Stability is selected by default and requires `STABILITY_API_KEY`; its Bearer credential is read only by the backend. Stability prompts describe generic layout artwork and do not contain BRD-derived text. Returned PNG assets are validated and cached under `STABILITY_ASSET_DIR`; Chromium overlays the actual BRD-derived text, fields, tables, and actions before returning the existing screen PNG. Stability failures are returned explicitly; there is no silent fallback. Set `IMAGE_GENERATOR_PROVIDER=pymupdf` to explicitly select the legacy native fallback. Run `python -m playwright install chromium` outside Docker before rendering.
+`GEMINI_API_KEY` is used for BRD analysis and screen planning. Full-colour screens are rendered locally with HTML/CSS and Playwright/Chromium by default; decorative styling uses CSS and inline SVG, so artwork is not required. Set `MOCK_SCREEN_RENDERER=pymupdf` to select the local PyMuPDF renderer. Run `python -m playwright install chromium` outside Docker before rendering.
 
 ---
 

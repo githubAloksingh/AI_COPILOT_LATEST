@@ -1,12 +1,8 @@
 import io
-import hashlib
 import logging
 import os
 import re
-import threading
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-import httpx
 import pymupdf  # PyMuPDF for vector-quality UI layout & rendering
 from PIL import Image
 from app.config import settings
@@ -24,8 +20,6 @@ from app.prompts.mock_screens_prompts import build_mock_screen_render_brief
 
 logger = logging.getLogger(__name__)
 
-STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image/generate/core"
-
 
 class ImageGenerationError(RuntimeError):
     def __init__(self, message: str, status_code: int = 502):
@@ -35,76 +29,22 @@ class ImageGenerationError(RuntimeError):
 
 class ImageGenerationService:
     """
-    Renders precise screen UI with HTML/CSS and generates optional artwork with Stability AI.
+    Renders specification-driven screen UI locally with HTML/CSS or PyMuPDF.
     """
 
     def __init__(self, html_renderer: Optional[HtmlScreenRenderer] = None):
-        self.provider = os.getenv(
-            "IMAGE_GENERATOR_PROVIDER",
-            settings.image_generator_provider,
+        self.renderer = os.getenv(
+            "MOCK_SCREEN_RENDERER",
+            settings.mock_screen_renderer,
         ).strip().lower()
-        self.api_key = settings.stability_api_key.strip()
-        self.api_url = STABILITY_API_URL
-        self.timeout_seconds = settings.stability_timeout_seconds
-        self.asset_dir = Path(settings.stability_asset_dir)
         self.html_renderer = html_renderer or html_screen_renderer
-        self._assets: Dict[str, bytes] = {}
-        self._asset_lock = threading.Lock()
 
     @property
     def renderer_name(self) -> str:
-        return "Chromium HTML/CSS" if self.provider == "stability" else "PyMuPDF Native Engine"
-
-    @property
-    def visual_asset_provider(self) -> str:
-        return "Stability AI" if self.provider == "stability" else "Not used"
+        return "Chromium HTML/CSS renderer" if self.renderer == "html" else "PyMuPDF Native Engine"
 
     def build_screen_image_prompt(self, spec: ScreenSpecification, design: DesignContext) -> str:
-        """Build a non-text decorative asset prompt without disclosing BRD content."""
-        if self.provider == "stability":
-            layout = self._classify_layout(spec)
-            directions = {
-                "login": "abstract layered shapes for a calm authentication welcome panel",
-                "dashboard": "soft abstract visual forms for an analytical overview workspace",
-                "collection": "ordered abstract visual layers for a records and queue workspace",
-                "form": "subtle geometric illustration for a focused data-entry workspace",
-                "approval": "balanced abstract visual for a review and decision workspace",
-                "confirmation": "restrained completion-themed geometric illustration",
-                "report": "elegant abstract forms suggesting insight without chart marks",
-                "workflow": "connected abstract shapes suggesting a guided process",
-                "document_review": "layered paper-like shapes without writing or marks",
-                "profile": "soft abstract shapes for a personal information workspace",
-                "detail": "subtle structured geometry for a record detail workspace",
-            }
-            domain = re.sub(r"[^A-Za-z0-9 &/-]", "", design.application_type or "")[:80].strip()
-            screen_type = re.sub(r"[^A-Za-z0-9 _/-]", "", spec.screen_type or "")[:48].strip()
-            style = re.sub(r"[^A-Za-z0-9 _/-]", "", design.design_style or "")[:40].strip()
-            palette = [
-                value for value in (design.primary_color, design.secondary_color, design.accent_color)
-                if isinstance(value, str) and re.fullmatch(r"#[0-9A-Fa-f]{6}", value)
-            ]
-            domain_direction = (
-                f"Use restrained visual metaphors appropriate to the '{domain}' industry context. "
-                if domain
-                else ""
-            )
-            task_direction = (
-                f"Let the composition subtly support a '{screen_type}' screen purpose. "
-                if screen_type
-                else ""
-            )
-            style_direction = f"Follow a '{style}' visual style. " if style else ""
-            palette_direction = f"Coordinate accents with {', '.join(palette)}. " if palette else ""
-            return (
-                f"Create {directions.get(layout, 'subtle abstract geometry for an enterprise workspace')}. "
-                f"{domain_direction}{task_direction}{style_direction}{palette_direction}"
-                "Decorative artwork only, not a user interface or screenshot. Use a premium "
-                "light enterprise palette with warm white, soft neutral tones and restrained "
-                "orange accents. Do not include any text, letters, numbers, logos, charts, "
-                "icons, interface controls, forms, tables, or readable marks."
-            )
-
-        """Describe the local render for API compatibility; no remote image prompt is submitted."""
+        """Describe the local render for API compatibility; no remote prompt is submitted."""
         fields = self._resolve_form_fields(spec)
         columns = self._resolve_table_columns(spec)
         actions = [action.label for action in spec.actions]
@@ -133,23 +73,17 @@ class ImageGenerationService:
         )
 
     def generate_screen_image(self, spec: ScreenSpecification, design: Optional[DesignContext] = None) -> bytes:
-        """Render a specification-faithful PNG; Stability contributes artwork only."""
+        """Render a specification-faithful PNG without external image services."""
         active_design = design or DesignContext()
         spec.image_prompt = self.build_screen_image_prompt(spec, active_design)
-        if self.provider == "stability":
-            if not self.api_key:
-                raise ImageGenerationError(
-                    "STABILITY_API_KEY is required when IMAGE_GENERATOR_PROVIDER=stability.",
-                    status_code=503,
-                )
-            artwork = self._get_stability_asset(spec, active_design)
-            image_bytes = self.html_renderer.render(spec, active_design, artwork)
-        elif self.provider == "pymupdf":
+        if self.renderer == "html":
+            image_bytes = self.html_renderer.render(spec, active_design)
+        elif self.renderer == "pymupdf":
             image_bytes = self._render_enterprise_mockup(spec, active_design)
         else:
             raise ImageGenerationError(
-                f"Unsupported IMAGE_GENERATOR_PROVIDER '{self.provider}'. "
-                "Choose 'stability' or explicitly configure 'pymupdf'.",
+                f"Unsupported MOCK_SCREEN_RENDERER '{self.renderer}'. "
+                "Choose 'html' or 'pymupdf'.",
                 status_code=500,
             )
         try:
@@ -167,121 +101,13 @@ class ImageGenerationService:
             ) from exc
 
         logger.info(
-            "Rendered screen with %s and visual assets from %s (screen=%s, sequence=%d, bytes=%d)",
+            "Rendered screen with %s (screen=%s, sequence=%d, bytes=%d)",
             self.renderer_name,
-            self.visual_asset_provider,
             spec.screen_id,
             spec.sequence,
             len(image_bytes),
         )
         return image_bytes
-
-    def _get_stability_asset(
-        self,
-        spec: ScreenSpecification,
-        design: Optional[DesignContext] = None,
-    ) -> bytes:
-        layout = self._classify_layout(spec)
-        prompt = self.build_screen_image_prompt(spec, design or DesignContext())
-        cache_key = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
-        asset_key = f"{layout}-{cache_key}"
-        cached = self._assets.get(asset_key)
-        if cached is not None:
-            return cached
-        path = self.asset_dir / f"{asset_key}.png"
-        with self._asset_lock:
-            cached = self._assets.get(asset_key)
-            if cached is not None:
-                return cached
-            if path.exists():
-                image_bytes = path.read_bytes()
-                self._validate_stability_png(image_bytes)
-                self._assets[asset_key] = image_bytes
-                return image_bytes
-
-            image_bytes = self._request_stability_png(prompt)
-            self._validate_stability_png(image_bytes)
-            self.asset_dir.mkdir(parents=True, exist_ok=True)
-            temporary_path = path.with_suffix(".png.tmp")
-            temporary_path.write_bytes(image_bytes)
-            os.replace(temporary_path, path)
-            self._assets[asset_key] = image_bytes
-            logger.info(
-                "Stored Stability AI decorative asset for layout=%s context_hash=%s path=%s",
-                layout,
-                cache_key,
-                path,
-            )
-            return image_bytes
-
-    def _request_stability_png(self, prompt: str) -> bytes:
-        try:
-            response = httpx.post(
-                self.api_url,
-                headers={
-                    "Authorization": "Bearer " + self.api_key,
-                    "Accept": "image/*",
-                },
-                files={
-                    "prompt": (None, prompt),
-                    "output_format": (None, "png"),
-                    "aspect_ratio": (None, "16:9"),
-                },
-                timeout=self.timeout_seconds,
-            )
-            response.raise_for_status()
-        except httpx.TimeoutException as exc:
-            logger.warning("Stability AI decorative artwork request timed out.")
-            raise ImageGenerationError(
-                f"Stability AI request timed out after {self.timeout_seconds:g} seconds.",
-                status_code=504,
-            ) from exc
-        except httpx.HTTPStatusError as exc:
-            status_code = exc.response.status_code
-            logger.warning("Stability AI returned HTTP %d for decorative artwork.", status_code)
-            if status_code == 401 or status_code == 403:
-                message = "Stability AI rejected the configured API key."
-            elif status_code == 402:
-                message = "Stability AI account has insufficient credits."
-            elif status_code == 429:
-                message = "Stability AI rate limit exceeded."
-            else:
-                message = f"Stability AI decorative artwork failed (HTTP {status_code})."
-            raise ImageGenerationError(
-                message,
-                status_code=status_code if status_code in (401, 402, 403, 429) else 502,
-            ) from exc
-        except httpx.RequestError as exc:
-            logger.error("Stability AI request failed (%s).", exc.__class__.__name__)
-            raise ImageGenerationError(
-                "Could not connect to Stability AI.",
-                status_code=502,
-            ) from exc
-
-        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-        if content_type != "image/png":
-            logger.error("Stability AI returned unexpected content type %s.", content_type or "<missing>")
-            raise ImageGenerationError(
-                "Stability AI returned a non-PNG response.",
-                status_code=502,
-            )
-        return response.content
-
-    @staticmethod
-    def _validate_stability_png(image_bytes: bytes) -> None:
-        try:
-            with Image.open(io.BytesIO(image_bytes)) as image:
-                if image.format != "PNG" or image.width < 512 or image.height < 512:
-                    raise ImageGenerationError(
-                        "Stability AI returned an invalid or low-resolution PNG asset.",
-                        status_code=502,
-                    )
-                image.verify()
-        except (OSError, ValueError) as exc:
-            raise ImageGenerationError(
-                "Stability AI returned an invalid or unreadable PNG asset.",
-                status_code=502,
-            ) from exc
 
     # =========================================================================
     # HIGH-FIDELITY ENTERPRISE UI VECTOR MOCKUP RENDERER

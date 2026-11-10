@@ -1,4 +1,3 @@
-import os
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,16 +15,14 @@ class Settings(BaseSettings):
 
     # Gemini
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-4-argon"
     gemini_timeout_seconds: float = 300.0
     gemini_screen_explain_max_tokens: int = 8192
     gemini_retry_max_attempts: int = 3
-    image_generator_provider: str = "stability"
-    stability_api_key: str = ""
-    stability_timeout_seconds: float = 180.0
-    stability_asset_dir: str = "./data/stability-assets"
+    mock_screen_renderer: str = "html"
     transformer_embedding_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
     gemini_candidate_models: List[str] = [
+        "gemini-4-argon",
         "gemini-3.5-flash-lite",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
