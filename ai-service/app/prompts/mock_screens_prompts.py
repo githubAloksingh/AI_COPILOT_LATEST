@@ -12,10 +12,10 @@ CRITICAL RULES:
 1. GROUNDED IN SOURCE: Derive all application features, entities, workflows, screens, fields, tables, actions, and validation rules directly from the supplied BRD content.
 2. DYNAMIC SCREEN DISCOVERY: DO NOT assume a fixed list of screens or fixed screen count. Different BRDs have completely different screen counts, journeys, and purposes. Derive the count from the supplied source.
 3. EXHAUSTIVE COVERAGE: Every distinct feature, workflow, entity lifecycle, approval step, report, and configuration panel mentioned in the BRD must have a corresponding screen. DO NOT skip or merge screens to shorten the output.
-4. LOGICAL USER JOURNEY: Determine the natural, logical progression from initial entry/login to main working queues, detail forms, approval checkpoints, settlements, reports, and audit trails as mandated by the BRD.
+4. LOGICAL USER JOURNEY: Derive the natural progression of screens and workflows from the BRD; do not assume common screens or processes that the source does not require.
 5. SCREEN TYPES: Choose realistic enterprise screen types appropriate for each requirement (e.g., login, dashboard, work_queue, detail_view, create_form, edit_form, approval_checkpoint, workflow_stepper, adhoc_report, audit_trail, document_viewer, configuration, error_exception).
 6. TASK-SPECIFIC CONTENT: Include only fields, tables, metrics, actions, statuses, and rules that serve the screen's BRD-defined task. Do not force KPI tiles, tables, or forms onto every screen and do not invent sample business facts.
-7. DESIGN SYSTEM: Formulate a cohesive enterprise color palette and visual design context that reflects the business domain (e.g. Banking, Healthcare, Supply Chain, Insurance).
+7. DESIGN SYSTEM: Identify the business domain and application purpose from the BRD, then formulate a cohesive visual system that fits that context. Never assume a particular industry.
 8. DISTINCT COMPOSITION: Assign each screen a screen_type that accurately expresses its user task. Use overview layouts for monitoring, work queues for triage, focused forms for data entry, split case workspaces for record review, document-review layouts for document inspection, report layouts for analysis, and decision panels for approvals. Screens in one application share their visual identity, not an identical content structure.
 9. COMPLETE JSON OUTPUT: You MUST output the complete JSON. Do NOT truncate, do NOT stop mid-array, do NOT summarize remaining screens. The JSON must contain all screens from screen 1 to the last screen. If you are about to run out of space, write shorter but still include EVERY screen.
 10. RETURN VALID JSON ONLY: Return a single strictly valid JSON object matching the requested schema. No markdown formatting outside the JSON, no explanations.
@@ -41,7 +41,7 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
   "application_summary": "High-level summary of the application and its business purpose",
   "user_roles": ["Role 1", "Role 2", ...],
   "design_context": {{
-    "application_type": "e.g. Retail Banking Portal, Enterprise Credit Platform, etc.",
+    "application_type": "Business purpose and domain inferred from the BRD",
     "design_style": "enterprise",
     "primary_color": "Hex color code e.g. #1E40AF or #0284C7",
     "secondary_color": "Hex color code e.g. #0D9488 or #475569",
@@ -76,10 +76,12 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
         "navigation_items": ["Only navigation destinations supported by the BRD; optional objects may carry label and semantic icon"],
         "breadcrumbs": ["Home", "Section", "Current Screen"]
       }},
-      "header_stats": [],
+      "header_stats": [
+        {{ "label": "BRD-supported metric", "value": "Value and unit", "data_source": "brd | screen_data | illustrative", "note": "Required clear disclosure for illustrative values" }}
+      ],
       "components": [
         {{
-          "type": "kpi_grid | table | form | filters | detail_card | workflow_stepper | alert_banner",
+            "type": "kpi_grid | table | form | filters | detail_card | workflow_stepper | alert_banner | visualization",
           "title": "Component Title",
           "description": "Optional description",
           "fields": [
@@ -89,14 +91,39 @@ Analyze the complete BRD above and produce the structured Screen Plan JSON objec
           "rows": [
             {{ "Col 1": "Val 1", "Col 2": "Val 2", "Status": "Active" }}
           ],
-          "chart_type": "pie | donut | bar | line",
-          "chart_data": [
-            {{ "label": "Category or period", "value": 12 }}
+          "stats": [
+            {{ "label": "BRD-supported metric", "value": "Value and unit", "data_source": "brd | screen_data | illustrative", "note": "Required clear disclosure for illustrative values" }}
           ],
-          "chart_data_source": "brd | screen_data | illustrative",
-          "chart_note": "Required when chart_data_source is illustrative; clearly say 'Illustrative data'",
-          "chart_value_prefix": "Optional unit prefix, for example $",
-          "chart_value_suffix": "Optional unit suffix, for example % or cases",
+          "visualization": {{
+            "screen_id": "Same as the containing screen_id",
+            "business_purpose": "BRD-grounded purpose for this chart on this screen",
+            "type": "pie | donut | bar | column | line | area | stacked_bar | stacked_area",
+            "title": "Chart title",
+            "description": "What this visualization communicates",
+            "data_source": "brd | screen_data | illustrative",
+            "source_reference": "BRD section, requirement, or data field reference",
+            "datasets": [
+              {{
+                "name": "Business measure or series name",
+                "unit": "BRD-supported unit for this dataset, or an empty string when unspecified",
+                "data": [{{ "label": "Category or ordered period", "value": 12 }}]
+              }}
+            ],
+            "value_prefix": "Optional source-supported numeric-format prefix",
+            "value_suffix": "Optional source-supported numeric-format suffix",
+            "legend_position": "bottom | right | none",
+            "x_axis_label": "Optional axis meaning",
+            "y_axis_label": "Optional axis meaning and unit",
+            "sample_data": false,
+            "note": "Required disclosure when data_source is illustrative",
+            "interpretation": "Concise interpretation supported by these values"
+          }},
+          "chart_type": null,
+          "chart_data": [],
+          "chart_data_source": null,
+          "chart_note": "",
+          "chart_value_prefix": "",
+          "chart_value_suffix": "",
           "progress_value": "Optional source-supported completion percentage from 0 to 100",
           "progress_label": "Optional BRD-grounded progress label",
           "progress_data_source": "brd | screen_data | illustrative",
@@ -133,9 +160,11 @@ INTERACTION OBJECT JSON SCHEMA (authoritative; follow property names, required p
 
 For each screen, include an interaction object. Populate events, navigation_flows, data_bindings, and validation_rules only when supported by the BRD; use empty arrays when there are no applicable items. Every event item must be an object with a string "label"; use the exact property names in the schema (including snake_case). Every navigation_flows item must include string "from_event" and "to_screen_id". Every data_bindings item must include string "field" and "entity". Do not encode these objects as strings, rename properties, or omit required properties. Do not invent event, navigation, entity, field, or validation details merely to populate an array.
 
-For each screen, choose components that support its own task and hierarchy. Use header_stats only when the screen is genuinely about monitoring or analysis; use steps for guided workflows; use fields for entry or record details; and use tables for actual searchable/triageable collections. Populate data only when grounded in the BRD, otherwise leave the corresponding arrays empty. Avoid copying the same component mix to adjacent screens.
+For each screen, choose components that support its BRD-defined task and hierarchy. Use header_stats/KPI cards only for source-supported or explicitly illustrative metrics; use steps for guided workflows; fields for entry or record details; and tables for actual searchable/triageable collections. Mark illustrative KPI values with data_source="illustrative" and a note that says "Illustrative data". Populate data only when grounded in the BRD or clearly labeled illustrative where reporting is required, and avoid copying the same component mix to adjacent screens.
 
-For dashboard, analytics, or report screens, include a chart component only when the BRD supports the visualization. Set chart_type to pie or donut for category proportions (at least two categories), bar for category comparisons (including positive/negative financial amounts), or line for values over time (at least two ordered points); provide chart_data as label/value objects. Values may come directly from the BRD or from explicit numeric values already included in the screen's BRD-derived stats, tables, or components; aggregate only when that aggregation directly represents a stated BRD metric. Set chart_data_source to "brd" when values are stated in the BRD and "screen_data" when values come from another explicit screen dataset. Use chart_value_prefix/suffix for units or currency specified by the BRD. Never present invented metrics as factual. Use "illustrative" only when the BRD requires or clearly supports the analysis but supplies no values and a sample visualization is necessary; in that case chart_note must clearly state "Illustrative data". Leave chart arrays empty when no relevant data or analytical requirement exists. Do not add charts to forms, login pages, or unrelated screens.
+Analyze the BRD independently for its domain, application purpose, roles, entities, relationships, numeric fields, units, categories, statuses, dates, workflows, and explicit reporting/KPI requirements. Create a visualization only on a screen where it advances a stated or clearly supported business task. Select chart type from the actual data shape: pie/donut for mutually exclusive category proportions, bar/column for category comparisons, line for ordered values over time, area for a continuous trend, and stacked bar/area only when the BRD supports a meaningful composition comparison across the same categories or periods. Tables are preferable for exact records; do not force a chart, KPI, or dashboard into an application that has no analytical need.
+
+For every chart, use the structured visualization object and include the containing screen_id, its business_purpose, title, description, data_source, source_reference, named datasets, labels, numeric values, BRD-supported dataset units, legend/axis configuration, and a supported interpretation. Use exact numeric facts and units from the BRD when present. Derived totals or percentages are permitted only when their inputs and calculation are directly supported; calculate them accurately and keep related cards/charts/tables consistent. Never invent business facts, KPIs, relationships, or actual records. If the BRD requires or clearly supports analysis but supplies no records/values, create only the minimum useful sample dataset and set data_source="illustrative", sample_data=true, and note to clearly say "Illustrative sample data—not actual results". Do not fabricate values for data_source="brd" or "screen_data". If meaningful numerical data is unavailable, omit the chart and leave visualization null. Do not add charts to login, profile, data-entry, confirmation, or unrelated screens.
 
 Use "icon" selectively to improve recognition, not as decoration on every item. Choose only from this semantic icon set: home, chart, users, search, calendar, file, check, arrow-right, plus, download, filter, settings, shield, clock, trend-up, wallet, bell, lock, user, globe, briefcase, heart, box, truck, clipboard, mail, refresh, alert. Choose based on the BRD's component/action meaning; do not make up unsupported features. Navigation may remain a string list or use {{ "label": "BRD-supported destination", "icon": "semantic icon name" }} objects when an icon adds clarity. Add progress_value only for a progress/completion measure explicitly stated or directly derivable from supplied data; include progress_data_source and label illustrative values in progress_note. Do not infer completion percentages from workflow steps or invent data. Apply progress indicators only where they clarify a real workflow or target.
 

@@ -16,13 +16,13 @@ from app.api.schemas import (
     MockScreenWireframeRequest,
     MockScreenWireframeResponse,
 )
+from app.config import settings
 from app.services import (
-    screen_plan_service,
     image_generation_service,
     pdf_compilation_service,
     wireframe_service,
 )
-from app.services.screen_plan_service import ScreenPlanValidationError
+from app.services.screen_plan_service import ScreenPlanValidationError, screen_plan_service
 from app.services.image_generation_service import ImageGenerationError
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,10 @@ def generate_mock_screen_plan(req: MockScreenPlanRequest):
         return MockScreenPlanResponse(
             plan=plan,
             total_screens=len(plan.screens),
-            model="gemini-3.5-flash-lite",
+            model=(
+                getattr(screen_plan_service.gemini, "last_used_model", None)
+                or settings.gemini_model
+            ),
             execution_time_ms=duration_ms
         )
     except HTTPException:

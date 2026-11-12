@@ -63,7 +63,13 @@ class HtmlScreenRenderer:
                         device_scale_factor=1,
                     )
                     page.set_content(document, wait_until="load", timeout=self.RENDER_TIMEOUT_MS)
-                    page.evaluate("document.fonts.ready")
+                    page.evaluate(
+                        """async () => {
+                            await document.fonts.ready;
+                            return [...document.querySelectorAll(".chart-wrap")]
+                                .every(chart => chart.getBoundingClientRect().width > 0);
+                        }"""
+                    )
                     return page.screenshot(type="png", full_page=True, animations="disabled")
                 finally:
                     browser.close()
@@ -140,7 +146,8 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
 .actions{{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}}button{{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:11px 18px;font:inherit;color:#344054}}button.primary{{background:var(--brand);color:#fff;border-color:var(--brand);font-weight:650}}.icon{{width:18px;height:18px;display:inline-block;vertical-align:middle;flex:0 0 auto}}.brand-icon{{width:20px;height:20px}}.field-label{{display:flex;align-items:center;gap:8px}}.field-label .icon{{color:var(--brand)}}.panel-title{{display:flex;align-items:center;gap:10px}}.panel-title .icon{{color:var(--brand)}}.stat-top{{display:flex;justify-content:space-between;align-items:center}}.stat-icon{{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#fff3e7;color:var(--brand)}}.stat-icon .icon{{width:20px;height:20px}}
 .stats-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;grid-column:span 12}}.stat-card{{display:flex;flex-direction:column;gap:8px;padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:15px;box-shadow:0 10px 24px #1d29390d}}.stat-card strong{{font-size:28px;line-height:1.2}}.stat-card span{{font-size:14px;color:var(--muted)}}
 .progress-block{{margin:12px 0 4px}}.progress-meta{{display:flex;justify-content:space-between;gap:12px;margin-bottom:8px;color:#475467;font-size:14px}}.progress-track{{height:10px;background:#f2f4f7;border-radius:99px;overflow:hidden}}.progress-fill{{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--brand),#f5a623)}}.progress-footnote{{margin:8px 0 0;color:var(--muted);font-size:12px}}
-.chart-panel{{grid-column:span 6;min-width:0}}.chart-panel.single-chart{{grid-column:span 12}}.chart-wrap{{width:100%;overflow-x:auto}}.chart-wrap svg{{display:block;width:100%;height:auto;max-height:420px;font-family:Inter,Segoe UI,Arial,sans-serif}}.chart-legend{{font-size:12px;fill:#475467}}.chart-note{{color:var(--muted);font-size:13px;margin:12px 0 0}}.pie-layout{{display:flex;align-items:center;gap:28px;flex-wrap:wrap}}.pie-layout svg{{width:min(230px,40%);min-width:180px;flex:0 0 auto}}.pie-legend{{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;flex:1;min-width:230px}}.pie-legend li{{display:flex;gap:10px;align-items:flex-start;min-width:0}}.pie-legend strong,.pie-legend small{{display:block;overflow-wrap:anywhere}}.pie-legend small{{color:var(--muted);margin-top:3px}}.chart-swatch{{width:11px;height:11px;border-radius:4px;flex:0 0 auto;margin-top:4px}}.chart-bars{{display:grid;gap:12px}}.chart-bar-row{{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(140px,3fr) minmax(65px,.6fr);align-items:center;gap:12px}}.chart-bar-label{{overflow-wrap:anywhere;color:#344054;font-size:14px}}.chart-bar-track{{height:24px;position:relative;background:#f2f4f7;border-radius:6px;overflow:hidden}}.chart-bar-track.diverging{{background:linear-gradient(to right,transparent 49.8%,#98a2b3 49.8%,#98a2b3 50.2%,transparent 50.2%),#f2f4f7}}.chart-bar-fill{{position:absolute;height:100%;top:0;border-radius:6px;background:var(--brand)}}.chart-bar-fill.negative{{background:#b54708}}.chart-bar-fill.positive-only{{left:0}}.chart-bar-value{{font-size:14px;font-weight:650;text-align:right;font-variant-numeric:tabular-nums}}.chart-scale{{display:flex;justify-content:space-between;margin:9px 85px 0 0;color:var(--muted);font-size:12px}}.line-data{{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}}.line-data li{{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;color:#475467}}.line-data strong{{color:var(--ink);margin-left:6px}}
+.chart-panel{{grid-column:span 6;min-width:0}}.chart-panel.single-chart{{grid-column:span 12}}.chart-wrap{{width:100%;overflow-x:auto}}.chart-wrap svg{{display:block;width:100%;height:auto;max-height:420px;font-family:Inter,Segoe UI,Arial,sans-serif}}.chart-legend{{font-size:12px;fill:#475467}}.chart-note{{color:var(--muted);font-size:13px;margin:12px 0 0}}.pie-layout{{display:flex;align-items:center;gap:28px;flex-wrap:wrap}}.pie-layout.vertical{{flex-direction:column;align-items:flex-start}}.pie-layout svg{{width:min(230px,40%);min-width:180px;flex:0 0 auto}}.pie-legend{{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;flex:1;min-width:230px}}.pie-legend li{{display:flex;gap:10px;align-items:flex-start;min-width:0}}.pie-legend strong,.pie-legend small{{display:block;overflow-wrap:anywhere}}.pie-legend small{{color:var(--muted);margin-top:3px}}.chart-swatch{{width:11px;height:11px;border-radius:4px;flex:0 0 auto;margin-top:4px}}.chart-bars{{display:grid;gap:12px}}.chart-bar-row{{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(140px,3fr) minmax(65px,.6fr);align-items:center;gap:12px}}.chart-bar-label{{overflow-wrap:anywhere;color:#344054;font-size:14px}}.chart-bar-track{{height:24px;position:relative;background:#f2f4f7;border-radius:6px;overflow:hidden}}.chart-bar-track.diverging{{background:linear-gradient(to right,transparent 49.8%,#98a2b3 49.8%,#98a2b3 50.2%,transparent 50.2%),#f2f4f7}}.chart-bar-fill{{position:absolute;height:100%;top:0;border-radius:6px;background:var(--brand)}}.chart-bar-fill.negative{{background:#b54708}}.chart-bar-fill.positive-only{{left:0}}.chart-bar-value{{font-size:14px;font-weight:650;text-align:right;font-variant-numeric:tabular-nums}}.chart-scale{{display:flex;justify-content:space-between;margin:9px 85px 0 0;color:var(--muted);font-size:12px}}.chart-group-series{{display:grid;grid-template-columns:minmax(90px,1fr) minmax(110px,3fr) minmax(60px,.6fr);align-items:center;gap:8px;margin:3px 0}}.chart-group-series small{{color:#475467;overflow-wrap:anywhere}}.chart-group-track{{height:18px;background:#f2f4f7;border-radius:5px;overflow:hidden}}.chart-group-track span{{display:block;height:100%;border-radius:inherit}}.line-data{{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;padding:0;list-style:none}}.line-data li{{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;color:#475467}}.line-data strong{{color:var(--ink);margin-left:6px}}.series-legend{{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0;padding:0;list-style:none}}.series-legend li{{display:flex;align-items:center;gap:7px;color:#475467;font-size:13px}}.series-legend .chart-swatch{{margin:0}}.chart-combined{{display:flex;flex-direction:column}}.chart-combined.right{{flex-direction:row;align-items:center}}.chart-combined.right svg{{width:75%;flex:1}}.chart-combined.right .series-legend{{display:grid;min-width:145px}}.chart-stack-rows{{display:grid;gap:12px}}.chart-stack-row{{display:grid;grid-template-columns:minmax(110px,1fr) minmax(180px,3fr);gap:12px;align-items:center}}.chart-stack-track{{height:26px;display:flex;background:#f2f4f7;border-radius:6px;overflow:hidden}}.chart-stack-track span{{height:100%;min-width:1px}}.metric-note{{font-size:12px;color:var(--muted)}}
+.chart-wrap{{overflow:visible}}.chart-wrap svg{{max-width:100%;max-height:none}}.chart-column-value{{font-size:11px;fill:#344054;font-variant-numeric:tabular-nums}}.chart-stack-row{{grid-template-columns:minmax(100px,1fr) minmax(150px,3fr) minmax(130px,1.5fr)}}.chart-stack-values{{font-size:12px;color:var(--muted);overflow-wrap:anywhere}}
 .fields-panel{{grid-column:span 10}}.table-panel{{grid-column:span 12}}.table-panel table{{font-size:15px}}.workspace>.actions,.workspace>.notice{{grid-column:span 12}}
 .notice{{padding:16px 18px;border:1px solid #f5d7bd;background:#fff8f1;border-radius:12px;margin:12px 0}}.rules li{{margin:5px 0}}.asset{{position:absolute;right:0;top:0;width:38%;height:220px;object-fit:cover;opacity:.11;mask-image:linear-gradient(90deg,transparent,#000);pointer-events:none}}
 .login{{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;background:#fff}}.login-art{{padding:72px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(145deg,#fff3e7,#fff 70%);position:relative;overflow:hidden}}.login-art .asset{{width:100%;height:100%;opacity:.30;mask-image:linear-gradient(90deg,transparent 4%,#000 85%)}}.login-brand{{position:relative;z-index:1;display:flex;align-items:center;gap:12px;font-weight:700}}.login-welcome{{position:relative;z-index:1;max-width:520px}}.illustration-badge{{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border:1px solid #f5d7bd;background:#ffffffc9;border-radius:14px;color:#475467;margin-bottom:18px}}.illustration-badge .icon{{color:var(--brand)}}.login-welcome h1{{font-size:46px}}.login-welcome p{{color:var(--muted)}}.login-form{{display:flex;align-items:center;justify-content:center;padding:56px}}.login-form .card{{max-width:600px;width:100%}}
@@ -155,7 +162,8 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
                 f'<article class="stat-card"><small>{self._text(item.label)}</small>'
                 f'{f"<div class=stat-icon>{self._icon(item.icon)}</div>" if item.icon else ""}'
                 f'<strong>{self._text(item.value)}</strong>'
-                f'{f"<span>{self._text(item.change)}</span>" if item.change else ""}</article>'
+                f'{f"<span>{self._text(item.change)}</span>" if item.change else ""}'
+                f'{f"<small class=metric-note>{self._text(item.note)}</small>" if item.note else ""}</article>'
                 for item in spec.header_stats
             )
             parts.append(f'<section class="stats-grid">{stat_items}</section>')
@@ -274,11 +282,12 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
             content.append(self._table(ScreenTable(columns=component.columns, rows=component.rows)))
         if component.stats:
             content.append(
-                '<div class="field-grid">'
+                '<div class="stats-grid">'
                 + "".join(
-                    f'<div class="notice"><small>{self._text(stat.label)}</small>'
+                    f'<article class="stat-card"><small>{self._text(stat.label)}</small>'
                     f'{self._icon(stat.icon, "stat-icon") if stat.icon else ""}'
-                    f'<h2>{self._text(stat.value)}</h2></div>'
+                    f'<h2>{self._text(stat.value)}</h2>'
+                    f'{f"<small class=metric-note>{self._text(stat.note)}</small>" if stat.note else ""}</article>'
                     for stat in component.stats
                 )
                 + "</div>"
@@ -292,11 +301,16 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
             panel_class += " chart-panel"
             if single_chart:
                 panel_class += " single-chart"
+        component_title = (
+            component.visualization.title
+            if component.visualization is not None
+            else component.title or component.type
+        )
         return (
             f'<section class="{panel_class}"><small>{self._text(component.type)}</small>'
             f'{decorative_asset}'
             f'<h2 class="panel-title">{self._icon(component.icon)}'
-            f'{self._text(component.title or component.type)}</h2>'
+            f'{self._text(component_title)}</h2>'
             + "".join(content)
             + "</section>"
         )
@@ -307,12 +321,15 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
         if not component.chart_data:
             raise ValueError(f"Chart component '{component.title or component.type}' requires chart_data.")
 
-        data = component.chart_data
-        if component.chart_type in {"pie", "donut"}:
-            colors = [
-                "#ef7625", "#2f80ed", "#12b76a", "#7a5af8",
-                "#f79009", "#06aed4", "#d92d20", "#667085",
-            ]
+        visualization = component.visualization
+        chart_type = visualization.type if visualization else component.chart_type
+        datasets = visualization.datasets if visualization else []
+        if not datasets:
+            datasets = [{"name": component.title or "Series 1", "data": component.chart_data}]
+        colors = ["#ef7625", "#2f80ed", "#12b76a", "#7a5af8", "#f79009", "#06aed4", "#d92d20", "#667085"]
+
+        if chart_type in {"pie", "donut"}:
+            data = datasets[0].data
             total = sum(point.value for point in data)
             circumference = 2 * math.pi * 76
             offset = 0.0
@@ -330,17 +347,51 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
                 legend.append(
                     f'<li><span class="chart-swatch" style="background:{color}"></span>'
                     f'<span><strong>{self._text(point.label)}</strong>'
-                    f'<small>{self._chart_value(point.value, component)} · {point.value / total:.1%}</small></span></li>'
+                    f'<small>{self._text(self._chart_value(point.value, component))} · {point.value / total:.1%}</small></span></li>'
                 )
+            legend_position = visualization.legend_position if visualization else "right"
+            legend_html = (
+                f'<ul class="pie-legend">{"".join(legend)}</ul>'
+                if legend_position != "none" else ""
+            )
+            layout_class = " vertical" if legend_position == "bottom" else ""
             svg = (
-                f'<div class="pie-layout"><svg viewBox="0 0 220 220" role="img" aria-label="{component.chart_type.title()} chart">'
+                f'<div class="pie-layout{layout_class}"><svg viewBox="0 0 220 220" role="img" aria-label="{chart_type.title()} chart">'
                 + "".join(slices)
                 + f'<circle cx="110" cy="110" r="52" fill="#fff"/><text x="110" y="106" '
                 + 'text-anchor="middle" class="chart-legend">Total</text>'
                 + f'<text x="110" y="129" text-anchor="middle" font-size="16" font-weight="700" fill="#172033">{self._text(self._chart_value(total, component))}</text>'
-                + f'</svg><ul class="pie-legend">{"".join(legend)}</ul></div>'
+                + f'</svg>{legend_html}</div>'
             )
-        elif component.chart_type == "bar":
+        elif chart_type == "bar" and len(datasets) > 1:
+            categories = [point.label for point in datasets[0].data]
+            maximum = max(
+                (abs(point.value) for dataset in datasets for point in dataset.data),
+                default=0,
+            ) or 1
+            rows = []
+            for category_index, category in enumerate(categories):
+                bars = []
+                for series_index, dataset in enumerate(datasets):
+                    point = dataset.data[category_index]
+                    width = abs(point.value) / maximum * 100
+                    bars.append(
+                        f'<div class="chart-group-series"><small>{self._text(dataset.name)}</small>'
+                        f'<div class="chart-group-track" role="img" aria-label="{self._text(category)} · '
+                        f'{self._text(dataset.name)}: {self._text(self._chart_value(point.value, component))}">'
+                        f'<span style="width:{width:.2f}%;background:{colors[series_index % len(colors)]}"></span></div>'
+                        f'<strong class="chart-bar-value">{self._text(self._chart_value(point.value, component))}</strong></div>'
+                    )
+                rows.append(
+                    f'<section><strong class="chart-bar-label">{self._text(category)}</strong>'
+                    + "".join(bars) + "</section>"
+                )
+            svg = (
+                f'<div class="chart-bars" role="img" aria-label="Grouped bar chart">{"".join(rows)}</div>'
+                + self._bar_axis_labels(visualization)
+            )
+        elif chart_type == "bar":
+            data = datasets[0].data
             maximum = max((abs(point.value) for point in data), default=0) or 1
             has_negative = any(point.value < 0 for point in data)
             rows = []
@@ -366,80 +417,309 @@ h1,h2,h3,p{{margin-top:0}}h1{{font-size:36px;line-height:1.2;margin:8px 0}}.head
                 f'<div class="chart-scale"><span>{self._text(self._chart_value(0, component))}</span>'
                 f'<span>{self._text(self._chart_value(maximum, component))}</span></div>'
             )
-            svg = f'<div class="chart-bars" role="img" aria-label="Bar chart">{"".join(rows)}</div>{scale}'
-        else:
-            points = data
-            minimum = min(point.value for point in points)
-            maximum = max(point.value for point in points)
-            if minimum == maximum:
-                padding = max(abs(minimum) * 0.1, 1)
-                minimum -= padding
-                maximum += padding
-            spread = maximum - minimum or 1
-            width = max(620, (len(points) - 1) * 105 + 70)
-            plot_left, plot_right = 48, width - 25
-            plot_top, plot_bottom = 30, 200
-            plot_height = plot_bottom - plot_top
-            x_step = (plot_right - plot_left) / max(1, len(points) - 1)
-            coords = [
-                (plot_left + index * x_step, plot_bottom - ((point.value - minimum) / spread * plot_height))
-                for index, point in enumerate(points)
+            svg = (
+                f'<div class="chart-bars" role="img" aria-label="Bar chart">{"".join(rows)}</div>{scale}'
+                + self._bar_axis_labels(visualization)
+            )
+        elif chart_type == "column":
+            svg = self._column_chart(component, datasets, colors)
+        elif chart_type == "stacked_bar":
+            categories = [point.label for point in datasets[0].data]
+            totals = [
+                sum(dataset.data[index].value for dataset in datasets)
+                for index in range(len(categories))
             ]
-            path = " ".join(
+            maximum = max(totals, default=0) or 1
+            rows = []
+            for category_index, category in enumerate(categories):
+                segments = "".join(
+                    f'<span title="{self._text(dataset.name)}: '
+                    f'{self._text(self._chart_value(dataset.data[category_index].value, component))}" '
+                    f'aria-label="{self._text(dataset.name)}: {self._text(self._chart_value(dataset.data[category_index].value, component))}" '
+                    f'style="width:{dataset.data[category_index].value / maximum * 100:.3f}%;background:{colors[index % len(colors)]}"></span>'
+                    for index, dataset in enumerate(datasets)
+                )
+                values = ", ".join(
+                    f"{dataset.name}: {self._chart_value(dataset.data[category_index].value, component)}"
+                    for dataset in datasets
+                )
+                rows.append(
+                    f'<div class="chart-stack-row"><span class="chart-bar-label">{self._text(category)}</span>'
+                    f'<div class="chart-stack-track" role="img" aria-label="{self._text(category)}: '
+                    f'{self._text(values)}">{segments}</div>'
+                    f'<span class="chart-stack-values">{self._text(values)}</span></div>'
+                )
+            legend = self._series_legend(datasets, colors, component)
+            layout_class = " right" if visualization and visualization.legend_position == "right" else ""
+            svg = (
+                f'<div class="chart-combined{layout_class}"><div><div class="chart-stack-rows">{"".join(rows)}</div>'
+                f'<div class="chart-scale"><span>{self._text(self._chart_value(0, component))}</span>'
+                f'<span>{self._text(self._chart_value(maximum, component))}</span></div>'
+                f'{self._bar_axis_labels(visualization)}</div>{legend}</div>'
+            )
+        else:
+            svg = self._trend_chart(component, datasets, colors, chart_type)
+
+        note = visualization.note if visualization and visualization.note else component.chart_note
+        source_reference = visualization.source_reference if visualization else ""
+        interpretation = visualization.interpretation if visualization else ""
+        description = visualization.description if visualization else component.description
+        annotations = []
+        if visualization:
+            dataset_labels = [
+                f"{self._text(dataset.name)}"
+                + (f" ({self._text(dataset.unit)})" if dataset.unit else "")
+                for dataset in visualization.datasets
+            ]
+            if dataset_labels:
+                annotations.append("Measures: " + ", ".join(dataset_labels))
+        if description:
+            annotations.append(self._text(description))
+        if note:
+            annotations.append(self._text(note))
+        if source_reference:
+            annotations.append(f"Source: {self._text(source_reference)}")
+        if interpretation:
+            annotations.append(self._text(interpretation))
+        annotation_html = "".join(
+            f'<p class="chart-note">{annotation}</p>' for annotation in annotations
+        )
+        return f'<div class="chart-wrap">{svg}</div>{annotation_html}'
+
+    def _column_chart(self, component, datasets, colors) -> str:
+        values = [point.value for dataset in datasets for point in dataset.data]
+        minimum = min(0, min(values, default=0))
+        maximum = max(0, max(values, default=0))
+        if minimum == maximum:
+            maximum = 1
+        spread = maximum - minimum
+        width, height = 960, 330
+        plot_left, plot_right = 76, width - 24
+        plot_top, plot_bottom = 24, 246
+        plot_height = plot_bottom - plot_top
+        labels = [point.label for point in datasets[0].data]
+        group_width = (plot_right - plot_left) / max(len(labels), 1)
+        series_count = len(datasets)
+        bar_width = min(44, group_width * 0.72 / series_count)
+
+        def y_position(value):
+            return plot_bottom - ((value - minimum) / spread * plot_height)
+
+        grid = []
+        for index in range(5):
+            y = plot_top + plot_height * index / 4
+            tick = maximum - spread * index / 4
+            grid.append(
+                f'<line x1="{plot_left}" y1="{y:.2f}" x2="{plot_right}" y2="{y:.2f}" '
+                'stroke="#e7e9ef" stroke-width="1"/>'
+                f'<text x="{plot_left - 10}" y="{y + 4:.2f}" text-anchor="end" '
+                f'class="chart-legend">{self._text(self._chart_value(tick, component))}</text>'
+            )
+
+        bars = []
+        for category_index, label in enumerate(labels):
+            group_center = plot_left + (category_index + 0.5) * group_width
+            group_start = group_center - (bar_width * series_count) / 2
+            for series_index, dataset in enumerate(datasets):
+                value = dataset.data[category_index].value
+                y_value = y_position(value)
+                y_zero = y_position(0)
+                bar_x = group_start + series_index * bar_width
+                bar_y = min(y_value, y_zero)
+                bar_height = max(abs(y_zero - y_value), 1)
+                formatted_value = self._chart_value(value, component)
+                bars.append(
+                    f'<rect x="{bar_x:.2f}" y="{bar_y:.2f}" width="{bar_width * 0.82:.2f}" '
+                    f'height="{bar_height:.2f}" rx="4" fill="{colors[series_index % len(colors)]}">'
+                    f'<title>{self._text(dataset.name)} · {self._text(label)}: '
+                    f'{self._text(formatted_value)}</title></rect>'
+                    f'<text x="{bar_x + bar_width * 0.41:.2f}" '
+                    f'y="{bar_y - 5 if value >= 0 else bar_y + bar_height + 14:.2f}" '
+                    f'text-anchor="middle" class="chart-column-value">{self._text(formatted_value)}</text>'
+                )
+
+        category_labels = "".join(
+            f'<text x="{plot_left + (index + 0.5) * group_width:.2f}" y="270" '
+            f'text-anchor="middle" class="chart-legend"><title>{self._text(label)}</title>'
+            f'{self._text(label[:14])}</text>'
+            for index, label in enumerate(labels)
+        )
+        visualization = component.visualization
+        x_axis_label = self._text(visualization.x_axis_label) if visualization else ""
+        y_axis_label = self._text(visualization.y_axis_label) if visualization else ""
+        axes = (
+            f'<text x="{(plot_left + plot_right) / 2:.2f}" y="310" text-anchor="middle" '
+            f'class="chart-legend">{x_axis_label}</text>'
+            f'<text x="17" y="{(plot_top + plot_bottom) / 2:.2f}" text-anchor="middle" '
+            f'class="chart-legend" transform="rotate(-90 17 {(plot_top + plot_bottom) / 2:.2f})">'
+            f'{y_axis_label}</text>'
+        )
+        svg = (
+            f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="Column chart">'
+            + "".join(grid)
+            + f'<path d="M{plot_left} {plot_top} V{plot_bottom} H{plot_right}" '
+            + 'fill="none" stroke="#98a2b3" stroke-width="1"/>'
+            + "".join(bars)
+            + category_labels
+            + axes
+            + "</svg>"
+        )
+        legend = self._series_legend(datasets, colors, component)
+        layout_class = " right" if visualization and visualization.legend_position == "right" else ""
+        return (
+            f'<div class="chart-combined{layout_class}"><div>{svg}</div>{legend}</div>'
+            + self._bar_axis_labels(visualization)
+        )
+
+    def _trend_chart(self, component, datasets, colors, chart_type: str) -> str:
+        labels = [point.label for point in datasets[0].data]
+        stacked = chart_type == "stacked_area"
+        values = (
+            [sum(dataset.data[index].value for dataset in datasets) for index in range(len(labels))]
+            if stacked
+            else [point.value for dataset in datasets for point in dataset.data]
+        )
+        minimum = min(values, default=0)
+        maximum = max(values, default=0)
+        if chart_type == "area":
+            minimum = min(0, minimum)
+        if stacked:
+            minimum = 0
+        if minimum == maximum:
+            padding = max(abs(minimum) * 0.1, 1)
+            minimum -= padding
+            maximum += padding
+        spread = maximum - minimum or 1
+        width = max(620, (len(labels) - 1) * 105 + 110)
+        plot_left, plot_right = 72, width - 24
+        plot_top, plot_bottom = 30, 210
+        plot_height = plot_bottom - plot_top
+        x_step = (plot_right - plot_left) / max(1, len(labels) - 1)
+        x_positions = [plot_left + index * x_step for index in range(len(labels))]
+        y_position = lambda value: plot_bottom - ((value - minimum) / spread * plot_height)
+        grid = []
+        for index in range(5):
+            y = plot_top + plot_height * index / 4
+            value = maximum - spread * index / 4
+            grid.append(
+                f'<line x1="{plot_left}" y1="{y:.2f}" x2="{plot_right}" y2="{y:.2f}" '
+                'stroke="#e7e9ef" stroke-width="1"/>'
+                f'<text x="{plot_left - 8}" y="{y + 4:.2f}" text-anchor="end" '
+                f'class="chart-legend">{self._text(self._chart_value(value, component))}</text>'
+            )
+        shapes = []
+        cumulative = [0.0] * len(labels)
+        for series_index, dataset in enumerate(datasets):
+            color = colors[series_index % len(colors)]
+            current = [point.value for point in dataset.data]
+            if stacked:
+                lower = cumulative
+                upper = [lower[index] + current[index] for index in range(len(labels))]
+                cumulative = upper
+            else:
+                lower = [minimum] * len(labels)
+                upper = current
+            coords = [(x_positions[index], y_position(value)) for index, value in enumerate(upper)]
+            line_path = " ".join(
                 f"{'M' if index == 0 else 'L'} {x:.2f} {y:.2f}"
                 for index, (x, y) in enumerate(coords)
             )
-            grid = []
-            for index in range(5):
-                y = plot_top + plot_height * index / 4
-                value = maximum - spread * index / 4
-                grid.append(
-                    f'<line x1="{plot_left}" y1="{y:.2f}" x2="{plot_right}" y2="{y:.2f}" '
-                    'stroke="#e7e9ef" stroke-width="1"/>'
-                    f'<text x="{plot_left - 8}" y="{y + 4:.2f}" text-anchor="end" '
-                    f'class="chart-legend">{self._text(self._chart_value(value, component))}</text>'
+            if chart_type in {"area", "stacked_area"}:
+                lower_coords = [
+                    (x_positions[index], y_position(value))
+                    for index, value in reversed(list(enumerate(lower)))
+                ]
+                area_path = line_path + " " + " ".join(
+                    f"L {x:.2f} {y:.2f}" for x, y in lower_coords
+                ) + " Z"
+                shapes.append(
+                    f'<path d="{area_path}" fill="{color}" fill-opacity="0.22" stroke="{color}" '
+                    'stroke-width="2" stroke-linejoin="round"/>'
                 )
-            labels = "".join(
-                f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5" fill="#ef7625"/>'
-                f'<title>{self._text(points[index].label)}: {self._number(points[index].value)}</title>'
+            else:
+                shapes.append(
+                    f'<path d="{line_path}" fill="none" stroke="{color}" stroke-width="3" '
+                    'stroke-linecap="round" stroke-linejoin="round"/>'
+                )
+            shapes.append("".join(
+                f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="{color}">'
+                f'<title>{self._text(dataset.name)} · {self._text(dataset.data[index].label)}: '
+                f'{self._text(self._chart_value(current[index], component))}</title></circle>'
                 for index, (x, y) in enumerate(coords)
-            )
-            category_labels = "".join(
-                f'<text x="{x:.2f}" y="222" text-anchor="middle" class="chart-legend">'
-                f'<title>{self._text(points[index].label)}</title>'
-                f'{self._text(points[index].label[:12])}</text>'
-                for index, (x, _) in enumerate(coords)
-            )
-            svg = (
-                f'<svg viewBox="0 0 {width} 240" style="width:{width}px;max-width:none" '
-                'role="img" aria-label="Line chart">'
-                + "".join(grid)
-                + f'<path d="M{plot_left} {plot_top} V{plot_bottom} H{plot_right}" '
-                + 'fill="none" stroke="#98a2b3" stroke-width="1"/>'
-                +
-                f'<path d="{path}" fill="none" stroke="#ef7625" stroke-width="4" '
-                f'stroke-linecap="round" stroke-linejoin="round"/>{labels}{category_labels}</svg>'
-            )
-            svg += '<ul class="line-data">' + "".join(
-                f'<li>{self._text(point.label)}<strong>{self._text(self._chart_value(point.value, component))}</strong></li>'
-                for point in points
-            ) + "</ul>"
-        note = f'<p class="chart-note">{self._text(component.chart_note)}</p>' if component.chart_note else ""
-        return f'<div class="chart-wrap">{svg}</div>{note}'
+            ))
+        category_labels = "".join(
+            f'<text x="{x:.2f}" y="232" text-anchor="middle" class="chart-legend">'
+            f'<title>{self._text(label)}</title>{self._text(label[:14])}</text>'
+            for x, label in zip(x_positions, labels)
+        )
+        x_axis_label = self._text(component.visualization.x_axis_label) if component.visualization else ""
+        y_axis_label = self._text(component.visualization.y_axis_label) if component.visualization else ""
+        axes = (
+            f'<text x="{(plot_left + plot_right) / 2:.2f}" y="258" text-anchor="middle" class="chart-legend">{x_axis_label}</text>'
+            f'<text x="16" y="{(plot_top + plot_bottom) / 2:.2f}" text-anchor="middle" class="chart-legend" '
+            f'transform="rotate(-90 16 {(plot_top + plot_bottom) / 2:.2f})">{y_axis_label}</text>'
+        )
+        svg = (
+            f'<svg viewBox="0 0 {width} 270" '
+            f'role="img" aria-label="{chart_type.replace("_", " ").title()} chart">'
+            + "".join(grid)
+            + f'<path d="M{plot_left} {plot_top} V{plot_bottom} H{plot_right}" '
+            + 'fill="none" stroke="#98a2b3" stroke-width="1"/>'
+            + "".join(shapes) + category_labels + axes + "</svg>"
+        )
+        legend = self._series_legend(datasets, colors, component)
+        layout_class = " right" if component.visualization and component.visualization.legend_position == "right" else ""
+        data_list = '<ul class="line-data">' + "".join(
+            f'<li>{self._text(dataset.name)} · {self._text(point.label)}'
+            f'<strong>{self._text(self._chart_value(point.value, component))}</strong></li>'
+            for dataset in datasets for point in dataset.data
+        ) + "</ul>"
+        return f'<div class="chart-combined{layout_class}"><div>{svg}{data_list}</div>{legend}</div>'
+
+    def _series_legend(self, datasets, colors, component: ScreenComponent) -> str:
+        visualization = component.visualization
+        if visualization and visualization.legend_position == "none":
+            return ""
+        if len(datasets) < 2:
+            return ""
+        return '<ul class="series-legend">' + "".join(
+            f'<li><span class="chart-swatch" style="background:{colors[index % len(colors)]}"></span>'
+            f'{self._text(dataset.name)}</li>'
+            for index, dataset in enumerate(datasets)
+        ) + "</ul>"
+
+    def _bar_axis_labels(self, visualization) -> str:
+        if visualization is None:
+            return ""
+        labels = []
+        if visualization.x_axis_label:
+            labels.append(f'<span>X-axis: {self._text(visualization.x_axis_label)}</span>')
+        if visualization.y_axis_label:
+            labels.append(f'<span>Measure: {self._text(visualization.y_axis_label)}</span>')
+        return f'<div class="chart-note chart-axis">{" · ".join(labels)}</div>' if labels else ""
 
     @staticmethod
     def _number(value: float) -> str:
         return f"{value:g}"
 
     def _chart_value(self, value: float, component: ScreenComponent) -> str:
-        prefix = component.chart_value_prefix or ""
-        if value < 0 and prefix:
-            return f"-{prefix}{self._number(abs(value))}{component.chart_value_suffix or ''}"
-        return (
-            f"{prefix}"
-            f"{self._number(value)}"
-            f"{component.chart_value_suffix or ''}"
+        visualization = component.visualization
+        prefix = (
+            visualization.value_prefix if visualization and visualization.value_prefix
+            else component.chart_value_prefix or ""
         )
+        suffix = (
+            visualization.value_suffix if visualization and visualization.value_suffix
+            else component.chart_value_suffix or ""
+        )
+        if not suffix and visualization and visualization.datasets:
+            unit = visualization.datasets[0].unit.strip()
+            if unit:
+                separator = "" if unit.startswith(("%", "°")) else " "
+                suffix = f"{separator}{unit}"
+        if value < 0 and prefix:
+            return f"-{prefix}{self._number(abs(value))}{suffix}"
+        return f"{prefix}{self._number(value)}{suffix}"
 
     def _field(self, field: ScreenField) -> str:
         required = '<span class="required"> *</span>' if field.required else ""
