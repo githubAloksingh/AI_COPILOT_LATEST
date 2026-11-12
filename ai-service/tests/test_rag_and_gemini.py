@@ -95,9 +95,237 @@ def test_gemini_request_uses_supplied_response_json_schema(monkeypatch):
     schema = {"type": "object", "properties": {"label": {"type": "string"}}}
 
     assert service.generate_content("prompt", response_schema=schema) == "{}"
+    assert captured_request["body"]["contents"] == [
+        {"parts": [{"text": "prompt"}]}
+    ]
+    generation_config = captured_request["body"]["generationConfig"]
+    assert generation_config["responseMimeType"] == "application/json"
+    assert generation_config["maxOutputTokens"] == 65536
+    assert generation_config["responseJsonSchema"] == schema
+    assert "temperature" not in generation_config
+
+
+def test_gemini_request_preserves_mock_screen_structured_schema(monkeypatch):
+    from app.services import gemini_service as gemini_service_module
+    from app.services.screen_plan_service import ScreenPlanService
+
+    captured_request = {}
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": "{}"}]}}]}
+
+    class Client:
+        def __init__(self, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def post(self, url, json, headers):
+            captured_request.update(url=url, body=json, headers=headers)
+            return Response()
+
+    monkeypatch.setattr(gemini_service_module.httpx, "Client", Client)
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_api_key", "test-api-key")
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_model", "test-model")
+    service = GeminiService()
+    service.candidate_models = []
+    schema = ScreenPlanService._gemini_response_schema()
+    prompt = "Screen planning prompt with BRD"
+
+    assert service.generate_content(prompt, response_schema=schema) == "{}"
+    assert captured_request["url"] == (
+        "https://generativelanguage.googleapis.com/v1beta/models/test-model:generateContent"
+    )
+    assert captured_request["body"]["contents"] == [{"parts": [{"text": prompt}]}]
     generation_config = captured_request["body"]["generationConfig"]
     assert generation_config["responseMimeType"] == "application/json"
     assert generation_config["responseJsonSchema"] == schema
+    assert len(str(schema)) > 10000
+
+
+def test_gemini_fallback_reports_model_that_generated_response(monkeypatch):
+    from app.services import gemini_service as gemini_service_module
+
+    requested_urls = []
+
+    class Response:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+            self.text = "provider response must not be logged"
+
+        def json(self):
+            return self._payload
+
+    class Client:
+        def __init__(self, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def post(self, url, json, headers):
+            requested_urls.append(url)
+            if len(requested_urls) == 1:
+                return Response(404, {"error": {"status": "NOT_FOUND"}})
+            return Response(
+                200,
+                {"candidates": [{"content": {"parts": [{"text": "generated"}]}}]},
+            )
+
+    monkeypatch.setattr(gemini_service_module.httpx, "Client", Client)
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_api_key", "test-api-key")
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_model", "gemini-3.5-flash-lite")
+    service = GeminiService()
+    service.candidate_models = ["gemini-2.5-flash"]
+
+    assert service.generate_content("private BRD prompt") == "generated"
+    assert requested_urls == [
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    ]
+    assert service.last_used_model == "gemini-2.5-flash"
+
+
+def test_gemini_failure_diagnostics_preserve_model_errors_without_sensitive_content(
+    monkeypatch, caplog
+):
+    from app.services import gemini_service as gemini_service_module
+
+    class Response:
+        status_code = 404
+        text = "private BRD text and test-api-key"
+
+        def json(self):
+            return {"error": {"status": "NOT_FOUND", "message": self.text}}
+
+    class Client:
+        def __init__(self, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def post(self, url, json, headers):
+            return Response()
+
+    monkeypatch.setattr(gemini_service_module.httpx, "Client", Client)
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_api_key", "test-api-key")
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_model", "gemini-3.5-flash-lite")
+    service = GeminiService()
+    service.candidate_models = ["gemini-2.5-flash"]
+
+    import logging
+    with caplog.at_level(logging.WARNING, logger="app.services.gemini_service"):
+        try:
+            service.generate_content("private BRD text")
+        except RuntimeError as error:
+            diagnostics = str(error)
+        else:
+            raise AssertionError("Expected Gemini model attempts to fail")
+
+    assert '"model":"gemini-3.5-flash-lite","http_status":404,"status":"NOT_FOUND"' in diagnostics
+    assert '"model":"gemini-2.5-flash","http_status":404,"status":"NOT_FOUND"' in diagnostics
+    assert '"model":"gemini-3.5-flash-lite","http_status":404' in caplog.text
+    assert '"model":"gemini-2.5-flash","http_status":404' in caplog.text
+    assert "private BRD text" not in diagnostics
+    assert "private BRD text" not in caplog.text
+    assert "[redacted]" in diagnostics
+    assert "test-api-key" not in diagnostics
+    assert "test-api-key" not in caplog.text
+
+
+def test_gemini_invalid_argument_diagnostic_keeps_safe_google_details(monkeypatch, caplog):
+    import logging
+    from app.services import gemini_service as gemini_service_module
+
+    class Response:
+        status_code = 400
+        text = "must not be logged"
+
+        def json(self):
+            return {
+                "error": {
+                    "code": 400,
+                    "status": "INVALID_ARGUMENT",
+                    "message": "Unsupported schema keyword for private BRD text; api_key=test-api-key",
+                    "details": [
+                        {
+                            "@type": "type.googleapis.com/google.rpc.BadRequest",
+                            "fieldViolations": [
+                                {
+                                    "field": "generationConfig.responseJsonSchema",
+                                    "description": "Unsupported anyOf; private BRD text; test-api-key",
+                                }
+                            ],
+                            "ignoredSensitiveField": "do not include",
+                        }
+                    ],
+                }
+            }
+
+    class Client:
+        def __init__(self, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def post(self, url, json, headers):
+            return Response()
+
+    monkeypatch.setattr(gemini_service_module.httpx, "Client", Client)
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_api_key", "test-api-key")
+    monkeypatch.setattr(gemini_service_module.settings, "gemini_model", "test-model")
+    service = GeminiService()
+    service.candidate_models = []
+
+    with caplog.at_level(logging.WARNING, logger="app.services.gemini_service"):
+        try:
+            service.generate_content("private BRD text")
+        except RuntimeError as error:
+            diagnostic = str(error)
+        else:
+            raise AssertionError("Expected the mocked invalid request to fail")
+
+    assert '"http_status":400' in diagnostic
+    assert '"provider_code":400' in diagnostic
+    assert '"status":"INVALID_ARGUMENT"' in diagnostic
+    assert "Unsupported schema keyword" in diagnostic
+    assert "generationConfig.responseJsonSchema" in diagnostic
+    assert "fieldViolations" in diagnostic
+    assert "private BRD text" not in diagnostic
+    assert "test-api-key" not in diagnostic
+    assert "ignoredSensitiveField" not in diagnostic
+    assert "private BRD text" not in caplog.text
+    assert "test-api-key" not in caplog.text
+
+
+def test_gemini_model_configuration_uses_only_confirmed_candidates():
+    from app.config import Settings
+
+    settings = Settings(_env_file=None)
+    assert settings.gemini_model == "gemini-3.5-flash-lite"
+    assert settings.gemini_candidate_models == [
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+    ]
 
 
 def test_prompt_builders_include_guardrails():

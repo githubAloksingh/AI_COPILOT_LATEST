@@ -349,11 +349,125 @@ class HeaderStat(BaseModel):
     change: Optional[str] = ""
     status: Optional[str] = "normal"
     icon: Optional[str] = Field(default="", description="Optional semantic icon name from the supported icon set.")
+    data_source: Optional[Literal["brd", "screen_data", "illustrative"]] = None
+    note: Optional[str] = Field(default="", description="Must disclose illustrative sample values.")
+
+    @model_validator(mode="after")
+    def validate_stat_provenance(self):
+        if self.data_source == "illustrative" and (
+            not self.note or "illustrative" not in self.note.casefold()
+        ):
+            raise ValueError("Illustrative KPI values must be labeled in note.")
+        return self
 
 
 class ChartDataPoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     label: str = Field(description="BRD-grounded category, period, or series label.")
     value: float = Field(allow_inf_nan=False, description="Finite numeric chart value supported by the source data.")
+
+    @field_validator("label")
+    @classmethod
+    def validate_label(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Chart data labels must not be empty.")
+        return value
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def validate_numeric_value(cls, value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("Chart data values must be numeric.")
+        return value
+
+
+class VisualizationDataset(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(description="Business meaning of this data series.")
+    unit: Optional[str] = Field(default="", description="BRD-supported unit for this dataset, when specified.")
+    data: List[ChartDataPoint] = Field(min_length=1)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Visualization dataset names must not be empty.")
+        return value
+
+
+class VisualizationSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    screen_id: str = Field(default="", description="Identifier of the screen that contains this visualization.")
+    business_purpose: str = Field(default="", description="BRD-grounded reason this visualization belongs on the screen.")
+    type: Literal["pie", "donut", "bar", "column", "line", "area", "stacked_bar", "stacked_area"]
+    title: str
+    description: Optional[str] = ""
+    data_source: Literal["brd", "screen_data", "illustrative"]
+    source_reference: Optional[str] = Field(default="", description="BRD section or data reference supporting the values.")
+    datasets: List[VisualizationDataset] = Field(min_length=1)
+    value_prefix: Optional[str] = ""
+    value_suffix: Optional[str] = ""
+    legend_position: Literal["bottom", "right", "none"] = "bottom"
+    x_axis_label: Optional[str] = ""
+    y_axis_label: Optional[str] = ""
+    sample_data: bool = False
+    note: Optional[str] = Field(default="", description="Must disclose illustrative sample data.")
+    interpretation: Optional[str] = Field(default="", description="A concise interpretation supported by the displayed values.")
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Visualization titles must not be empty.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_visualization(self):
+        labels_by_dataset = [[point.label for point in dataset.data] for dataset in self.datasets]
+        for labels in labels_by_dataset:
+            normalized_labels = [label.casefold() for label in labels]
+            if len(normalized_labels) != len(set(normalized_labels)):
+                raise ValueError("Visualization category and period labels must be unique within each dataset.")
+        if self.type in {"pie", "donut"}:
+            if len(self.datasets) != 1:
+                raise ValueError("Pie and doughnut charts require exactly one dataset.")
+            points = self.datasets[0].data
+            if len(points) < 2:
+                raise ValueError("Pie and doughnut charts require at least two categories.")
+            if any(point.value < 0 for point in points) or sum(point.value for point in points) <= 0:
+                raise ValueError("Pie and doughnut charts require non-negative values with a positive total.")
+        if self.type in {"line", "area"} and any(len(dataset.data) < 2 for dataset in self.datasets):
+            raise ValueError(f"{self.type.title()} charts require at least two points per dataset.")
+        if self.type in {"bar", "column", "line", "area"} and len(self.datasets) > 1:
+            category_labels = [point.label for point in self.datasets[0].data]
+            if any([point.label for point in dataset.data] != category_labels for dataset in self.datasets[1:]):
+                raise ValueError("Multi-series charts must use the same ordered category labels.")
+        if self.type in {"stacked_bar", "stacked_area"}:
+            if len(self.datasets) < 2:
+                raise ValueError(f"{self.type.replace('_', ' ').title()} charts require at least two datasets.")
+            category_labels = [point.label for point in self.datasets[0].data]
+            if any([point.label for point in dataset.data] != category_labels for dataset in self.datasets[1:]):
+                raise ValueError("Stacked chart datasets must use the same ordered category labels.")
+            if any(point.value < 0 for dataset in self.datasets for point in dataset.data):
+                raise ValueError("Stacked chart values must be non-negative.")
+        dataset_names = [dataset.name.casefold() for dataset in self.datasets]
+        if len(dataset_names) != len(set(dataset_names)):
+            raise ValueError("Visualization dataset names must be unique.")
+        units = {dataset.unit.strip().casefold() for dataset in self.datasets if dataset.unit and dataset.unit.strip()}
+        if len(units) > 1:
+            raise ValueError("Datasets in one visualization must use compatible units.")
+        if self.data_source == "illustrative":
+            if not self.sample_data or not self.note or "illustrative" not in self.note.casefold():
+                raise ValueError("Illustrative data must be marked as sample_data and labeled in note.")
+        elif self.sample_data:
+            raise ValueError("sample_data must be true only when data_source is illustrative.")
+        return self
 
 
 class ScreenComponent(BaseModel):
@@ -368,9 +482,13 @@ class ScreenComponent(BaseModel):
     actions: List[ScreenAction] = Field(default_factory=list)
     steps: List[str] = Field(default_factory=list)
     badges: List[Dict[str, str]] = Field(default_factory=list)
-    chart_type: Optional[Literal["pie", "donut", "bar", "line"]] = Field(
+    visualization: Optional[VisualizationSpec] = Field(
         default=None,
-        description="Use pie for proportions, bar for category comparisons, or line for ordered time trends.",
+        description="Domain-independent analytical visualization specification. Prefer this over legacy chart fields.",
+    )
+    chart_type: Optional[Literal["pie", "donut", "bar", "column", "line", "area", "stacked_bar", "stacked_area"]] = Field(
+        default=None,
+        description="Legacy chart field; new plans should use visualization.",
     )
     chart_data: List[ChartDataPoint] = Field(
         default_factory=list,
@@ -413,12 +531,29 @@ class ScreenComponent(BaseModel):
 
     @model_validator(mode="after")
     def validate_chart(self):
+        if self.visualization is not None:
+            if self.chart_type and self.chart_type != self.visualization.type:
+                raise ValueError("chart_type must match visualization.type.")
+            if self.chart_data and self.chart_data != self.visualization.datasets[0].data:
+                raise ValueError("chart_data must match the first visualization dataset when both are supplied.")
+            self.chart_type = self.visualization.type
+            self.chart_data = self.visualization.datasets[0].data
+            if not self.title:
+                self.title = self.visualization.title
+            if not self.description:
+                self.description = self.visualization.description or ""
+            self.chart_note = self.visualization.note or self.chart_note
+            self.chart_data_source = self.visualization.data_source
+            self.chart_value_prefix = self.visualization.value_prefix or self.chart_value_prefix
+            self.chart_value_suffix = self.visualization.value_suffix or self.chart_value_suffix
         if self.chart_type is None and self.chart_data:
             raise ValueError("chart_data requires chart_type.")
         if self.chart_type is not None and not self.chart_data:
             raise ValueError(f"{self.chart_type} chart requires chart_data.")
-        if self.chart_type == "line" and len(self.chart_data) < 2:
-            raise ValueError("Line charts require at least two data points.")
+        if self.chart_type in {"line", "area"} and len(self.chart_data) < 2:
+            raise ValueError(f"{self.chart_type.title()} charts require at least two data points.")
+        if self.chart_type in {"stacked_bar", "stacked_area"} and self.visualization is None:
+            raise ValueError(f"{self.chart_type.replace('_', ' ').title()} charts require visualization datasets.")
         if self.chart_type in {"pie", "donut"}:
             if len(self.chart_data) < 2:
                 raise ValueError("Pie charts require at least two categories.")
@@ -428,6 +563,19 @@ class ScreenComponent(BaseModel):
             not self.chart_note or "illustrative" not in self.chart_note.casefold()
         ):
             raise ValueError("Illustrative chart data must be labeled in chart_note.")
+        if self.chart_type and self.visualization is None:
+            legacy_data_source = self.chart_data_source or "screen_data"
+            self.visualization = VisualizationSpec(
+                type=self.chart_type,
+                title=self.title or self.type,
+                description=self.description,
+                data_source=legacy_data_source,
+                datasets=[VisualizationDataset(name=self.title or "Series 1", data=self.chart_data)],
+                value_prefix=self.chart_value_prefix,
+                value_suffix=self.chart_value_suffix,
+                sample_data=legacy_data_source == "illustrative",
+                note=self.chart_note,
+            )
         if self.progress_value is None and (
             self.progress_label or self.progress_data_source or self.progress_note
         ):
@@ -554,6 +702,36 @@ class ScreenSpecification(BaseModel):
         if value is not None and not isinstance(value, str):
             return str(value)
         return value or ""
+
+    @model_validator(mode="after")
+    def attach_visualization_context(self):
+        signatures = set()
+        for component in self.components:
+            visualization = component.visualization
+            if visualization is None:
+                continue
+            if self.screen_type.strip().casefold().replace("-", "_") in {
+                "login", "profile", "form", "create_form", "edit_form", "data_entry", "confirmation",
+            }:
+                raise ValueError(
+                    f"Screen type '{self.screen_type}' is not appropriate for analytical visualizations."
+                )
+            if visualization.screen_id and visualization.screen_id != self.screen_id:
+                raise ValueError("Visualization screen_id must match its containing screen.")
+            visualization.screen_id = self.screen_id
+            if not visualization.business_purpose.strip():
+                visualization.business_purpose = self.purpose
+            signature = (
+                visualization.type,
+                tuple(
+                    tuple((point.label.casefold(), point.value) for point in dataset.data)
+                    for dataset in visualization.datasets
+                ),
+            )
+            if signature in signatures:
+                raise ValueError("A screen cannot contain duplicate visualizations with the same data.")
+            signatures.add(signature)
+        return self
 
 
 class ScreenPlan(BaseModel):

@@ -92,6 +92,7 @@ class ScreenPlanService:
                     source_content_truncated=source_content_truncated,
                     source_character_count=source_character_count,
                     analyzed_character_count=analyzed_character_count,
+                    source_text=normalized_brd,
                 )
                 break
             except ScreenPlanValidationError as exc:
@@ -178,6 +179,11 @@ class ScreenPlanService:
                 {"active_nav_item": screen_name, "breadcrumbs": [app_name, screen_name]},
             )
             self._validate_evidenced_fields(
+                screen_data,
+                source_text=source_text,
+                screen_number=idx,
+            )
+            self._validate_visualization_evidence(
                 screen_data,
                 source_text=source_text,
                 screen_number=idx,
@@ -301,6 +307,44 @@ class ScreenPlanService:
                 + ", ".join(f"'{label}'" for label in missing)
                 + "."
             )
+
+    @staticmethod
+    def _validate_visualization_evidence(
+        screen_data: Dict[str, Any],
+        source_text: Optional[str],
+        screen_number: int,
+    ) -> None:
+        if not source_text:
+            return
+        evidence = screen_data.get("source_evidence")
+        evidence_text = (
+            "\n".join(item for item in evidence if isinstance(item, str))
+            if isinstance(evidence, list)
+            else evidence if isinstance(evidence, str) else ""
+        )
+        source = evidence_text or source_text
+        normalized_source = re.sub(r"(?<=\d),(?=\d)", "", source)
+        components = screen_data.get("components")
+        for component in components if isinstance(components, list) else []:
+            if not isinstance(component, dict):
+                continue
+            visualization = component.get("visualization")
+            if not isinstance(visualization, dict) or visualization.get("data_source") != "brd":
+                continue
+            datasets = visualization.get("datasets")
+            for dataset in datasets if isinstance(datasets, list) else []:
+                points = dataset.get("data", dataset.get("values", [])) if isinstance(dataset, dict) else []
+                for point in points if isinstance(points, list) else []:
+                    value = point.get("value") if isinstance(point, dict) else None
+                    if not isinstance(value, (int, float)):
+                        continue
+                    token = re.escape(f"{value:g}")
+                    if not re.search(rf"(?<![\d.]){token}(?![\d.])", normalized_source):
+                        label = point.get("label", "unknown") if isinstance(point, dict) else "unknown"
+                        raise ScreenPlanValidationError(
+                            f"Screen {screen_number} chart value for '{label}' is marked BRD-sourced "
+                            "but does not appear in the supplied BRD. Use an evidenced value or labeled illustrative data."
+                        )
 
     @staticmethod
     def _extract_explicit_field_labels(source: str) -> List[str]:
@@ -447,26 +491,69 @@ class ScreenPlanService:
                 "chartDataSource": "chart_data_source",
                 "chartValuePrefix": "chart_value_prefix",
                 "chartValueSuffix": "chart_value_suffix",
+                "chartSeries": "chart_series",
                 "progressValue": "progress_value",
                 "progressLabel": "progress_label",
                 "progressDataSource": "progress_data_source",
                 "progressNote": "progress_note",
             }
             normalized["components"] = [
-                {
-                    component_aliases.get(key, key): value
-                    for key, value in component.items()
-                } if isinstance(component, dict) else component
+                ScreenPlanService._normalize_component_properties(component, component_aliases)
+                if isinstance(component, dict) else component
                 for component in components
             ]
         return normalized
+
+    @staticmethod
+    def _normalize_component_properties(component: Dict[str, Any], aliases: Dict[str, str]) -> Dict[str, Any]:
+        normalized_component = {
+            aliases.get(key, key): value
+            for key, value in component.items()
+        }
+        visualization = normalized_component.get("visualization")
+        if isinstance(visualization, dict):
+            visualization_aliases = {
+                "screenId": "screen_id",
+                "businessPurpose": "business_purpose",
+                "dataSource": "data_source",
+                "sourceReference": "source_reference",
+                "valuePrefix": "value_prefix",
+                "valueSuffix": "value_suffix",
+                "legendPosition": "legend_position",
+                "xAxisLabel": "x_axis_label",
+                "yAxisLabel": "y_axis_label",
+                "sampleData": "sample_data",
+            }
+            normalized_visualization = {
+                visualization_aliases.get(key, key): value
+                for key, value in visualization.items()
+            }
+            datasets = normalized_visualization.get("datasets")
+            if isinstance(datasets, list):
+                normalized_visualization["datasets"] = [
+                    {
+                        "data": dataset.get("values", dataset.get("data", [])),
+                        **{
+                            ("data" if key == "values" else key): value
+                            for key, value in dataset.items()
+                            if key not in {"values", "data"}
+                        },
+                    } if isinstance(dataset, dict) else dataset
+                    for dataset in datasets
+                ]
+            normalized_component["visualization"] = normalized_visualization
+        return normalized_component
 
     @classmethod
     def _gemini_response_schema(cls) -> Dict[str, Any]:
         schema = ScreenPlan.model_json_schema()
         definitions = schema.get("$defs", {})
 
-        def inline_references(value: Any, stack: tuple = ()) -> Any:
+        def inline_references(
+            value: Any,
+            stack: tuple = (),
+            property_map: bool = False,
+        ) -> Any:
             if isinstance(value, list):
                 return [inline_references(item, stack) for item in value]
             if not isinstance(value, dict):
@@ -492,9 +579,13 @@ class ScreenPlanService:
                 return resolved
 
             return {
-                key: inline_references(item, stack)
+                key: inline_references(
+                    item,
+                    stack,
+                    property_map=key == "properties",
+                )
                 for key, item in value.items()
-                if key not in {"title", "default", "$defs"}
+                if property_map or key not in {"title", "default", "$defs"}
             }
 
         schema = inline_references(schema)

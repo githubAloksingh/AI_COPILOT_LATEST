@@ -50,6 +50,7 @@ class ImageGenerationService:
         self.html_renderer = html_renderer or html_screen_renderer
         self._assets: Dict[str, bytes] = {}
         self._asset_lock = threading.Lock()
+        self._stability_credits_exhausted = False
 
     @property
     def renderer_name(self) -> str:
@@ -57,6 +58,8 @@ class ImageGenerationService:
 
     @property
     def visual_asset_provider(self) -> str:
+        if self.provider == "stability" and self._stability_credits_exhausted:
+            return "Not used (Stability AI credits exhausted)"
         return "Stability AI" if self.provider == "stability" else "Not used"
 
     def build_screen_image_prompt(self, spec: ScreenSpecification, design: DesignContext) -> str:
@@ -142,7 +145,19 @@ class ImageGenerationService:
                     "STABILITY_API_KEY is required when IMAGE_GENERATOR_PROVIDER=stability.",
                     status_code=503,
                 )
-            artwork = self._get_stability_asset(spec, active_design)
+            artwork = None
+            if self._stability_credits_exhausted:
+                logger.info("Rendering screen without Stability artwork because the account has insufficient credits.")
+            else:
+                try:
+                    artwork = self._get_stability_asset(spec, active_design)
+                except ImageGenerationError as exc:
+                    if exc.status_code != 402:
+                        raise
+                    self._stability_credits_exhausted = True
+                    logger.warning(
+                        "Stability AI has insufficient credits; continuing to render screens without decorative artwork."
+                    )
             image_bytes = self.html_renderer.render(spec, active_design, artwork)
         elif self.provider == "pymupdf":
             image_bytes = self._render_enterprise_mockup(spec, active_design)

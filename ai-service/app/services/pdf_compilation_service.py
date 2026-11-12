@@ -463,26 +463,48 @@ class PdfCompilationService:
                     for badge in component["badges"]
                     if isinstance(badge, dict)
                 )
-            if component.get("chart_type"):
-                details.append(f"Chart: {component['chart_type']}")
-                if component.get("chart_data_source"):
-                    details.append(f"Data source: {component['chart_data_source']}")
-                chart_values = []
-                for point in self._as_list(component.get("chart_data")):
-                    if not isinstance(point, dict):
+            visualization = self._mapping(component.get("visualization"))
+            chart_type = visualization.get("type") or component.get("chart_type")
+            if chart_type:
+                details.append(f"Chart: {chart_type}")
+                data_source = visualization.get("data_source") or component.get("chart_data_source")
+                if data_source:
+                    details.append(f"Data source: {data_source}")
+                datasets = self._as_list(visualization.get("datasets"))
+                if not datasets:
+                    datasets = [{
+                        "name": title,
+                        "data": self._as_list(component.get("chart_data")),
+                    }]
+                prefix = visualization.get("value_prefix") or component.get("chart_value_prefix") or ""
+                suffix = visualization.get("value_suffix") or component.get("chart_value_suffix") or ""
+                for dataset in datasets:
+                    if not isinstance(dataset, dict):
                         continue
-                    value = point.get("value", "")
-                    prefix = component.get("chart_value_prefix") or ""
-                    suffix = component.get("chart_value_suffix") or ""
-                    if prefix and isinstance(value, (int, float)) and value < 0:
-                        formatted_value = f"-{prefix}{abs(value):g}{suffix}"
-                    else:
-                        formatted_value = f"{prefix}{value}{suffix}"
-                    chart_values.append(f"{point.get('label', '')}: {formatted_value}")
-                if chart_values:
-                    details.append("Chart values: " + ", ".join(chart_values))
-                if component.get("chart_note"):
-                    details.append(str(component["chart_note"]))
+                    chart_values = []
+                    for point in self._as_list(dataset.get("data", dataset.get("values"))):
+                        if not isinstance(point, dict):
+                            continue
+                        value = point.get("value", "")
+                        formatted_value = (
+                            f"-{prefix}{abs(value):g}{suffix}"
+                            if prefix and isinstance(value, (int, float)) and value < 0
+                            else f"{prefix}{value}{suffix}"
+                        )
+                        chart_values.append(f"{point.get('label', '')}: {formatted_value}")
+                    if chart_values:
+                        details.append(
+                            f"Dataset {dataset.get('name', '')}: " + ", ".join(chart_values)
+                        )
+                for annotation in (
+                    visualization.get("source_reference"),
+                    visualization.get("x_axis_label"),
+                    visualization.get("y_axis_label"),
+                    visualization.get("interpretation"),
+                    visualization.get("note") or component.get("chart_note"),
+                ):
+                    if annotation:
+                        details.append(str(annotation))
             if component.get("progress_value") is not None:
                 raw_progress = component["progress_value"]
                 progress_value = f"{raw_progress:g}" if isinstance(raw_progress, (int, float)) else str(raw_progress)

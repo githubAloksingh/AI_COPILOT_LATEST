@@ -7,10 +7,20 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.api.routes import get_document_content
-from app.api.schemas import DataBinding, NavigationFlow, ScreenComponent, ScreenEvent, ScreenInteraction
+import app.api.mock_screens as mock_screens_api
+from app.api.schemas import (
+    DataBinding,
+    NavigationFlow,
+    ScreenComponent,
+    ScreenEvent,
+    ScreenInteraction,
+    ScreenSpecification,
+    VisualizationSpec,
+)
 from app.main import app
 from app.services.gemini_service import GeminiService
 from app.services.retrieval_service import RetrievalService
+from app.prompts.mock_screens_prompts import build_mock_screen_plan_prompt
 from app.services.screen_plan_service import (
     ScreenPlanService,
     ScreenPlanValidationError,
@@ -40,6 +50,32 @@ def _valid_plan_data():
                 ],
             }
         ],
+    }
+
+
+def _valid_visualization_data():
+    return {
+        "screen_id": "SCREEN-001",
+        "business_purpose": "Compare the measured values across categories.",
+        "type": "bar",
+        "title": "Items by category",
+        "description": "Compares the values required for the report.",
+        "data_source": "brd",
+        "source_reference": "Reporting requirement",
+        "datasets": [{
+            "name": "Items",
+            "unit": "items",
+            "data": [
+                {"label": "Category A", "value": 12},
+                {"label": "Category B", "value": 8},
+            ],
+        }],
+        "value_suffix": " items",
+        "legend_position": "none",
+        "x_axis_label": "Category",
+        "y_axis_label": "Items",
+        "sample_data": False,
+        "interpretation": "Category A has the higher reported value.",
     }
 
 
@@ -145,6 +181,240 @@ def test_gemini_chart_provenance_and_units_are_normalized():
     assert chart.chart_type == "bar"
     assert chart.chart_data_source == "brd"
     assert chart.chart_value_prefix == "$"
+    assert chart.visualization.data_source == "brd"
+    assert chart.visualization.datasets[0].data[0].value == 25
+
+
+def test_visualization_spec_accepts_complete_domain_independent_chart_contract():
+    visualization = VisualizationSpec.model_validate(_valid_visualization_data())
+
+    assert visualization.datasets[0].name == "Items"
+    assert visualization.datasets[0].unit == "items"
+    assert visualization.datasets[0].data[0].value == 12
+    assert visualization.value_suffix == " items"
+    assert visualization.x_axis_label == "Category"
+    assert visualization.y_axis_label == "Items"
+
+
+def test_visualization_spec_rejects_unknown_properties():
+    payload = _valid_visualization_data()
+    payload["industry_template"] = "example"
+
+    with pytest.raises(ValidationError, match="industry_template"):
+        VisualizationSpec.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "point",
+    [
+        {"label": "Category A"},
+        {"label": "  ", "value": 4},
+        {"label": "Category A", "value": None},
+        {"label": "Category A", "value": "not-a-number"},
+        {"label": "Category A", "value": float("nan")},
+        {"label": "Category A", "value": True},
+    ],
+)
+def test_visualization_rejects_missing_or_invalid_data_points(point):
+    payload = _valid_visualization_data()
+    payload["datasets"][0]["data"] = [point]
+
+    with pytest.raises(ValidationError):
+        VisualizationSpec.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("chart_type", "datasets"),
+    [
+        ("bar", [
+            {"name": "First", "data": [{"label": "A", "value": 1}, {"label": "B", "value": 2}]},
+            {"name": "Second", "data": [{"label": "A", "value": 3}, {"label": "C", "value": 4}]},
+        ]),
+        ("bar", [
+            {"name": "First", "data": [{"label": "A", "value": 1}, {"label": "a", "value": 2}]},
+        ]),
+        ("pie", [
+            {"name": "First", "data": [{"label": "A", "value": 1}, {"label": "B", "value": 2}]},
+            {"name": "Second", "data": [{"label": "A", "value": 3}, {"label": "B", "value": 4}]},
+        ]),
+        ("donut", [
+            {"name": "Values", "data": [{"label": "A", "value": -1}, {"label": "B", "value": 2}]},
+        ]),
+        ("line", [
+            {"name": "Values", "data": [{"label": "Only period", "value": 1}]},
+        ]),
+        ("stacked_bar", [
+            {"name": "Only series", "data": [{"label": "A", "value": 1}]},
+        ]),
+        ("bar", [
+            {"name": "First", "unit": "items", "data": [{"label": "A", "value": 1}]},
+            {"name": "Second", "unit": "hours", "data": [{"label": "A", "value": 2}]},
+        ]),
+    ],
+)
+def test_visualization_rejects_invalid_chart_data_combinations(chart_type, datasets):
+    payload = _valid_visualization_data()
+    payload["type"] = chart_type
+    payload["datasets"] = datasets
+
+    with pytest.raises(ValidationError):
+        VisualizationSpec.model_validate(payload)
+
+
+def test_visualization_requires_clear_illustrative_data_disclosure():
+    payload = _valid_visualization_data()
+    payload.update({
+        "data_source": "illustrative",
+        "sample_data": True,
+        "note": "Illustrative sample data—not actual results",
+    })
+    assert VisualizationSpec.model_validate(payload).sample_data is True
+
+    payload["note"] = ""
+    with pytest.raises(ValidationError, match="Illustrative data"):
+        VisualizationSpec.model_validate(payload)
+
+    payload.update({
+        "data_source": "brd",
+        "sample_data": True,
+        "note": "Illustrative sample data—not actual results",
+    })
+    with pytest.raises(ValidationError, match="sample_data must be true only"):
+        VisualizationSpec.model_validate(payload)
+
+
+def test_screen_spec_assigns_visualization_context_and_rejects_unsuitable_screens():
+    screen_data = {
+        "screen_id": "SCREEN-001",
+        "name": "Analysis",
+        "purpose": "Compare reported values.",
+        "screen_type": "report",
+        "components": [{
+            "type": "visualization",
+            "visualization": {
+                **_valid_visualization_data(),
+                "business_purpose": "",
+            },
+        }],
+    }
+    screen = ScreenSpecification.model_validate(screen_data)
+    visualization = screen.components[0].visualization
+    assert visualization.screen_id == screen.screen_id
+    assert visualization.business_purpose == screen.purpose
+
+    screen_data["screen_type"] = "data_entry"
+    with pytest.raises(ValidationError, match="not appropriate"):
+        ScreenSpecification.model_validate(screen_data)
+
+    screen_data["screen_type"] = "report"
+    screen_data["components"].append({
+        "type": "visualization",
+        "visualization": _valid_visualization_data(),
+    })
+    with pytest.raises(ValidationError, match="duplicate visualizations"):
+        ScreenSpecification.model_validate(screen_data)
+
+
+def test_mock_screen_planning_prompt_selects_visualizations_dynamically():
+    prompt = build_mock_screen_plan_prompt(
+        "A field program compares measured quantities by site.",
+        "Field Program",
+    )
+
+    assert "Analyze the BRD independently" in prompt
+    assert "Never assume a particular industry" in prompt
+    assert "omit the chart" in prompt
+    assert "Illustrative sample data—not actual results" in prompt
+    assert "Retail Banking Portal" not in prompt
+
+
+def test_screen_planning_supports_unrelated_brd_domains_and_an_unfamiliar_domain():
+    cases = [
+        {
+            "brd": "The planting program compares survival counts by plot. The measured values are 42 in North plot and 37 in South plot.",
+            "application": "Field Survey",
+            "chart_type": "bar",
+            "source": "brd",
+            "datasets": [{"name": "Surviving plants", "data": [{"label": "North plot", "value": 42}, {"label": "South plot", "value": 37}]}],
+        },
+        {
+            "brd": "The clinic needs an appointment outcome distribution. Current BRD values are 18 completed appointments and 6 rescheduled appointments.",
+            "application": "Clinic Operations",
+            "chart_type": "donut",
+            "source": "brd",
+            "datasets": [{"name": "Appointments", "data": [{"label": "Completed", "value": 18}, {"label": "Rescheduled", "value": 6}]}],
+        },
+        {
+            "brd": "The academic office requires term enrollment trends. The source lists 120 learners in autumn and 145 learners in spring.",
+            "application": "Academic Enrollment",
+            "chart_type": "line",
+            "source": "brd",
+            "datasets": [{"name": "Learners", "data": [{"label": "Autumn", "value": 120}, {"label": "Spring", "value": 145}]}],
+        },
+        {
+            "brd": "A hydrophone observatory compares acoustic event detections per station and observation week. No measurements have been collected; an illustrative planning chart is required.",
+            "application": "Hydrophone Observatory",
+            "chart_type": "stacked_area",
+            "source": "illustrative",
+            "datasets": [
+                {"name": "Reef station", "data": [{"label": "Week 1", "value": 8}, {"label": "Week 2", "value": 11}]},
+                {"name": "Trench station", "data": [{"label": "Week 1", "value": 5}, {"label": "Week 2", "value": 7}]},
+            ],
+        },
+    ]
+
+    for case in cases:
+        plan_data = _valid_plan_data()
+        plan_data["application_name"] = case["application"]
+        plan_data["screens"] = [{
+            "screen_id": "SCREEN-ANALYTICS",
+            "sequence": 1,
+            "name": "Operational analysis",
+            "purpose": "Review the BRD-required measures.",
+            "screen_type": "report",
+            "components": [{
+                "type": "visualization",
+                "visualization": {
+                    "screen_id": "SCREEN-ANALYTICS",
+                    "business_purpose": "Analyze measures required by this BRD.",
+                    "type": case["chart_type"],
+                    "title": f"{case['application']} analysis",
+                    "description": "A BRD-specific data view.",
+                    "data_source": case["source"],
+                    "source_reference": "BRD reporting requirement",
+                    "datasets": case["datasets"],
+                    "legend_position": "bottom",
+                    "x_axis_label": "Category or period",
+                    "y_axis_label": "Count",
+                    "sample_data": case["source"] == "illustrative",
+                    "note": "Illustrative sample data—not actual results" if case["source"] == "illustrative" else "",
+                    "interpretation": "Review the values in their stated context.",
+                },
+            }],
+        }]
+
+        class FakeGemini:
+            def generate_dict(self, prompt, response_schema=None, require_object=False):
+                assert case["brd"] in prompt
+                assert "Analyze the BRD independently" in prompt
+                assert "Never assume a particular industry" in prompt
+                return plan_data
+
+        service = ScreenPlanService()
+        service.gemini = FakeGemini()
+        plan = service.generate_plan(case["brd"], case["application"])
+        visualization = plan.screens[0].components[0].visualization
+
+        assert plan.application_name == case["application"]
+        assert visualization.type == case["chart_type"]
+        assert visualization.screen_id == "SCREEN-ANALYTICS"
+        assert visualization.business_purpose
+        assert visualization.sample_data == (case["source"] == "illustrative")
+
+
+def test_non_analytical_screen_does_not_require_a_chart():
+    plan = ScreenPlanService()._parse_and_validate_plan(_valid_plan_data())
+    assert all(component.visualization is None for screen in plan.screens for component in screen.components)
 
 
 def test_interaction_models_accept_exact_required_dictionary_shapes():
@@ -406,6 +676,41 @@ def test_gemini_response_schema_is_fully_expanded_and_requires_interaction_field
     ]
 
 
+def test_gemini_response_schema_declares_every_required_property_recursively():
+    schema = ScreenPlanService._gemini_response_schema()
+    violations = []
+
+    def inspect_schema(value, path="$"):
+        if isinstance(value, dict):
+            required = value.get("required", [])
+            properties = value.get("properties", {})
+            if isinstance(required, list):
+                for property_name in required:
+                    if property_name not in properties:
+                        violations.append((path, property_name))
+            for key, child in value.items():
+                inspect_schema(child, f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                inspect_schema(child, f"{path}[{index}]")
+
+    inspect_schema(schema)
+    assert violations == []
+
+    visualization_schema = (
+        schema["properties"]["screens"]["items"]["properties"]["components"]
+        ["items"]["properties"]["visualization"]
+    )
+    visualization_object_alternatives = [
+        option for option in visualization_schema["anyOf"]
+        if option.get("type") == "object"
+    ]
+    assert visualization_object_alternatives
+    for alternative in visualization_object_alternatives:
+        assert "title" in alternative["required"]
+        assert "title" in alternative["properties"]
+
+
 def test_numeric_component_field_values_are_normalized_to_display_strings():
     service = ScreenPlanService()
     plan_data = _valid_plan_data()
@@ -612,10 +917,7 @@ def test_mock_screen_plan_endpoint_returns_422_for_invalid_plan(monkeypatch):
     def reject_plan(brd_text, project_name):
         raise ScreenPlanValidationError("Gemini screen plan contains no screens.")
 
-    monkeypatch.setattr(
-        "app.api.mock_screens.screen_plan_service.generate_plan",
-        reject_plan,
-    )
+    monkeypatch.setattr(mock_screens_api.screen_plan_service, "generate_plan", reject_plan)
 
     response = client.post(
         "/api/ai/mock-screens/plan",
@@ -629,7 +931,13 @@ def test_mock_screen_plan_endpoint_returns_422_for_invalid_plan(monkeypatch):
 def test_mock_screen_plan_endpoint_uses_pipeline_a_without_worker_authentication(monkeypatch):
     plan = ScreenPlanService()._parse_and_validate_plan(_valid_plan_data())
     monkeypatch.setattr(
-        "app.api.mock_screens.screen_plan_service.generate_plan",
+        mock_screens_api.screen_plan_service,
+        "gemini",
+        type("GeminiModel", (), {"last_used_model": "gemini-2.5-flash"})(),
+    )
+    monkeypatch.setattr(
+        mock_screens_api.screen_plan_service,
+        "generate_plan",
         lambda brd_text, project_name: plan,
     )
 
@@ -642,23 +950,49 @@ def test_mock_screen_plan_endpoint_uses_pipeline_a_without_worker_authentication
     payload = response.json()
     assert payload["total_screens"] == 1
     assert payload["plan"]["screens"][0]["name"] == "Claims Queue"
+    assert payload["model"] == "gemini-2.5-flash"
 
 
 def test_pipeline_a_render_endpoint_returns_png(monkeypatch):
     image_buffer = io.BytesIO()
     Image.new("RGB", (32, 24), color="white").save(image_buffer, format="PNG")
     png_bytes = image_buffer.getvalue()
+    captured = {}
+
+    def generate_screen_image(specification, design_context):
+        captured["specification"] = specification
+        return png_bytes
+
     monkeypatch.setattr(
         "app.api.mock_screens.image_generation_service.generate_screen_image",
-        lambda specification, design_context: png_bytes,
+        generate_screen_image,
     )
 
     response = client.post(
         "/api/ai/mock-screens/render-screen",
         json={
             "specification": {
+                "screen_id": "SCREEN-ANALYTICS",
                 "name": "Claims Queue",
                 "purpose": "Review submitted claims",
+                "screen_type": "report",
+                "components": [{
+                    "type": "visualization",
+                    "visualization": {
+                        "type": "bar",
+                        "title": "Items by category",
+                        "data_source": "brd",
+                        "source_reference": "BRD reporting requirement",
+                        "datasets": [{
+                            "name": "Items",
+                            "unit": "records",
+                            "data": [
+                                {"label": "North", "value": 12},
+                                {"label": "South", "value": 7},
+                            ],
+                        }],
+                    },
+                }],
             }
         },
     )
@@ -669,6 +1003,10 @@ def test_pipeline_a_render_endpoint_returns_png(monkeypatch):
     assert payload["width"] == 32
     assert payload["height"] == 24
     assert base64.b64decode(payload["image_base64"]) == png_bytes
+    visualization = captured["specification"].components[0].visualization
+    assert visualization.title == "Items by category"
+    assert visualization.datasets[0].data[0].value == 12
+    assert visualization.source_reference == "BRD reporting requirement"
 
 
 def test_pipeline_a_compile_pdf_endpoint_returns_pdf():

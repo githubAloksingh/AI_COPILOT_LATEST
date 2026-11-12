@@ -37,7 +37,7 @@ Dedicated FastAPI microservice responsible for document parsing, chunking, embed
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.7-flash
+GEMINI_MODEL=gemini-3.5-flash-lite
 IMAGE_GENERATOR_PROVIDER=stability
 STABILITY_API_KEY=your_stability_api_key_here
 STABILITY_TIMEOUT_SECONDS=180
@@ -54,7 +54,12 @@ PORT=8000
 FRONTEND_ORIGINS=http://localhost:4200,http://127.0.0.1:4200
 ```
 
-`GEMINI_API_KEY` is used for BRD analysis and screen planning. Stability is selected by default and requires `STABILITY_API_KEY`; its Bearer credential is read only by the backend. Stability prompts describe generic layout artwork and do not contain BRD-derived text. Returned PNG assets are validated and cached under `STABILITY_ASSET_DIR`; Chromium overlays the actual BRD-derived text, fields, tables, and actions before returning the existing screen PNG. Stability failures are returned explicitly; there is no silent fallback. Set `IMAGE_GENERATOR_PROVIDER=pymupdf` to explicitly select the legacy native fallback. Run `python -m playwright install chromium` outside Docker before rendering.
+Gemini uses the configured model first, then falls back to the confirmed
+`gemini-3.7-flash`, `gemini-3.8-flash`, `gemini-2.5-flash-lite`,
+`gemini-2.5-pro`, and `gemini-2.5-flash` models, in that order. The
+`gemini-2.5-flash` fallback is kept as the conservative stable option.
+
+`GEMINI_API_KEY` is used for BRD analysis and screen planning. Stability is selected by default and requires `STABILITY_API_KEY`; its Bearer credential is read only by the backend. Stability prompts describe generic layout artwork and do not contain BRD-derived text. Returned PNG assets are validated and cached under `STABILITY_ASSET_DIR`; Chromium overlays the actual BRD-derived text, fields, tables, and actions before returning the existing screen PNG. If Stability reports insufficient credits (HTTP 402), screens continue to render without decorative artwork, and further artwork requests are skipped until the AI service restarts. Other Stability errors are returned explicitly. Set `IMAGE_GENERATOR_PROVIDER=pymupdf` to explicitly select the legacy native fallback. Run `python -m playwright install chromium` outside Docker before rendering.
 
 ---
 
