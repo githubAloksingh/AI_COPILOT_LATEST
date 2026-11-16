@@ -92,9 +92,9 @@ def test_pdf_compilation_mockup_and_explanation_per_screen():
         ).upper()
         assert "BUSINESS PURPOSE" in document_text
         assert "FIELD INVENTORY" in document_text
-        assert "PAGE ACTIONS" in document_text
-        assert "BUSINESS RULES" in document_text
-        assert "NAVIGATION FLOW" in document_text
+        assert "PAGE ACTIONS" not in document_text
+        assert "BUSINESS RULES" not in document_text
+        assert "NAVIGATION FLOW" not in document_text
         assert "BRD TRACEABILITY" in document_text
         for page_number, page in enumerate(document, start=1):
             page_text = " ".join(page.get_text().replace("\u00ad", "-").split())
