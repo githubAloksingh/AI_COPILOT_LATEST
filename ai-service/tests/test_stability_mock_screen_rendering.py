@@ -401,6 +401,41 @@ def test_html_renderer_preserves_exact_screen_text_and_contextual_structure():
     assert "https://api.stability.ai" not in document
 
 
+@pytest.mark.parametrize("screen_type", ["create_form", "dashboard", "login"])
+def test_html_renderer_omits_supplemental_boxes_and_preserves_screen_content(screen_type):
+    spec = ScreenSpecification(
+        screen_id="SCREEN-REMOVE-BOXES-01",
+        sequence=1,
+        name="Referral intake",
+        purpose="Capture a new referral for clinical review.",
+        screen_type=screen_type,
+        fields=[ScreenField(label="Patient identifier", required=True)],
+        actions=[ScreenAction(label="Submit referral", type="primary")],
+        business_rules=["Only authorized staff may submit referrals."],
+        notifications=["Referral submission is recorded."],
+        interaction={
+            "events": [{"label": "Submit referral", "type": "submit"}],
+            "navigation_flows": [
+                {"from_event": "Submit referral", "to_screen_id": "SCREEN-002"}
+            ],
+            "validation_rules": ["Patient identifier is required."],
+        },
+    )
+
+    document = HtmlScreenRenderer().build_document(spec, DesignContext())
+
+    normalized_document = document.casefold()
+    assert "requirements and guidance" not in normalized_document
+    assert "navigation flow" not in normalized_document
+    assert "available interactions" not in normalized_document
+    assert "Referral intake" in document
+    assert "Patient identifier" in document
+    assert '<button class="primary">Submit referral</button>' in document
+    assert spec.interaction.events[0].label == "Submit referral"
+    assert spec.interaction.navigation_flows[0].to_screen_id == "SCREEN-002"
+    assert spec.business_rules == ["Only authorized staff may submit referrals."]
+
+
 @pytest.mark.parametrize(
     ("chart_type", "expected_svg"),
     [

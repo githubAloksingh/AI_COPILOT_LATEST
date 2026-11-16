@@ -425,15 +425,6 @@ class PdfCompilationService:
         purpose = explanation.get("purpose_summary") or screen.get("purpose") or ""
 
         fields = self._collect_fields(screen, explanation)
-        actions = self._collect_actions(screen, explanation)
-        rules = self._unique_strings(
-            self._as_list(screen.get("business_rules"))
-            + self._as_list(
-                self._mapping(screen.get("interaction")).get("validation_rules")
-            )
-            + self._as_list(explanation.get("validation_rules"))
-        )
-        navigation = self._collect_navigation(screen, explanation)
         references = self._unique_strings(
             self._as_list(screen.get("related_requirements"))
             + self._as_list(explanation.get("brd_references"))
@@ -544,31 +535,10 @@ class PdfCompilationService:
             if content:
                 components.append(f"{title}: " + " | ".join(content))
 
-        interaction = self._mapping(screen.get("interaction"))
-        event_lines = []
-        for event in self._as_list(interaction.get("events")):
-            if isinstance(event, dict) and event.get("label"):
-                event_lines.append(
-                    "Event: " + str(event["label"])
-                    + (f" ({event['type']})" if event.get("type") else "")
-                    + (f" - {event['trigger_component']}" if event.get("trigger_component") else "")
-                )
-        actions.extend(event_lines)
-
-        nav_context = self._mapping(screen.get("navigation_context") or screen.get("navigationContext"))
-        for key, label in (
-            ("breadcrumbs", "Breadcrumbs"),
-            ("navigation_items", "Navigation items"),
-            ("active_nav_item", "Active navigation item"),
-        ):
-            value = nav_context.get(key)
-            if value:
-                rendered = " > ".join(map(str, value)) if isinstance(value, list) else str(value)
-                navigation.append(f"{label}: {rendered}")
-        navigation = self._unique_strings(navigation)
-
         data_bindings = []
-        for binding in self._as_list(interaction.get("data_bindings")):
+        for binding in self._as_list(
+            self._mapping(screen.get("interaction")).get("data_bindings")
+        ):
             if not isinstance(binding, dict):
                 continue
             text = f"{binding.get('field', '')} -> {binding.get('entity', '')}"
@@ -587,9 +557,6 @@ class PdfCompilationService:
         sections = [
             ("Business Purpose", "text", [purpose] if purpose else []),
             ("Field Inventory", "table", fields),
-            ("Page Actions", "list", actions),
-            ("Business Rules", "list", rules),
-            ("Navigation Flow", "list", navigation),
             ("BRD Traceability", "list", references),
         ]
         if components:
@@ -641,51 +608,6 @@ class PdfCompilationService:
                 for field in self._as_list(section.get("fields")):
                     add(field)
         return fields
-
-    def _collect_actions(self, screen: Dict[str, Any], explanation: Dict[str, Any]) -> List[str]:
-        actions = []
-        for action in self._as_list(screen.get("actions")):
-            if isinstance(action, dict) and action.get("label"):
-                details = [str(action.get("label"))]
-                if action.get("type"):
-                    details.append(str(action["type"]))
-                if action.get("target"):
-                    details.append(f"Target: {action['target']}")
-                actions.append(" | ".join(details))
-        for component in self._as_list(screen.get("components")):
-            if isinstance(component, dict):
-                for action in self._as_list(component.get("actions")):
-                    if isinstance(action, dict) and action.get("label"):
-                        actions.append(
-                            str(action["label"])
-                            + (f" | {action['type']}" if action.get("type") else "")
-                        )
-        for action in self._as_list(explanation.get("actions")):
-            if isinstance(action, dict) and action.get("label"):
-                outcome = action.get("outcome")
-                actions.append(
-                    str(action["label"])
-                    + (f" | {action['type']}" if action.get("type") else "")
-                    + (f" - {outcome}" if outcome else "")
-                )
-        return self._unique_strings(actions)
-
-    def _collect_navigation(self, screen: Dict[str, Any], explanation: Dict[str, Any]) -> List[str]:
-        interaction = self._mapping(screen.get("interaction"))
-        flows = []
-        for flow in self._as_list(interaction.get("navigation_flows")):
-            if not isinstance(flow, dict):
-                continue
-            text = str(flow.get("label") or flow.get("from_event") or "")
-            if flow.get("to_screen_id"):
-                text += f" -> {flow['to_screen_id']}"
-            if flow.get("condition"):
-                text += f" when {flow['condition']}"
-            if text:
-                flows.append(text)
-        if explanation.get("navigation_flow"):
-            flows.append(str(explanation["navigation_flow"]))
-        return self._unique_strings(flows)
 
     def _draw_table_section(
         self,
