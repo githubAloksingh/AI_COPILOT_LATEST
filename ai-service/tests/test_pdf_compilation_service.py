@@ -107,6 +107,46 @@ def _png(width=1600, height=900):
     return buffer.getvalue()
 
 
+def test_pdf_cover_header_uses_brand_and_dynamic_brd_or_project_name():
+    screen = {
+        "sequence": 1,
+        "name": "Overview",
+        "image_base64": base64.b64encode(_png()).decode("ascii"),
+    }
+
+    pdf_bytes = pdf_compilation_service.compile_pdf(
+        application_name="Generated Application Name",
+        project_name="Project Display Name",
+        brd_name="Preferred_Custody_Platform.pdf",
+        summary="",
+        screens=[screen],
+    )
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+        cover_text = " ".join(
+            document[0].get_text().replace("\u00a0", " ").replace("\u00ad", " ").split()
+        )
+        assert "NewGEN AI" in cover_text
+        assert "Preferred Custody Platform" in cover_text
+        assert "Generated Application Name" not in cover_text
+        assert "Project Display Name" not in cover_text
+        assert "SOURCE DOCUMENT" not in cover_text
+        assert "PROJECT" not in cover_text
+        assert "GENERATED" not in cover_text
+        assert "SCREENS" not in cover_text
+        assert "RENDERER" not in cover_text
+        assert "VISUAL ASSETS" not in cover_text
+
+    pdf_bytes = pdf_compilation_service.compile_pdf(
+        application_name="Generated Application Name",
+        project_name="Project Display Name",
+        brd_name="",
+        summary="",
+        screens=[screen],
+    )
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+        assert "Project Display Name" in document[0].get_text().replace("\u00a0", " ")
+
+
 def test_specification_content_wraps_and_paginates_without_losing_requirements():
     fields = [
         {
