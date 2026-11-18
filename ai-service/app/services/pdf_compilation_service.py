@@ -1,5 +1,4 @@
 import base64
-from datetime import datetime
 import io
 import json
 import logging
@@ -166,81 +165,33 @@ class PdfCompilationService:
         page = doc.new_page(width=self.PAGE_WIDTH, height=self.PAGE_HEIGHT)
         self._register_fonts(page)
         page.draw_rect(
-            pymupdf.Rect(0, 0, self.PAGE_WIDTH, 190),
+            pymupdf.Rect(0, 0, self.PAGE_WIDTH, 120),
             color=None,
             fill=(0.10, 0.15, 0.24),
         )
         page.draw_rect(
-            pymupdf.Rect(0, 186, self.PAGE_WIDTH, 191),
+            pymupdf.Rect(0, 116, self.PAGE_WIDTH, 8),
             color=None,
             fill=self.ORANGE,
         )
         page.insert_text(
-            (self.MARGIN, 55),
-            "AI WORK COPILOT  /  MOCK SCREEN BLUEPRINT",
-            fontsize=10,
+            (self.MARGIN, 52),
+            "NewGEN AI",
+            fontsize=24,
             color=(1.0, 0.69, 0.47),
             fontname=self._font_name(True),
         )
-        title_rect = pymupdf.Rect(self.MARGIN, 73, self.PAGE_WIDTH - self.MARGIN, 123)
+        brd_title = Path((brd_name or "").replace("\\", "/")).stem
+        brd_title = brd_title.replace("_", " ").replace("-", " ").strip()
+        display_name = brd_title or project_name or application_name
+        title_rect = pymupdf.Rect(self.MARGIN, 90, self.PAGE_WIDTH - self.MARGIN, 160)
         page.insert_textbox(
             title_rect,
-            application_name,
-            fontsize=27,
+            display_name,
+            fontsize=22,
             fontname=self._font_name(True),
             color=self.WHITE,
-            lineheight=1.1,
-        )
-        page.insert_textbox(
-            pymupdf.Rect(self.MARGIN, 128, self.PAGE_WIDTH - self.MARGIN, 170),
-            "BRD-derived interface designs and screen specifications",
-            fontsize=14,
-            fontname=self._font_name(),
-            color=(0.85, 0.89, 0.94),
-        )
-
-        card = pymupdf.Rect(self.MARGIN, 216, self.PAGE_WIDTH - self.MARGIN, 333)
-        page.draw_rect(card, color=self.BORDER, fill=self.PANEL, radius=0.12, width=0.8)
-        left_values = [
-            ("SOURCE DOCUMENT", brd_name or "Not specified"),
-            ("PROJECT", project_name or "Not specified"),
-            ("GENERATED", datetime.now().astimezone().strftime("%d %b %Y, %H:%M %Z")),
-        ]
-        for index, (label, value) in enumerate(left_values):
-            y = 243 + index * 27
-            page.insert_text((self.MARGIN + 18, y), label, fontsize=8, fontname=self._font_name(True), color=self.MUTED)
-            page.insert_textbox(
-                pymupdf.Rect(self.MARGIN + 120, y - 11, 445, y + 7),
-                str(value),
-                fontsize=10,
-                fontname=self._font_name(),
-                color=self.DARK,
-            )
-
-        right_x = 470
-        page.insert_text((right_x, 243), "SCREENS", fontsize=8, fontname=self._font_name(True), color=self.MUTED)
-        page.insert_text(
-            (right_x, 273),
-            str(len(screens)),
-            fontsize=21,
-            fontname=self._font_name(True),
-            color=self.ORANGE,
-        )
-        page.insert_text((right_x + 84, 243), "RENDERER", fontsize=8, fontname=self._font_name(True), color=self.MUTED)
-        page.insert_textbox(
-            pymupdf.Rect(right_x + 84, 251, self.PAGE_WIDTH - self.MARGIN - 12, 274),
-            renderer_name,
-            fontsize=9,
-            fontname=self._font_name(),
-            color=self.DARK,
-        )
-        page.insert_text((right_x, 303), "VISUAL ASSETS", fontsize=8, fontname=self._font_name(True), color=self.MUTED)
-        page.insert_textbox(
-            pymupdf.Rect(right_x + 84, 291, self.PAGE_WIDTH - self.MARGIN - 12, 313),
-            visual_asset_name,
-            fontsize=9,
-            fontname=self._font_name(),
-            color=self.DARK,
+            lineheight=1.15,
         )
 
         summary_lines: List[str] = []
